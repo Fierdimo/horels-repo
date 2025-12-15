@@ -29,7 +29,10 @@ export const corsOptions = cors({
     const allowedOrigins = [
       'http://localhost:3000', // React dev server
       'http://localhost:3001', // Next.js dev server
-      'http://localhost:5173', // Next.js dev server
+      'http://localhost:5173', // Vite dev server
+      'http://78.111.67.191', // Production VPS
+      'http://frontend', // Docker internal
+      'http://sw2-frontend', // Docker container name
       'https://yourdomain.com', // Production domain
       'capacitor://localhost', // Capacitor mobile apps
       'ionic://localhost', // Ionic mobile apps
