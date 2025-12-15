@@ -100,6 +100,12 @@ export const validateApiKey = (req: Request, res: Response, next: NextFunction) 
 
 // Middleware to enforce HTTPS in production
 export const enforceHttps = (req: Request, res: Response, next: NextFunction) => {
+  // Skip HTTPS enforcement if explicitly disabled (for HTTP-only deployments)
+  if (process.env.REQUIRE_HTTPS === 'false') {
+    next();
+    return;
+  }
+  
   if (process.env.NODE_ENV === 'production' && req.get('x-forwarded-proto') !== 'https') {
     logSecurityEvent('http_request_in_production', {}, req);
     return res.status(403).json({ error: 'HTTPS required' });
