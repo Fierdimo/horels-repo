@@ -1,0 +1,21 @@
+{
+  "Action": "IntegrationCreated",
+  "Data": {
+    "Enterprise": {
+      "Id": "8865aa96-f62d-4f9b-a912-ab2100f60f42",
+      "Name": "Sample Chain Hotel 1"
+    },
+    "Service": {
+      "Id": "9745ce3a-8dbb-4cc0-a550-55f9ff67b242",
+      "Name": "Accommodation"
+    },
+    "Requestor": null,
+    "AccessToken": "9E5E84E9974D4F169662AB2200F27CB1-00B343A0DDA725CACAC028E38E3EABF",
+    "CreatedUtc": "2019-12-13T14:42:52Z",
+    "IsEnabled": true,
+    "Integration": {
+      "Id": "9e5e84e9-974d-4f16-9662-ab2200f27cb1",
+      "Name": "WebhookTEST"
+    }
+  }
+}
