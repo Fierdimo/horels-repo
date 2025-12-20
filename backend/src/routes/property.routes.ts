@@ -121,4 +121,22 @@ router.get(
   PropertyController.getAvailability
 );
 
+/**
+ * @route   PUT /api/properties/:propertyId/rooms/:roomId/color
+ * @desc    Assign or update room color (Red/Blue/White) for week assignments
+ * @access  Private (staff can update their own property, admin can update any)
+ * 
+ * Body:
+ * {
+ *   color: 'red' | 'blue' | 'white'
+ * }
+ */
+router.put(
+  '/:propertyId/rooms/:roomId/color',
+  authenticateToken,
+  requireRole('staff'),
+  validatePropertyAccess,
+  PropertyController.updateRoomColor
+);
+
 export default router;

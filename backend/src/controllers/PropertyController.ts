@@ -411,6 +411,68 @@ class PropertyController {
       });
     }
   }
+
+  /**
+   * Update room color for week assignment
+   */
+  async updateRoomColor(req: Request, res: Response): Promise<void> {
+    try {
+      const { propertyId, roomId } = req.params;
+      const { color } = req.body;
+      const user = (req as any).user;
+
+      // Validate color
+      if (!color || !['red', 'blue', 'white'].includes(color)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid color. Must be one of: red, blue, white'
+        });
+        return;
+      }
+
+      // Import Room model
+      const Room = require('../models').default.Room || require('../models/room').default;
+
+      // Find room
+      const room = await Room.findOne({
+        where: {
+          id: roomId,
+          property_id: propertyId
+        }
+      });
+
+      if (!room) {
+        res.status(404).json({
+          success: false,
+          error: 'Room not found'
+        });
+        return;
+      }
+
+      // Update room color
+      room.color = color;
+      await room.save();
+
+      res.json({
+        success: true,
+        data: {
+          id: room.id,
+          name: room.name,
+          property_id: room.property_id,
+          color: room.color,
+          type: room.type
+        },
+        message: `Room color updated to ${color}`
+      });
+    } catch (error: any) {
+      console.error('Error updating room color:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update room color',
+        message: error.message
+      });
+    }
+  }
 }
 
 export default new PropertyController();

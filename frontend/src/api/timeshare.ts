@@ -15,8 +15,13 @@ import type {
 export const timeshareApi = {
   // Weeks
   getWeeks: async (): Promise<Week[]> => {
-    const { data } = await apiClient.get<ApiResponse<Week[]>>('/timeshare/weeks');
-    return data.data || [];
+    try {
+      const { data } = await apiClient.get<ApiResponse<Week[]>>('/timeshare/weeks');
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch weeks:', error);
+      return [];
+    }
   },
 
   confirmWeek: async (weekId: number, request: ConfirmWeekRequest): Promise<any> => {
@@ -31,24 +36,45 @@ export const timeshareApi = {
 
   // Swaps
   getSwaps: async (): Promise<SwapRequest[]> => {
-    const { data } = await apiClient.get<ApiResponse<SwapRequest[]>>('/timeshare/swaps');
-    return data.data || [];
+    try {
+      const { data } = await apiClient.get<ApiResponse<SwapRequest[]>>('/timeshare/swaps');
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch swaps:', error);
+      return [];
+    }
   },
 
   createSwap: async (request: CreateSwapRequest): Promise<SwapRequest> => {
-    const { data } = await apiClient.post<ApiResponse<SwapRequest>>('/timeshare/swaps', request);
-    return data.data!;
+    try {
+      const { data } = await apiClient.post<ApiResponse<SwapRequest>>('/timeshare/swaps', request);
+      return data.data!;
+    } catch (error) {
+      console.error('Failed to create swap:', error);
+      throw error;
+    }
   },
 
   acceptSwap: async (swapId: number, request: AcceptSwapRequest): Promise<any> => {
-    const { data } = await apiClient.post(`/timeshare/swaps/${swapId}/authorize`, request);
-    return data;
+    try {
+      const { data } = await apiClient.post(`/timeshare/swaps/${swapId}/authorize`, request);
+      return data;
+    } catch (error) {
+      console.error('Failed to accept swap:', error);
+      throw error;
+    }
   },
 
   // Night Credits
   getCredits: async (): Promise<NightCredit[]> => {
-    const { data } = await apiClient.get<ApiResponse<NightCredit[]>>('/timeshare/night-credits');
-    return data.data || [];
+    try {
+      const { data } = await apiClient.get<ApiResponse<NightCredit[]>>('/timeshare/night-credits');
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      // If 404 or other error, return empty array
+      console.error('Failed to fetch credits:', error);
+      return [];
+    }
   },
 
   useCredits: async (creditId: number, request: UseCreditsRequest): Promise<any> => {

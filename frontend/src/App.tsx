@@ -24,6 +24,8 @@ const Credits = lazy(() => import('@/pages/owner/Credits'));
 const CreateNightCreditRequest = lazy(() => import('@/pages/owner/NightCreditRequests'));
 const MyNightCreditRequests = lazy(() => import('@/pages/owner/MyNightCreditRequests'));
 const GuestBooking = lazy(() => import('@/pages/guest/BookingAccess'));
+const GuestDetails = lazy(() => import('@/pages/guest/BookingDetails'));
+const GuestServices = lazy(() => import('@/pages/guest/Services'));
 const GuestDashboard = lazy(() => import('@/pages/guest/GuestDashboard'));
 const GuestInfo = lazy(() => import('@/pages/guest/GuestInfo'));
 const StaffDashboard = lazy(() => import('@/pages/staff/Dashboard'));
@@ -70,6 +72,8 @@ function AppRoutes() {
         <Route path="/account-suspended" element={<AccountSuspended />} />
         <Route path="/guest/:token" element={<GuestBooking />} />
         <Route path="/guest-info" element={<GuestInfo />} />
+        <Route path="/guest/booking-details" element={<GuestDetails />} />
+        <Route path="/guest/services" element={<GuestServices />} />
         
         {/* Guest routes */}
         <Route

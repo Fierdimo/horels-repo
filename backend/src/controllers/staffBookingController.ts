@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Booking, Room, Property } from '../models';
+import { Booking, Room, Property, Week, User } from '../models';
 import { AuthRequest } from '../middleware/authMiddleware';
 import bookingStatusService from '../services/bookingStatusService';
 import { Op } from 'sequelize';
@@ -179,6 +179,37 @@ class StaffBookingController {
       // Actualizar estado de la habitación
       if (booking.room_id) {
         await bookingStatusService.onBookingCreated(booking.id);
+      }
+
+      // CREATE WEEK with room's color when booking is approved
+      const room = booking.get('Room') as any;
+      if (booking.room_id && room && room.color) {
+        // Find or create owner (guest becomes owner of this week)
+        let owner = await User.findOne({
+          where: { email: booking.guest_email }
+        });
+
+        if (!owner) {
+          // Create a user for the guest
+          owner = await User.create({
+            email: booking.guest_email,
+            first_name: booking.guest_name.split(' ')[0],
+            last_name: booking.guest_name.split(' ').slice(1).join(' ') || '',
+            role_id: 3, // Assuming role 3 is 'owner'
+            status: 'approved',
+            password_hash: '' // Will need to set password via email reset link
+          });
+        }
+
+        // Create week with room's color
+        await Week.create({
+          owner_id: owner.id,
+          property_id: booking.property_id,
+          start_date: booking.check_in,
+          end_date: booking.check_out,
+          color: room.color,
+          status: 'confirmed'
+        });
       }
 
       // TODO: Enviar email de confirmación al guest

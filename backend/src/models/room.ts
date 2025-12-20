@@ -11,6 +11,7 @@ interface RoomAttributes {
   type?: string;
   floor?: string;
   status: string;
+  color?: 'red' | 'blue' | 'white'; // Week color inherited by weeks created from bookings
   amenities?: any;
   basePrice?: number;
   propertyId?: number;
@@ -34,6 +35,7 @@ class Room extends Model<RoomAttributes, RoomCreationAttributes> implements Room
   public type?: string;
   public floor?: string;
   public status!: string;
+  public color?: 'red' | 'blue' | 'white';
   public amenities?: any;
   public basePrice?: number;
   public propertyId?: number;
@@ -80,6 +82,11 @@ Room.init(
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'available',
+    },
+    color: {
+      type: DataTypes.ENUM('red', 'blue', 'white'),
+      allowNull: true,
+      comment: 'Week color: red (6 nights), blue (5 nights), white (4 nights) - inherited by weeks created from marketplace bookings'
     },
     amenities: {
       type: DataTypes.JSON,
