@@ -153,7 +153,7 @@ describe('E2E Smoke Tests - Business Flows', () => {
       console.log('DEBUG STRIPE_KEYS:', sk ? (sk.slice(0,8) + '...' + sk.slice(-4)) : 'MISSING', pk ? (pk.slice(0,8) + '...' + pk.slice(-4)) : 'MISSING');
       // Use Stripe SDK to create a confirmed PaymentIntent with a test card
       const Stripe = (await import('stripe')).default;
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-11-17.clover' });
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
       // Verify authentication by retrieving account info
       try {

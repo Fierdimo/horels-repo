@@ -7,7 +7,7 @@ class Week extends Model {
   public property_id!: number;
   public start_date!: Date;
   public end_date!: Date;
-  public color!: 'red' | 'blue' | 'white';
+  public accommodation_type!: string; // e.g., 'sencilla', 'duplex', 'suite'
   public status!: 'available' | 'confirmed' | 'converted' | 'used';
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
@@ -39,9 +39,10 @@ Week.init({
     type: DataTypes.DATE,
     allowNull: false,
   },
-  color: {
-    type: DataTypes.ENUM('red', 'blue', 'white'),
+  accommodation_type: {
+    type: DataTypes.STRING,
     allowNull: false,
+    comment: 'Type of accommodation (sencilla, duplex, suite, etc.) - inherited from room.type'
   },
   status: {
     type: DataTypes.ENUM('available', 'confirmed', 'converted', 'used'),

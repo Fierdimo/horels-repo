@@ -6,6 +6,8 @@ import apiClient from '@/api/client';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Search, MapPin, Star, Filter, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import roomFallbackImage from '@/assets/hotel-room-background.avif';
+import hotelFallbackImage from '@/assets/hotel.avif';
 
 interface Property {
   id: number;
@@ -19,6 +21,22 @@ interface Property {
   amenities: string[];
   pms_provider: string | null;
 }
+
+// Helper function to parse images (same as in PropertyDetails)
+const parseImages = (images: any): string[] => {
+  if (!images) return [];
+  if (Array.isArray(images)) return images;
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // If not JSON, try comma-separated
+      return images.split(',').map(img => img.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
 
 // Helper function to parse amenities
 const parseAmenities = (amenities: any): string[] => {
@@ -225,17 +243,14 @@ export default function MarketplaceHome() {
               >
                 {/* Property Image */}
                 <div className="h-48 bg-gradient-to-br from-blue-400 to-blue-600 relative">
-                  {property.images && property.images.length > 0 ? (
-                    <img
-                      src={property.images[0]}
-                      alt={property.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <MapPin className="h-16 w-16 text-white opacity-50" />
-                    </div>
-                  )}
+                  <img
+                    src={parseImages(property.images).length > 0 ? parseImages(property.images)[0] : hotelFallbackImage}
+                    alt={property.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = hotelFallbackImage;
+                    }}
+                  />
                   {/* Stars Badge */}
                   {property.stars > 0 && (
                     <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 flex items-center gap-1 shadow-md">

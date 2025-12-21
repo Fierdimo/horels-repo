@@ -40,7 +40,9 @@ apiClient.interceptors.request.use(
 
 // Response interceptor - handle errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       // Clear auth from all storage locations

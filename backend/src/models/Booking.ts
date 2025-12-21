@@ -17,7 +17,7 @@ class Booking extends Model {
   public total_amount?: number;
   public currency?: string;
   public payment_intent_id?: string; // Stripe Payment Intent ID
-  public payment_status?: 'pending' | 'processing' | 'paid' | 'failed' | 'refunded';
+  public payment_status?: string; // 'pending' | 'processing' | 'paid' | 'failed' | 'refunded'
   // Association: when included, Sequelize will add the related Property instance
   public readonly Property?: Property | null;
   public readonly created_at!: Date;
@@ -88,6 +88,14 @@ Booking.init({
     allowNull: true,
   },
   pms_provider: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  payment_intent_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  payment_status: {
     type: DataTypes.STRING,
     allowNull: true,
   },

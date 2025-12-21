@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { Booking, Room, Property, Week, User } from '../models';
 import { AuthRequest } from '../middleware/authMiddleware';
 import bookingStatusService from '../services/bookingStatusService';
+import RoomEnrichmentService from '../services/roomEnrichmentService';
 import { Op } from 'sequelize';
 
 class StaffBookingController {
@@ -29,7 +30,7 @@ class StaffBookingController {
           {
             model: Room,
             as: 'Room',
-            attributes: ['id', 'name', 'type', 'capacity', 'status']
+            attributes: ['id', 'pmsResourceId', 'roomTypeId', 'customPrice', 'isMarketplaceEnabled', 'images']
           },
           {
             model: Property,
@@ -95,7 +96,7 @@ class StaffBookingController {
           {
             model: Room,
             as: 'Room',
-            attributes: ['id', 'name', 'type', 'capacity', 'status']
+            attributes: ['id', 'pmsResourceId', 'roomTypeId', 'customPrice', 'isMarketplaceEnabled', 'images']
           }
         ],
         order: [['created_at', 'DESC']]
@@ -181,9 +182,18 @@ class StaffBookingController {
         await bookingStatusService.onBookingCreated(booking.id);
       }
 
-      // CREATE WEEK with room's color when booking is approved
+      // CREATE WEEK with room's accommodation type when booking is approved
       const room = booking.get('Room') as any;
-      if (booking.room_id && room && room.color) {
+      if (booking.room_id && room) {
+        // Enriquecer room con datos del PMS para obtener el tipo
+        let enrichedRoom;
+        try {
+          enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+        } catch (error: any) {
+          console.warn('Warning: Could not enrich room:', error.message);
+          enrichedRoom = { type: 'Standard' } as any; // Fallback
+        }
+
         // Find or create owner (guest becomes owner of this week)
         let owner = await User.findOne({
           where: { email: booking.guest_email }
@@ -193,21 +203,21 @@ class StaffBookingController {
           // Create a user for the guest
           owner = await User.create({
             email: booking.guest_email,
-            first_name: booking.guest_name.split(' ')[0],
-            last_name: booking.guest_name.split(' ').slice(1).join(' ') || '',
+            firstName: booking.guest_name.split(' ')[0],
+            lastName: booking.guest_name.split(' ').slice(1).join(' ') || '',
             role_id: 3, // Assuming role 3 is 'owner'
             status: 'approved',
-            password_hash: '' // Will need to set password via email reset link
+            password: '' // Will need to set password via email reset link
           });
         }
 
-        // Create week with room's color
+        // Create week with room's accommodation type
         await Week.create({
           owner_id: owner.id,
           property_id: booking.property_id,
           start_date: booking.check_in,
           end_date: booking.check_out,
-          color: room.color,
+          accommodation_type: enrichedRoom.type || 'Standard',
           status: 'confirmed'
         });
       }

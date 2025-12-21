@@ -6,11 +6,16 @@ class SwapRequest extends Model {
   public requester_id!: number;
   public requester_week_id!: number;
   public responder_week_id?: number;
-  public desired_start_date!: Date;
-  public desired_end_date!: Date;
+  public requester_source_type!: 'week' | 'booking'; // NEW: type of source
+  public requester_source_id!: number; // NEW: actual ID of week or booking
+  public responder_source_type?: 'week' | 'booking'; // NEW: type of responder source
+  public responder_source_id?: number; // NEW: actual ID of responder's week or booking
+  public desired_start_date?: Date;
+  public desired_end_date?: Date;
   public status!: 'pending' | 'matched' | 'awaiting_payment' | 'completed' | 'cancelled';
   public swap_fee!: number;
   public notes?: string;
+  public accommodation_type?: string; // Denormalized from weeks for efficient matching
   
   // Approval workflow fields
   public reviewed_by_staff_id?: number;
@@ -47,27 +52,42 @@ SwapRequest.init({
   },
   requester_week_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'weeks',
-      key: 'id'
-    }
+    allowNull: true,
+    comment: 'DEPRECATED: Use requester_source_type and requester_source_id instead'
   },
   responder_week_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'weeks',
-      key: 'id'
-    }
+    comment: 'DEPRECATED: Use responder_source_type and responder_source_id instead'
+  },
+  requester_source_type: {
+    type: DataTypes.ENUM('week', 'booking'),
+    allowNull: false,
+    defaultValue: 'week',
+    comment: 'Type of requester source: week or booking'
+  },
+  requester_source_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: 'ID of the week or booking being offered'
+  },
+  responder_source_type: {
+    type: DataTypes.ENUM('week', 'booking'),
+    allowNull: true,
+    comment: 'Type of responder source: week or booking'
+  },
+  responder_source_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'ID of the week or booking being offered by responder'
   },
   desired_start_date: {
     type: DataTypes.DATE,
-    allowNull: false,
+    allowNull: true,
   },
   desired_end_date: {
     type: DataTypes.DATE,
-    allowNull: false,
+    allowNull: true,
   },
   status: {
     type: DataTypes.ENUM('pending', 'matched', 'awaiting_payment', 'completed', 'cancelled'),
@@ -80,6 +100,11 @@ SwapRequest.init({
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  accommodation_type: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'Denormalized from weeks for efficient swap matching'
   },
   reviewed_by_staff_id: {
     type: DataTypes.INTEGER,

@@ -7,6 +7,8 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { MapPin, Star, ArrowLeft, Bed, Users, Euro, Calendar, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
+import roomFallbackImage from '@/assets/hotel-room-background.avif';
+import hotelFallbackImage from '@/assets/hotel.avif';
 
 // Helper functions to parse arrays from different formats
 const parseArray = (data: any): string[] => {
@@ -86,10 +88,12 @@ export default function PropertyDetails() {
 
   // Fetch available rooms
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
-    queryKey: ['property-rooms', id, guests],
+    queryKey: ['property-rooms', id, guests, checkIn, checkOut],
     queryFn: async () => {
       const params: any = {};
       if (guests) params.min_capacity = guests;
+      if (checkIn) params.checkIn = checkIn;
+      if (checkOut) params.checkOut = checkOut;
       
       const { data } = await apiClient.get(`/public/properties/${id}/rooms`, { params });
       return data;
@@ -184,6 +188,9 @@ export default function PropertyDetails() {
                     src={parseArray(property.images)[0]}
                     alt={property.name}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = hotelFallbackImage;
+                    }}
                   />
                 </div>
                 {parseArray(property.images)[1] && (
@@ -194,6 +201,9 @@ export default function PropertyDetails() {
                           src={img}
                           alt={`${property.name} ${idx + 2}`}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = hotelFallbackImage;
+                          }}
                         />
                       </div>
                     ))}
@@ -201,8 +211,12 @@ export default function PropertyDetails() {
                 )}
               </>
             ) : (
-              <div className="h-80 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center">
-                <MapPin className="h-24 w-24 text-white opacity-50" />
+              <div className="h-80 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg overflow-hidden">
+                <img
+                  src={hotelFallbackImage}
+                  alt={property.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
             )}
           </div>
@@ -327,17 +341,14 @@ export default function PropertyDetails() {
                 <div key={room.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row">
                   {/* Room Image */}
                   <div className="w-full md:w-80 h-64 bg-gradient-to-br from-gray-300 to-gray-500">
-                    {parseArray(room.images).length > 0 ? (
-                      <img
-                        src={parseArray(room.images)[0]}
-                        alt={room.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <Bed className="h-16 w-16 text-white opacity-50" />
-                      </div>
-                    )}
+                    <img
+                      src={parseArray(room.images).length > 0 ? parseArray(room.images)[0] : roomFallbackImage}
+                      alt={room.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = roomFallbackImage;
+                      }}
+                    />
                   </div>
 
                   {/* Room Info */}

@@ -1,53 +1,33 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/database';
 
-
-
 interface RoomAttributes {
   id: number;
-  name: string;
-  description?: string;
-  capacity: number;
-  type?: string;
-  floor?: string;
-  status: string;
-  color?: 'red' | 'blue' | 'white'; // Week color inherited by weeks created from bookings
-  amenities?: any;
-  basePrice?: number;
-  propertyId?: number;
-  pmsResourceId?: string; // ID en el PMS
-  isMarketplaceEnabled?: boolean; // Disponible en marketplace público
+  pmsResourceId: string; // ID en el PMS - Required, the only PMS reference we store
+  propertyId: number; // FK to properties
+  roomTypeId?: number; // FK to room_types - Local categorization
   customPrice?: number; // Precio personalizado (override)
+  isMarketplaceEnabled?: boolean; // Disponible en marketplace público
   pmsLastSync?: Date; // Última sincronización con PMS
   images?: string[]; // URLs de imágenes
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface RoomCreationAttributes extends Optional<RoomAttributes, 'id' | 'description'> {}
-
+interface RoomCreationAttributes extends Optional<RoomAttributes, 'id' | 'customPrice' | 'images' | 'pmsLastSync'> {}
 
 class Room extends Model<RoomAttributes, RoomCreationAttributes> implements RoomAttributes {
   public id!: number;
-  public name!: string;
-  public description?: string;
-  public capacity!: number;
-  public type?: string;
-  public floor?: string;
-  public status!: string;
-  public color?: 'red' | 'blue' | 'white';
-  public amenities?: any;
-  public basePrice?: number;
-  public propertyId?: number;
-  public pmsResourceId?: string;
-  public isMarketplaceEnabled?: boolean;
+  public pmsResourceId!: string;
+  public propertyId!: number;
+  public roomTypeId?: number;
   public customPrice?: number;
+  public isMarketplaceEnabled?: boolean;
   public pmsLastSync?: Date;
   public images?: string[];
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
-
 
 Room.init(
   {
@@ -56,80 +36,58 @@ Room.init(
       autoIncrement: true,
       primaryKey: true,
     },
-    name: {
-      type: DataTypes.STRING,
+    pmsResourceId: {
+      type: DataTypes.STRING(255),
       allowNull: false,
-      // Unique per property, not globally
-    },
-    description: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    capacity: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
-      defaultValue: 1,
-    },
-    type: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    floor: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    status: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: 'available',
-    },
-    color: {
-      type: DataTypes.ENUM('red', 'blue', 'white'),
-      allowNull: true,
-      comment: 'Week color: red (6 nights), blue (5 nights), white (4 nights) - inherited by weeks created from marketplace bookings'
-    },
-    amenities: {
-      type: DataTypes.JSON,
-      allowNull: true,
-    },
-    basePrice: {
-      type: DataTypes.DECIMAL(10,2),
-      allowNull: true,
+      field: 'pms_resource_id',
+      comment: 'ID de la habitación en el PMS - Required, unique per property'
     },
     propertyId: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       references: {
         model: 'properties',
         key: 'id',
       },
       field: 'property_id',
+      comment: 'FK to properties'
     },
-    pmsResourceId: {
-      type: DataTypes.STRING(255),
+    roomTypeId: {
+      type: DataTypes.INTEGER,
       allowNull: true,
-      field: 'pms_resource_id',
+      references: {
+        model: 'room_types',
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      field: 'room_type_id',
+      comment: 'Local categorization of room type'
+    },
+    customPrice: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: 'custom_price',
+      comment: 'Override price (takes precedence over PMS base price)'
     },
     isMarketplaceEnabled: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
       field: 'is_marketplace_enabled',
-    },
-    customPrice: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: true,
-      field: 'custom_price',
+      comment: 'Whether room is visible in public marketplace'
     },
     pmsLastSync: {
       type: DataTypes.DATE,
       allowNull: true,
       field: 'pms_last_sync',
+      comment: 'Last synchronization timestamp with PMS'
     },
     images: {
       type: DataTypes.JSON,
       allowNull: true,
       defaultValue: [],
+      comment: 'Array of image URLs for marketing purposes'
     },
   },
   {
@@ -140,14 +98,25 @@ Room.init(
     indexes: [
       {
         unique: true,
-        fields: ['name', 'property_id'],
-        name: 'rooms_name_property_unique',
+        fields: ['property_id', 'pms_resource_id'],
+        name: 'rooms_property_pms_resource_unique',
+      },
+      {
+        fields: ['room_type_id'],
+        name: 'rooms_room_type_id_index',
+      },
+      {
+        fields: ['property_id', 'is_marketplace_enabled'],
+        name: 'idx_rooms_property_marketplace'
       },
     ],
   }
 );
 
 import Property from './Property';
+import RoomType from './RoomType';
+
 Room.belongsTo(Property, { foreignKey: 'property_id', as: 'Property' });
+Room.belongsTo(RoomType, { foreignKey: 'room_type_id', as: 'RoomType' });
 
 export default Room;

@@ -9,8 +9,8 @@ interface SwapsCreateTabProps {
   onCancel: () => void;
   weeks: Week[];
   isCreating: boolean;
-  getColorName: (color: string) => string;
-  getColorEmoji: (color: string) => string;
+  getAccommodationTypeName: (type: string) => string;
+  getAccommodationTypeEmoji: (type: string) => string;
 }
 
 export function SwapsCreateTab({
@@ -20,8 +20,8 @@ export function SwapsCreateTab({
   onCancel,
   weeks,
   isCreating,
-  getColorName,
-  getColorEmoji
+  getAccommodationTypeName,
+  getAccommodationTypeEmoji
 }: SwapsCreateTabProps) {
   const { t } = useTranslation();
 
@@ -47,27 +47,33 @@ export function SwapsCreateTab({
               {weeks.length === 0 ? (
                 <p className="text-sm text-gray-600 italic">You don't have any weeks available</p>
               ) : (
-                weeks.map((week) => (
+                weeks.map((week) => {
+                  // Handle both numeric IDs and string IDs like "booking_4"
+                  const weekId = typeof week.id === 'string' && week.id.startsWith('booking_') 
+                    ? week.id 
+                    : week.id;
+                  
+                  return (
                   <label
-                    key={week.id}
+                    key={weekId}
                     className="flex items-center p-3 rounded-lg hover:bg-white cursor-pointer transition"
                   >
                     <input
                       type="radio"
                       name="requester_week_id"
-                      value={week.id}
-                      checked={formData.requester_week_id === week.id}
+                      value={String(weekId)}
+                      checked={String(formData.requester_week_id) === String(weekId)}
                       onChange={(e) =>
                         onFormChange({
                           ...formData,
-                          requester_week_id: Number(e.target.value)
+                          requester_week_id: e.target.value as any
                         })
                       }
                       className="w-4 h-4 text-blue-600 cursor-pointer"
                     />
                     <div className="ml-3 flex-1">
                       <p className="text-sm font-semibold text-gray-900">
-                        {getColorEmoji(week.color)} {getColorName(week.color)} Week
+                        {getAccommodationTypeEmoji(week.accommodation_type)} {getAccommodationTypeName(week.accommodation_type)}
                       </p>
                       <p className="text-xs text-gray-600">
                         {week.Property?.name} • {new Date(week.start_date).toLocaleDateString('es-ES')} to{' '}
@@ -81,9 +87,13 @@ export function SwapsCreateTab({
                         )}{' '}
                         nights
                       </p>
+                      {(week as any).source === 'booking' && (
+                        <p className="text-xs text-blue-600 mt-1 font-semibold">📱 Marketplace booking</p>
+                      )}
                     </div>
                   </label>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -107,8 +117,8 @@ export function SwapsCreateTab({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value={0}>Any property</option>
-                {uniqueProperties.map((property) => (
-                  <option key={property?.id} value={property?.id || 0}>
+                {uniqueProperties.map((property, index) => (
+                  <option key={`property-${property?.id || index}`} value={property?.id || 0}>
                     {property?.name}
                   </option>
                 ))}

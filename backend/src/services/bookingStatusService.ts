@@ -11,7 +11,9 @@ import { Op } from 'sequelize';
 
 export class BookingStatusService {
   /**
-   * Actualiza el estado de una habitación basándose en sus reservas activas
+   * Verifica si una habitación tiene una reserva activa
+   * Con arquitectura Reference Only, el estado viene del PMS
+   * Este método solo valida bookings para no double-book
    */
   async updateRoomStatus(roomId: number): Promise<void> {
     try {
@@ -38,19 +40,12 @@ export class BookingStatusService {
         }
       });
 
-      // Actualizar estado según si hay booking activo
+      // Con Reference Only architecture, no almacenamos status en Room
+      // El status de disponibilidad viene del PMS en tiempo real
       if (activeBooking) {
-        // Hay una reserva activa, marcar como ocupada
-        if (room.status !== 'occupied') {
-          await room.update({ status: 'occupied' });
-          console.log(`Room ${roomId} marked as occupied (booking ${activeBooking.id})`);
-        }
+        console.log(`Room ${roomId} has active booking ${activeBooking.id}`);
       } else {
-        // No hay reserva activa, marcar como disponible
-        if (room.status === 'occupied') {
-          await room.update({ status: 'available' });
-          console.log(`Room ${roomId} marked as available`);
-        }
+        console.log(`Room ${roomId} has no active bookings`);
       }
     } catch (error) {
       console.error(`Error updating room ${roomId} status:`, error);
@@ -99,6 +94,7 @@ export class BookingStatusService {
 
   /**
    * Verifica disponibilidad de una habitación en un rango de fechas
+   * No verifica el campo status (viene del PMS con Reference Only architecture)
    */
   async checkRoomAvailability(
     roomId: number, 
@@ -108,7 +104,7 @@ export class BookingStatusService {
   ): Promise<boolean> {
     try {
       const room = await Room.findByPk(roomId);
-      if (!room || room.status === 'maintenance') {
+      if (!room) {
         return false;
       }
 
@@ -161,6 +157,7 @@ export class BookingStatusService {
 
   /**
    * Obtiene habitaciones disponibles para un property en un rango de fechas
+   * No filtra por status (viene del PMS con Reference Only architecture)
    */
   async getAvailableRooms(
     propertyId: number,
@@ -173,22 +170,13 @@ export class BookingStatusService {
     }
   ): Promise<Room[]> {
     try {
-      // Primero obtener todas las habitaciones que cumplen los criterios básicos
+      // Obtener todas las habitaciones que cumplen los criterios básicos
       const whereClause: any = {
-        propertyId,
-        status: {
-          [Op.notIn]: ['maintenance', 'inactive']
-        }
+        propertyId
       };
 
       if (options?.type) {
-        whereClause.type = options.type;
-      }
-
-      if (options?.minCapacity) {
-        whereClause.capacity = {
-          [Op.gte]: options.minCapacity
-        };
+        whereClause.roomTypeId = options.type;
       }
 
       if (options?.onlyMarketplace) {
@@ -199,7 +187,7 @@ export class BookingStatusService {
         where: whereClause
       });
 
-      // Filtrar por disponibilidad en las fechas
+      // Filtrar por disponibilidad en las fechas (sin bookings conflictivos)
       const availableRooms: Room[] = [];
       for (const room of rooms) {
         const isAvailable = await this.checkRoomAvailability(

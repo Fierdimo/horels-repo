@@ -15,6 +15,7 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
   try {
     const userId = req.user.id;
 
+    // Obtener weeks del propietario
     const weeks = await Week.findAll({
       where: { owner_id: userId },
       include: [{
@@ -24,13 +25,102 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
       order: [['start_date', 'ASC']]
     });
 
+    // Obtener también bookings confirmadas/checked_in que pertenecen a este usuario (como guest)
+    // Buscar User con email que coincida con guest_email en las bookings
+    const userEmail = req.user.email;
+    const bookingsAsGuest = await Booking.findAll({
+      where: {
+        guest_email: userEmail,
+        status: { [Op.in]: ['confirmed', 'checked_in', 'checked_out'] }
+      },
+      include: [{
+        association: 'Property',
+        attributes: ['name', 'location']
+      }],
+      order: [['check_in', 'ASC']]
+    });
+
+    // Transformar bookings al mismo formato que weeks para una respuesta consistente
+    const weeksFromBookings = bookingsAsGuest.map((booking: any) => ({
+      id: `booking_${booking.id}`, // ID único para distinguirlo
+      owner_id: userId,
+      property_id: booking.property_id,
+      start_date: booking.check_in,
+      end_date: booking.check_out,
+      accommodation_type: booking.room_type || 'Standard',
+      status: booking.status === 'checked_out' ? 'used' : 'confirmed',
+      source: 'booking', // Marcar que viene de una reserva marketplace
+      booking_id: booking.id,
+      guest_name: booking.guest_name,
+      guest_email: booking.guest_email,
+      total_amount: booking.total_amount,
+      Property: booking.Property
+    }));
+
+    // Combinar weeks y bookings
+    const allWeeks = [...weeks, ...weeksFromBookings].sort((a: any, b: any) => {
+      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+    });
+
     res.json({
       success: true,
-      data: weeks
+      data: allWeeks,
+      count: allWeeks.length
     });
   } catch (error) {
     console.error('Error fetching weeks:', error);
     res.status(500).json({ error: 'Failed to fetch weeks' });
+  }
+});
+
+// Get booking details for owner (marketplace booking)
+router.get('/bookings/:bookingId', authenticateToken, logAction('view_booking_details'), async (req: any, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const userId = req.user.id;
+
+    const booking = await Booking.findByPk(bookingId, {
+      include: [
+        {
+          association: 'Property',
+          attributes: ['id', 'name', 'location', 'city', 'country', 'stars', 'amenities']
+        },
+        {
+          association: 'Services',
+          attributes: ['id', 'service_type', 'status', 'price', 'quantity', 'notes']
+        }
+      ]
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Verify authorization:
+    // 1. User is property staff/owner (has matching property_id), OR
+    // 2. User is the guest who made the booking (email matches)
+    const user = await User.findByPk(userId, {
+      attributes: ['email', 'property_id']
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const isPropertyStaff = user.property_id === (booking as any).property_id;
+    const isGuest = user.email === (booking as any).guest_email;
+
+    if (!isPropertyStaff && !isGuest) {
+      return res.status(403).json({ error: 'Unauthorized to view this booking' });
+    }
+
+    res.json({
+      success: true,
+      data: booking
+    });
+  } catch (error) {
+    console.error('Error fetching booking details:', error);
+    res.status(500).json({ error: 'Failed to fetch booking details' });
   }
 });
 
@@ -209,12 +299,8 @@ router.post('/weeks/:weekId/convert', authenticateToken, requireOwnerRole, autho
       return res.status(404).json({ error: 'Week not found or not available for conversion' });
     }
 
-    // Calculate night credits based on week color
-    const creditValue = {
-      'red': 6,
-      'blue': 5,
-      'white': 4
-    }[week.color] || 4;
+    // Convert week to 7 night credits (standard week)
+    const creditValue = 7;
 
     // Create night credit
     const expiryDate = new Date();

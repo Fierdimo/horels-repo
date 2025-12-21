@@ -5,6 +5,7 @@ import { ErrorMessage } from '@/components/common/ErrorMessage';
 import { SwapsBrowseTab } from '@/components/owner/SwapsBrowseTab';
 import { SwapsMyRequestsTab } from '@/components/owner/SwapsMyRequestsTab';
 import { SwapsCreateTab } from '@/components/owner/SwapsCreateTab';
+import { SwapPaymentModal } from '@/components/owner/SwapPaymentModal';
 import { useSwaps } from '@/hooks/useSwaps';
 import { useWeeks } from '@/hooks/useWeeks';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,7 +17,7 @@ type TabType = 'browse' | 'my-requests' | 'create';
 export default function Swaps() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { swaps, isLoading, error, createSwap, acceptSwap, isCreating, isAccepting } = useSwaps();
+  const { swaps, isLoading, error, createSwap, acceptSwap, isCreating, isAccepting, availableSwaps } = useSwaps();
   const { weeks } = useWeeks();
   
   // Tab navigation
@@ -32,6 +33,7 @@ export default function Swaps() {
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedResponderWeek, setSelectedResponderWeek] = useState<number | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Only show loading if both are loading for the first time
   const isInitialLoading = isLoading;
@@ -76,31 +78,14 @@ export default function Swaps() {
     );
   }
 
-  // Get user's owned week colors to filter valid swaps
-  const userWeekColors = [...new Set(weeks.map(w => w.color))];
+  // Get user's owned week types (for display purposes)
+  const userWeekAccommodationTypes = [...new Set(weeks.map(w => w.accommodation_type))];
 
-  // Get available swaps to browse (pending requests from other owners)
-  const availableSwaps = swaps.filter((swap) => {
-    if (swap.status !== 'pending') return false;
-    
-    const requesterWeek = swap.RequesterWeek;
-    if (!requesterWeek) return false;
-    
-    // ONLY show swaps where the requester's week color matches one of user's week colors
-    // (You can only swap if you own the same color)
-    if (!userWeekColors.includes(requesterWeek.color)) {
-      return false;
-    }
-    
-    return true;
-  }).sort((a, b) => {
-    // Sort by most recent first
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  // availableSwaps come directly from the hook (already filtered by backend)
 
   const handleCreateSwap = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.requester_week_id && formData.desired_start_date && formData.desired_property_id) {
+    if (formData.requester_week_id) {
       createSwap(formData, {
         onSuccess: () => {
           setActiveTab('my-requests');
@@ -159,31 +144,31 @@ export default function Swaps() {
     }
   };
 
-  // Color name helper with night equivalents (user-friendly, no codes)
-  const getColorName = (color: string) => {
-    switch (color?.toLowerCase()) {
-      case 'red':
-        return t('owner.weeks.red');
-      case 'blue':
-        return t('owner.weeks.blue');
-      case 'white':
-        return t('owner.weeks.white');
+  // Accommodation type name helper
+  const getAccommodationTypeName = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'sencilla':
+        return 'Sencilla';
+      case 'duplex':
+        return 'Duplex';
+      case 'suite':
+        return 'Suite';
       default:
-        return color;
+        return type;
     }
   };
 
-  // Get emoji for color
-  const getColorEmoji = (color: string) => {
-    switch (color?.toLowerCase()) {
-      case 'red':
-        return '🔴';
-      case 'blue':
-        return '🔵';
-      case 'white':
-        return '⚪';
+  // Get visual indicator for accommodation type
+  const getAccommodationTypeEmoji = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'sencilla':
+        return '🛏️';
+      case 'duplex':
+        return '🏠';
+      case 'suite':
+        return '👑';
       default:
-        return '◯';
+        return '🏘️';
     }
   };
 
@@ -237,14 +222,14 @@ export default function Swaps() {
           <SwapsBrowseTab
             availableSwaps={availableSwaps}
             weeks={weeks}
-            userWeekColors={userWeekColors}
+            userWeekAccommodationTypes={userWeekAccommodationTypes}
             onSelectSwap={(swap) => {
               setSelectedSwap(swap);
               setShowDetails(true);
             }}
             onCreateRequest={() => setActiveTab('create')}
-            getColorName={getColorName}
-            getColorEmoji={getColorEmoji}
+            getAccommodationTypeName={getAccommodationTypeName}
+            getAccommodationTypeEmoji={getAccommodationTypeEmoji}
             getStatusColor={getStatusColor}
             getStatusIcon={getStatusIcon}
           />
@@ -274,8 +259,8 @@ export default function Swaps() {
             onCancel={() => setActiveTab('browse')}
             weeks={weeks}
             isCreating={isCreating}
-            getColorName={getColorName}
-            getColorEmoji={getColorEmoji}
+            getAccommodationTypeName={getAccommodationTypeName}
+            getAccommodationTypeEmoji={getAccommodationTypeEmoji}
           />
         )}
 
@@ -326,11 +311,14 @@ export default function Swaps() {
                   <p className="text-xs text-gray-600 mt-1">Charged to both owners when swap is completed</p>
                 </div>
 
-                {/* Accept Swap */}
-                {selectedSwap.status === 'pending' && (
+                {/* Accept Swap - Only show if user is NOT the requester */}
+                {selectedSwap.status === 'pending' && selectedSwap.requester_id !== user?.id && (
                   <div className="border-t pt-4">
                     <p className="text-sm font-semibold text-gray-900 mb-3">
-                      Select which of your weeks to offer:
+                      Select which of your weeks to offer in exchange:
+                    </p>
+                    <p className="text-xs text-gray-600 mb-3">
+                      💡 You can exchange weeks of different lengths. Both parties must agree to the terms.
                     </p>
                     <select
                       value={selectedResponderWeek || ''}
@@ -345,18 +333,24 @@ export default function Swaps() {
                       {weeks
                         .filter(
                           (w) =>
-                            w.Property?.id === selectedSwap.RequesterWeek?.Property?.id &&
-                            w.start_date &&
-                            selectedSwap.RequesterWeek?.start_date &&
-                            w.start_date ===
-                              selectedSwap.RequesterWeek.start_date
+                            w.status === 'available' && 
+                            w.Property?.id === selectedSwap.RequesterWeek?.Property?.id
                         )
-                        .map((week) => (
-                          <option key={week.id} value={week.id}>
-                            {new Date(week.start_date).toLocaleDateString()} -{' '}
-                            {new Date(week.end_date).toLocaleDateString()}
-                          </option>
-                        ))}
+                        .map((week) => {
+                          const nights = Math.ceil(
+                            (new Date(week.end_date).getTime() - new Date(week.start_date).getTime()) / (1000 * 60 * 60 * 24)
+                          );
+                          const requesterNights = Math.ceil(
+                            (new Date(selectedSwap.RequesterWeek?.end_date || '').getTime() - new Date(selectedSwap.RequesterWeek?.start_date || '').getTime()) / (1000 * 60 * 60 * 24)
+                          );
+                          return (
+                            <option key={week.id} value={week.id}>
+                              {new Date(week.start_date).toLocaleDateString()} -{' '}
+                              {new Date(week.end_date).toLocaleDateString()}{' '}
+                              ({nights} nights) {nights !== requesterNights && `vs ${requesterNights} nights offered`}
+                            </option>
+                          );
+                        })}
                     </select>
                     <button
                       onClick={() => handleAcceptSwap(selectedSwap)}
@@ -366,6 +360,21 @@ export default function Swaps() {
                       {isAccepting
                         ? t('common.processing')
                         : t('owner.swaps.confirmAccept')}
+                    </button>
+                  </div>
+                )}
+
+                {/* Payment Button - Show when swap is matched and requester is viewing their swap */}
+                {selectedSwap.status === 'matched' && selectedSwap.requester_id === user?.id && (
+                  <div className="border-t pt-4">
+                    <button
+                      onClick={() => {
+                        setShowDetails(false);
+                        setShowPaymentModal(true);
+                      }}
+                      className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-semibold transition"
+                    >
+                      💳 {t('owner.swaps.proceedPayment', { defaultValue: 'Proceed to Payment' })}
                     </button>
                   </div>
                 )}
@@ -384,6 +393,21 @@ export default function Swaps() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Payment Modal */}
+        {showPaymentModal && selectedSwap && (
+          <SwapPaymentModal
+            swap={selectedSwap}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setSelectedSwap(null);
+            }}
+            onSuccess={() => {
+              setShowPaymentModal(false);
+              setSelectedSwap(null);
+            }}
+          />
         )}
       </div>
     </div>

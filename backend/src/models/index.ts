@@ -13,6 +13,7 @@ import Property from './Property';
 import PMSSyncLog from './PMSSyncLog';
 import Fee from './Fee';
 import Room from './room';
+import RoomType from './RoomType';
 
 // Asociaciones existentes (guardadas con comprobaciones para evitar errores durante el arranque de tests)
 try {
@@ -100,4 +101,5 @@ export {
   PMSSyncLog,
   Fee,
   Room,
+  RoomType,
 };

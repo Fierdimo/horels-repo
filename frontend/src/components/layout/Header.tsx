@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
+import { useProperties } from '../../hooks/useProperties';
 import { LanguageSelector } from '../common/LanguageSelector';
 
 export function Header() {
@@ -11,8 +12,15 @@ export function Header() {
   const { user } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
   const { logout } = useAuth();
+  const { properties } = useProperties();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Get the property name for staff
+  const staffPropertyName = user?.property?.name || 
+    (user?.property_id && properties?.length > 0
+      ? properties.find(p => p.id === user.property_id)?.name
+      : null);
 
   const handleLogout = () => {
     logout();
@@ -135,6 +143,19 @@ export function Header() {
                   <div className="px-2 py-1.5 text-sm font-semibold">
                     {user?.email}
                   </div>
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    {getRoleLabel(user?.role)}
+                  </div>
+                  {user?.role === 'staff' && staffPropertyName && (
+                    <div className="px-2 py-1.5 text-xs font-medium text-primary">
+                      🏨 {staffPropertyName}
+                    </div>
+                  )}
+                  {user?.role === 'staff' && !staffPropertyName && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                      Sin hotel asignado
+                    </div>
+                  )}
                   <div className="h-px my-1 bg-border" />
                   <button
                     onClick={handleLogout}

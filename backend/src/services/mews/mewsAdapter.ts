@@ -99,6 +99,24 @@ export class MockMewsAdapter implements IMewsAdapter {
     return { success: true, total: 100.0, currency: 'EUR' }
   }
 
+  async resourceCategoryImageAssignmentsGetAll() {
+    return {
+      ResourceCategoryImageAssignments: []
+    };
+  }
+
+  async resourceCategoryAssignmentsGetAll() {
+    return {
+      ResourceCategoryAssignments: []
+    };
+  }
+
+  async imagesGetUrls(imageIds: string[]) {
+    return {
+      ImageUrls: []
+    };
+  }
+
   async addReservation(payload: any): Promise<AddResult> {
     // simulate creation
     const reservationId = 'RES-' + Math.random().toString(36).slice(2, 10).toUpperCase()
@@ -298,6 +316,39 @@ export class MewsAdapter implements IMewsAdapter {
 
   async resourcesGetAll() {
     return this.fetchWithAuth('/api/connector/v1/resources/getAll', { method: 'POST', body: JSON.stringify({ Client: 'SW2-Connector', Limitation: { Count: 500 } }) });
+  }
+
+  async resourceCategoryImageAssignmentsGetAll() {
+    return this.fetchWithAuth('/api/connector/v1/resourceCategoryImageAssignments/getAll', { method: 'POST', body: JSON.stringify({ Client: 'SW2-Connector', Limitation: { Count: 500 } }) });
+  }
+
+  async resourceCategoryAssignmentsGetAll() {
+    return this.fetchWithAuth('/api/connector/v1/resourceCategoryAssignments/getAll', { method: 'POST', body: JSON.stringify({ Client: 'SW2-Connector', Limitation: { Count: 500 } }) });
+  }
+
+  async imagesGetUrls(imageIds: string[], width: number = 600, height: number = 400, resizeMode: string = 'Fit') {
+    if (!imageIds || imageIds.length === 0) {
+      return { ImageUrls: [] };
+    }
+    
+    const payload = {
+      Client: 'SW2-Connector',
+      Images: imageIds.map(id => ({
+        ImageId: id,
+        Width: width,
+        Height: height,
+        ResizeMode: resizeMode
+      }))
+    };
+    
+    try {
+      return await this.fetchWithAuth('/api/connector/v1/images/getUrls', { method: 'POST', body: JSON.stringify(payload) });
+    } catch (error: any) {
+      console.error('Error fetching image URLs from Mews:', error.message);
+      // Return empty array if images endpoint is not available
+      // (some Mews setups may not have images configured)
+      return { ImageUrls: [] };
+    }
   }
 
   async createBooking(payload: any, idempotencyKey?: string): Promise<BookingResponse> {

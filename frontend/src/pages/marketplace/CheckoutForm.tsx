@@ -6,6 +6,7 @@ import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
+import { extractUserFromToken } from '@/utils/tokenUtils';
 
 interface CheckoutFormProps {
   paymentIntentId: string;
@@ -18,7 +19,7 @@ export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }
   const elements = useElements();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, setAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string>('');
 
@@ -64,9 +65,28 @@ export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }
       if (paymentIntent && paymentIntent.status === 'succeeded') {
         // Pago exitoso, confirmar el booking en nuestro backend
         try {
-          await apiClient.post('/public/bookings/confirm-payment', {
+          const response = await apiClient.post('/public/bookings/confirm-payment', {
             payment_intent_id: paymentIntent.id
           });
+
+          // El token ahora viene en response.data.token (raíz de la respuesta)
+          const token = response.data.token;
+          
+          if (token) {
+            const newUser = extractUserFromToken(token);
+            if (newUser) {
+              setAuth(token, newUser as any);
+              localStorage.setItem('sw2_token', token);
+              localStorage.setItem('sw2_user', JSON.stringify(newUser));
+              
+              // Navegar a la ruta del owner con un delay para permitir que Zustand actualice
+              const ownerPath = newUser.role === 'owner' ? '/owner/marketplace' : '/guest/marketplace';
+              setTimeout(() => {
+                navigate(ownerPath);
+              }, 100);
+              return;
+            }
+          }
 
           toast.success(t('marketplace.bookingConfirmed'));
           
@@ -75,10 +95,12 @@ export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }
             state: { paymentIntentId: paymentIntent.id }
           });
         } catch (error: any) {
-          console.error('Error confirming booking:', error);
+          console.error('[CheckoutForm] Error confirming booking:', error);
           toast.error(t('marketplace.bookingConfirmationError'));
           setMessage('Payment succeeded but booking confirmation failed. Please contact support.');
         }
+      } else {
+        console.log('[CheckoutForm] Payment intent status is not succeeded:', paymentIntent?.status);
       }
     } catch (error: any) {
       console.error('Payment error:', error);

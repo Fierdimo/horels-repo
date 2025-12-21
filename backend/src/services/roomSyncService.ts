@@ -1,8 +1,10 @@
 /**
  * Room Synchronization Service
  * 
- * Sincroniza habitaciones desde el PMS (Mews) hacia la base de datos local
- * Mantiene coherencia entre el inventario del PMS y el marketplace
+ * REFERENCE ONLY Architecture:
+ * Solo guarda el mapeo entre PMS y BD local (pms_resource_id).
+ * Los datos de habitaciones (name, capacity, type, etc) se obtienen del PMS en tiempo real.
+ * Ver roomEnrichmentService para enriquecimiento de datos.
  */
 
 import Room from '../models/room';
@@ -14,7 +16,7 @@ interface SyncResult {
   created: number;
   updated: number;
   errors: string[];
-  rooms?: any[];
+  summary?: string;
 }
 
 interface PMSResource {
@@ -30,7 +32,8 @@ interface PMSResource {
 
 export class RoomSyncService {
   /**
-   * Sincroniza habitaciones desde el PMS para una propiedad específica
+   * Sincroniza habitaciones desde el PMS para una propiedad específica.
+   * Solo guarda el mapeo y datos complementarios, NO data del PMS.
    */
   async syncRoomsFromPMS(propertyId: number): Promise<SyncResult> {
     const result: SyncResult = {
@@ -38,7 +41,6 @@ export class RoomSyncService {
       created: 0,
       updated: 0,
       errors: [],
-      rooms: []
     };
 
     try {
@@ -58,20 +60,16 @@ export class RoomSyncService {
       const pmsService = await PMSFactory.getAdapter(propertyId);
 
       // 3. Obtener recursos (habitaciones) del PMS
-      // getAvailability retorna tanto resources como services
       const availability = await pmsService.getAvailability({});
       const resources: PMSResource[] = availability?.resources || [];
-      const services = availability?.services || [];
 
       if (resources.length === 0) {
         result.errors.push('No resources found in PMS');
         return result;
       }
 
-      // 4. Crear mapa de services por ID
-      const servicesMap = new Map(services.map((s: any) => [s.Id, s]));
-
-      // 5. Sincronizar cada recurso
+      // 4. Sincronizar mapeos
+      // Solo guardamos: pms_resource_id, property_id, y metadata local
       for (const resource of resources) {
         try {
           // Saltar recursos inactivos
@@ -79,10 +77,7 @@ export class RoomSyncService {
             continue;
           }
 
-          // Obtener información del service asociado
-          const service: any = resource.ServiceId ? servicesMap.get(resource.ServiceId) : null;
-
-          // Buscar si ya existe en DB
+          // Buscar si ya existe el mapeo en BD
           const existingRoom = await Room.findOne({
             where: {
               propertyId,
@@ -90,33 +85,27 @@ export class RoomSyncService {
             }
           });
 
-          // Preparar datos de habitación
-          const roomData: any = {
-            name: resource.Name || `Room ${resource.Id.substring(0, 8)}`,
-            description: resource.Description || service?.Name || '',
-            capacity: resource.Capacity || 2,
-            type: service?.Name || 'Standard',
-            floor: resource.FloorNumber?.toString() || undefined,
-            status: 'available',
+          // Solo guardar: mapeo + metadata local
+          const roomData = {
             propertyId,
             pmsResourceId: resource.Id,
             pmsLastSync: new Date(),
-            // Precio base desde el service si está disponible
-            basePrice: service?.DefaultPrice || null,
-            // Por defecto NO habilitar en marketplace (staff decide después)
-            isMarketplaceEnabled: false,
+            // Defaults para datos locales
+            isMarketplaceEnabled: false, // Staff debe activar explícitamente
+            // No guardar: name, capacity, floor, type, status, basePrice, amenities
+            // Esos datos vienen del PMS en tiempo real
           };
 
           if (existingRoom) {
-            // Actualizar habitación existente
-            await existingRoom.update(roomData);
+            // Solo actualizar pmsLastSync
+            await existingRoom.update({
+              pmsLastSync: new Date()
+            });
             result.updated++;
-            result.rooms?.push(existingRoom);
           } else {
-            // Crear nueva habitación
-            const newRoom = await Room.create(roomData);
+            // Crear nuevo mapeo
+            await Room.create(roomData);
             result.created++;
-            result.rooms?.push(newRoom);
           }
         } catch (error: any) {
           result.errors.push(`Error syncing resource ${resource.Id}: ${error.message}`);
@@ -124,6 +113,8 @@ export class RoomSyncService {
       }
 
       result.success = result.errors.length === 0 || (result.created + result.updated) > 0;
+      result.summary = `Sync complete: ${result.created} created, ${result.updated} updated, ${result.errors.length} errors`;
+      
       return result;
 
     } catch (error: any) {
@@ -133,51 +124,27 @@ export class RoomSyncService {
   }
 
   /**
-   * Actualiza el estado de disponibilidad de una habitación basado en bookings
+   * Marca una habitación como sincronizada
+   * Se usa internamente cuando se obtiene data del PMS
    */
-  async updateRoomStatus(roomId: number): Promise<void> {
-    const room = await Room.findByPk(roomId);
-    if (!room) return;
-
-    // TODO: Implementar lógica para determinar estado basado en bookings activas
-    // Por ahora mantener el estado actual
-    // En el futuro: consultar bookings activas y cambiar a 'ocupada' si aplica
+  async markAsSynced(roomId: number): Promise<void> {
+    await Room.update(
+      { pmsLastSync: new Date() },
+      { where: { id: roomId } }
+    );
   }
 
   /**
-   * Verifica disponibilidad de habitación en fechas específicas
+   * Obtiene habitaciones no sincronizadas recientemente (+ de X minutos)
    */
-  async checkRoomAvailability(
-    roomId: number, 
-    checkIn: Date, 
-    checkOut: Date
-  ): Promise<boolean> {
-    // TODO: Consultar tabla de bookings
-    // Verificar si hay bookings que se solapen con las fechas
-    const room = await Room.findByPk(roomId);
-    if (!room) return false;
-    
-    // Por ahora retornar basado en estado
-    return room.status === 'activa';
-  }
-
-  /**
-   * Actualiza precios desde el PMS
-   * TODO: Implementar cuando se defina el mapeo de rates a rooms
-   */
-  async syncPrices(propertyId: number): Promise<void> {
-    const property = await Property.findByPk(propertyId);
-    if (!property?.pms_provider) return;
-
-    const pmsService = await PMSFactory.getAdapter(propertyId);
-
-    // Obtener availability que incluye pricing info
-    const availability = await pmsService.getAvailability({});
-    
-    // TODO: Mapear pricing info a habitaciones
-    // Esto requiere conocer la relación entre rates y resources en el PMS
-    console.log('syncPrices not yet fully implemented');
+  async getStaleRooms(propertyId: number, thresholdMinutes: number = 60): Promise<Room[]> {
+    const thresholdTime = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+    return Room.findAll({
+      where: {
+        propertyId,
+        pmsLastSync: { $lt: thresholdTime } // Sequelize syntax
+      }
+    });
   }
 }
 
-export default new RoomSyncService();

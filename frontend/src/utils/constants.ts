@@ -5,14 +5,16 @@ export const ENV = import.meta.env.VITE_ENV || 'development';
 export const ENABLE_WEBVIEW_BRIDGE = import.meta.env.VITE_ENABLE_WEBVIEW_BRIDGE === 'true';
 export const ENABLE_EXPO_NOTIFICATIONS = import.meta.env.VITE_ENABLE_EXPO_NOTIFICATIONS === 'true';
 
-// Week colors configuration
-export const WEEK_COLORS = {
-  red: { label: 'Red', nights: 6, color: '#EF4444' },
-  blue: { label: 'Blue', nights: 5, color: '#3B82F6' },
-  white: { label: 'White', nights: 4, color: '#6B7280' }
+// Accommodation types configuration (displayed colors for UI only)
+export const ACCOMMODATION_TYPES = {
+  standard: { label: 'Standard', emoji: '🛏️', color: '#EF4444' },  // Red for visual distinction
+  deluxe: { label: 'Deluxe', emoji: '🏠', color: '#3B82F6' },      // Blue for visual distinction
+  suite: { label: 'Suite', emoji: '👑', color: '#10B981' },        // Green for visual distinction
+  single: { label: 'Single', emoji: '🛏️', color: '#8B5CF6' },      // Purple for visual distinction
+  double: { label: 'Double', emoji: '🛏️🛏️', color: '#EC4899' }    // Pink for visual distinction
 } as const;
 
-export type WeekColor = keyof typeof WEEK_COLORS;
+export type AccommodationType = keyof typeof ACCOMMODATION_TYPES;
 
 // Week statuses
 export const WEEK_STATUS = {

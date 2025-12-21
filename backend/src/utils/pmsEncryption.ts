@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 // Encryption key should be 32 bytes for AES-256
 // If PMS_ENCRYPTION_KEY is not set, generate a random 32-byte key

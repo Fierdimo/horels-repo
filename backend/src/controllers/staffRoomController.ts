@@ -3,7 +3,10 @@ import Room from '../models/room';
 import { Property, User } from '../models';
 import { PMSFactory } from '../services/pms/PMSFactory';
 import { decryptPMSCredentials } from '../utils/pmsEncryption';
-import roomSyncService from '../services/roomSyncService';
+import { RoomSyncService } from '../services/roomSyncService';
+import RoomEnrichmentService from '../services/roomEnrichmentService';
+
+const roomSyncService = new RoomSyncService();
 
 interface AuthRequest extends Request {
   user?: User & { property_id?: number | null; role?: string };
@@ -11,7 +14,7 @@ interface AuthRequest extends Request {
 
 class StaffRoomController {
   /**
-   * Listar habitaciones del hotel del staff
+   * Listar habitaciones del hotel del staff con datos enriquecidos del PMS
    */
   async getRoomsByProperty(req: AuthRequest, res: Response) {
     try {
@@ -28,15 +31,58 @@ class StaffRoomController {
         });
       }
 
-      const rooms = await Room.findAll({
+      // Obtener datos locales de habitaciones
+      const roomsLocal = await Room.findAll({
         where: { propertyId },
-        order: [['name', 'ASC']]
+        order: [['createdAt', 'ASC']]
+      });
+
+      // Enriquecer con datos del PMS
+      const enrichedRooms = await RoomEnrichmentService.enrichRooms(roomsLocal);
+
+      // Importar Booking para obtener información de reservas
+      const { Booking } = require('../models');
+      
+      // Obtener todas las bookings para esta property
+      const bookings = await Booking.findAll({
+        where: {
+          property_id: propertyId,
+          status: { [require('sequelize').Op.in]: ['confirmed', 'checked_in', 'pending'] }
+        },
+        attributes: ['id', 'room_id', 'guest_name', 'guest_email', 'check_in', 'check_out', 'status', 'total_amount']
+      });
+
+      // Crear mapa de bookings por room_id
+      const bookingsByRoomId: any = {};
+      bookings.forEach((booking: any) => {
+        if (!bookingsByRoomId[booking.room_id]) {
+          bookingsByRoomId[booking.room_id] = [];
+        }
+        bookingsByRoomId[booking.room_id].push({
+          id: booking.id,
+          guest_name: booking.guest_name,
+          guest_email: booking.guest_email,
+          check_in: booking.check_in,
+          check_out: booking.check_out,
+          status: booking.status,
+          total_amount: booking.total_amount
+        });
+      });
+
+      // Agregar bookings a cada habitación
+      const roomsWithBookings = roomsLocal.map((room: any, index: number) => {
+        const enrichedRoom = enrichedRooms[index];
+        return {
+          ...enrichedRoom,
+          bookings: bookingsByRoomId[room.id] || [],
+          hasActiveBooking: (bookingsByRoomId[room.id] || []).length > 0
+        };
       });
 
       res.json({
         success: true,
-        data: rooms,
-        count: rooms.length
+        data: roomsWithBookings,
+        count: roomsWithBookings.length
       });
     } catch (error: any) {
       console.error('Error fetching rooms:', error);
@@ -49,7 +95,9 @@ class StaffRoomController {
   }
 
   /**
-   * Crear nueva habitación
+   * Mapear una habitación del PMS con datos complementarios locales
+   * Ya no creamos habitaciones desde cero, las creamos cuando sincronizamos del PMS
+   * Este endpoint es para actualizar datos complementarios (images, custom_price, etc)
    */
   async createRoom(req: AuthRequest, res: Response) {
     try {
@@ -67,66 +115,65 @@ class StaffRoomController {
       }
 
       const {
-        name,
-        description,
-        capacity,
-        type,
-        floor,
-        status = 'active',
-        amenities,
-        basePrice,
+        pmsResourceId,
+        roomTypeId,
         customPrice,
         isMarketplaceEnabled = false,
         images = []
       } = req.body;
 
       // Validaciones
-      if (!name) {
+      if (!pmsResourceId) {
         return res.status(400).json({
           success: false,
-          error: 'Room name is required'
+          error: 'pmsResourceId is required (map to existing PMS room)'
         });
       }
 
-      if (!capacity || capacity < 1) {
-        return res.status(400).json({
+      // Verificar que la habitación existe en el PMS
+      const pmsService = await PMSFactory.getAdapter(propertyId);
+      const availability = await pmsService.getAvailability({});
+      const pmsRoom = availability?.resources?.find((r: any) => r.Id === pmsResourceId);
+      if (!pmsRoom) {
+        return res.status(404).json({
           success: false,
-          error: 'Valid capacity is required'
+          error: 'Room not found in PMS'
         });
       }
 
+      // Crear mapeo local
       const room = await Room.create({
         propertyId,
-        name,
-        description,
-        capacity,
-        type,
-        floor,
-        status,
-        amenities,
-        basePrice,
+        pmsResourceId,
+        roomTypeId,
         customPrice,
         isMarketplaceEnabled,
-        images
+        images,
+        pmsLastSync: new Date()
       });
+
+      // Enriquecer respuesta con datos del PMS
+      const enriched = await RoomEnrichmentService.enrichRoom(room);
 
       res.status(201).json({
         success: true,
-        data: room,
-        message: 'Room created successfully'
+        data: enriched,
+        message: 'Room mapping created successfully'
       });
     } catch (error: any) {
-      console.error('Error creating room:', error);
+      console.error('Error creating room mapping:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to create room',
+        error: 'Failed to create room mapping',
         message: error.message
       });
     }
   }
 
   /**
-   * Actualizar habitación
+   * Actualizar datos complementarios de una habitación
+   * Solo se puede actualizar: customPrice, isMarketplaceEnabled, images, roomTypeId
+   * Los datos del PMS (name, capacity, type, etc) vienen del PMS en tiempo real
    */
   async updateRoom(req: AuthRequest, res: Response) {
     try {
@@ -154,37 +201,27 @@ class StaffRoomController {
         });
       }
 
+      // Solo permitir actualizar datos complementarios
       const {
-        name,
-        description,
-        capacity,
-        type,
-        floor,
-        status,
-        amenities,
-        basePrice,
+        roomTypeId,
         customPrice,
         isMarketplaceEnabled,
         images
       } = req.body;
 
       await room.update({
-        ...(name && { name }),
-        ...(description !== undefined && { description }),
-        ...(capacity && { capacity }),
-        ...(type !== undefined && { type }),
-        ...(floor !== undefined && { floor }),
-        ...(status && { status }),
-        ...(amenities !== undefined && { amenities }),
-        ...(basePrice !== undefined && { basePrice }),
+        ...(roomTypeId !== undefined && { roomTypeId }),
         ...(customPrice !== undefined && { customPrice }),
         ...(isMarketplaceEnabled !== undefined && { isMarketplaceEnabled }),
         ...(images !== undefined && { images })
       });
 
+      // Enriquecer respuesta
+      const enriched = await RoomEnrichmentService.enrichRoom(room);
+
       res.json({
         success: true,
-        data: room,
+        data: enriched,
         message: 'Room updated successfully'
       });
     } catch (error: any) {
@@ -243,9 +280,10 @@ class StaffRoomController {
   }
 
   /**
-   * Importar habitaciones desde PMS
+   * Sincronizar habitaciones desde el PMS
+   * REFERENCE ONLY architecture: Solo guarda mapeos, obtiene datos del PMS en tiempo real
    */
-  async importFromPMS(req: AuthRequest, res: Response) {
+  async syncRooms(req: AuthRequest, res: Response) {
     try {
       const isAdmin = (req.user as any)?.Role?.name === 'admin';
       const propertyId = isAdmin && req.body.propertyId 
@@ -268,7 +306,6 @@ class StaffRoomController {
         });
       }
 
-      // Verificar que tiene PMS configurado
       if (!property.pms_provider || property.pms_provider === 'none') {
         return res.status(400).json({
           success: false,
@@ -276,107 +313,45 @@ class StaffRoomController {
         });
       }
 
-      if (!property.pms_credentials) {
+      // Usar roomSyncService para sincronizar
+      const result = await roomSyncService.syncRoomsFromPMS(propertyId);
+
+      if (!result.success) {
         return res.status(400).json({
           success: false,
-          error: 'PMS credentials not configured'
+          error: 'Sync failed',
+          details: result.errors
         });
       }
 
-      // Desencriptar credenciales
-      const credentials = decryptPMSCredentials(property.pms_credentials);
-
-      // Crear adapter PMS
-      const adapter = PMSFactory.createAdapter(property.pms_provider, credentials);
-
-      // Obtener habitaciones del PMS
-      const availability = await adapter.getAvailability({});
-      
-      const services = availability?.services || [];
-      const resources = availability?.resources || [];
-
-      if (resources.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'No rooms found in PMS'
-        });
-      }
-
-      // Importar habitaciones
-      const importedRooms = [];
-      const updatedRooms = [];
-      const errors = [];
-
-      for (const resource of resources) {
-        try {
-          // Buscar el servicio (tipo de habitación) correspondiente
-          const service = services.find((s: any) => s.Id === resource.ServiceId);
-          const roomType = service?.Name || 'Standard';
-
-          // Verificar si ya existe esta habitación (por pms_resource_id)
-          const existingRoom = await Room.findOne({
-            where: {
-              propertyId,
-              pmsResourceId: resource.Id
-            }
-          });
-
-          const roomData = {
-            name: resource.Name || `Room ${resource.Id}`,
-            description: `Imported from ${property.pms_provider}`,
-            capacity: resource.Capacity || 2,
-            type: roomType,
-            status: 'available',
-            pmsResourceId: resource.Id,
-            pmsLastSync: new Date(),
-            isMarketplaceEnabled: false // Por defecto deshabilitado hasta que staff lo active
-          };
-
-          if (existingRoom) {
-            // Actualizar habitación existente
-            await existingRoom.update(roomData);
-            updatedRooms.push(existingRoom);
-          } else {
-            // Crear nueva habitación
-            const newRoom = await Room.create({
-              ...roomData,
-              propertyId
-            });
-            importedRooms.push(newRoom);
-          }
-        } catch (error: any) {
-          errors.push({
-            resource: resource.Id,
-            error: error.message
-          });
-        }
-      }
+      // Obtener habitaciones sincronizadas enriquecidas
+      const roomsLocal = await Room.findAll({ where: { propertyId } });
+      const enrichedRooms = await RoomEnrichmentService.enrichRooms(roomsLocal);
 
       res.json({
         success: true,
         data: {
-          imported: importedRooms.length,
-          updated: updatedRooms.length,
-          errors: errors.length,
-          rooms: [...importedRooms, ...updatedRooms]
+          created: result.created,
+          updated: result.updated,
+          rooms: enrichedRooms
         },
-        message: `Imported ${importedRooms.length} new rooms, updated ${updatedRooms.length} existing rooms`,
-        ...(errors.length > 0 && { errors })
+        message: result.summary
       });
     } catch (error: any) {
-      console.error('Error importing rooms from PMS:', error);
+      console.error('Error syncing rooms:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to import rooms from PMS',
+        error: 'Failed to sync rooms',
         message: error.message
       });
     }
   }
 
   /**
-   * Sincronizar habitaciones desde el PMS (método simplificado)
+   * @deprecated Usar syncRooms en su lugar (nuevo endpoint llamado cuando presionan el botón)
+   * Importar habitaciones desde PMS (legacy)
    */
-  async syncRooms(req: AuthRequest, res: Response) {
+  async importFromPMS(req: AuthRequest, res: Response) {
     try {
       const isAdmin = (req.user as any)?.Role?.name === 'admin';
       const propertyId = isAdmin && req.body.propertyId 
@@ -390,33 +365,13 @@ class StaffRoomController {
         });
       }
 
-      // Usar el servicio de sincronización
-      const result = await roomSyncService.syncRoomsFromPMS(propertyId);
-
-      if (!result.success && result.errors.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: result.errors[0],
-          details: result
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          created: result.created,
-          updated: result.updated,
-          total: result.created + result.updated,
-          rooms: result.rooms
-        },
-        message: `Synchronized ${result.created + result.updated} rooms from PMS (${result.created} new, ${result.updated} updated)`,
-        ...(result.errors.length > 0 && { warnings: result.errors })
-      });
+      // Redirigir al nuevo endpoint
+      return this.syncRooms(req, res);
     } catch (error: any) {
-      console.error('Error syncing rooms:', error);
+      console.error('Error importing rooms from PMS:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to sync rooms',
+        error: 'Failed to import rooms from PMS',
         message: error.message
       });
     }
@@ -461,12 +416,12 @@ class StaffRoomController {
 
       await room.update({ isMarketplaceEnabled: enabled });
       
-      // Refrescar para asegurar que tenemos los datos actualizados
-      await room.reload();
+      // Enriquecer respuesta con datos del PMS
+      const enriched = await RoomEnrichmentService.enrichRoom(room);
 
       res.json({
         success: true,
-        data: room,
+        data: enriched,
         message: `Room ${enabled ? 'enabled' : 'disabled'} in marketplace`
       });
     } catch (error: any) {

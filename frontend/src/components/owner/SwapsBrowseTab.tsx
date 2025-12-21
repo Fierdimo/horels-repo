@@ -9,11 +9,11 @@ interface BrowseFilter {
 interface SwapsBrowseTabProps {
   availableSwaps: SwapRequest[];
   weeks: Week[];
-  userWeekColors: string[];
+  userWeekAccommodationTypes: string[];
   onSelectSwap: (swap: SwapRequest) => void;
   onCreateRequest: () => void;
-  getColorName: (color: string) => string;
-  getColorEmoji: (color: string) => string;
+  getAccommodationTypeName: (type: string) => string;
+  getAccommodationTypeEmoji: (type: string) => string;
   getStatusColor: (status: string) => string;
   getStatusIcon: (status: string) => string;
 }
@@ -42,11 +42,11 @@ const getUserRoomTypes = (weeks: Week[]): string[] => {
 export function SwapsBrowseTab({
   availableSwaps,
   weeks,
-  userWeekColors,
+  userWeekAccommodationTypes,
   onSelectSwap,
   onCreateRequest,
-  getColorName,
-  getColorEmoji,
+  getAccommodationTypeName,
+  getAccommodationTypeEmoji,
   getStatusColor,
   getStatusIcon
 }: SwapsBrowseTabProps) {
@@ -166,10 +166,10 @@ export function SwapsBrowseTab({
           <strong>✓ Auto-filtered by your available week types:</strong>
         </p>
         <div className="flex flex-wrap gap-2 mt-2">
-          {userWeekColors.map(color => (
-            <span key={color} className="inline-flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-blue-200">
-              {getColorEmoji(color)}
-              <span className="text-sm font-semibold text-gray-900">{getColorName(color)}</span>
+          {userWeekAccommodationTypes.map(type => (
+            <span key={type} className="inline-flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-blue-200">
+              {getAccommodationTypeEmoji(type)}
+              <span className="text-sm font-semibold text-gray-900">{getAccommodationTypeName(type)}</span>
             </span>
           ))}
         </div>
@@ -183,7 +183,7 @@ export function SwapsBrowseTab({
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
           <p className="text-gray-600 mb-4 text-lg">😴 No matching swaps available</p>
           
-          {userWeekColors.length === 0 ? (
+          {userWeekAccommodationTypes.length === 0 ? (
             // No weeks at all
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
@@ -200,7 +200,7 @@ export function SwapsBrowseTab({
             // Has weeks but no matching swaps
             <div className="space-y-6">
               <p className="text-sm text-gray-600">
-                No one is currently looking to swap for your week types ({userWeekColors.map(c => getColorName(c)).join(', ')}).
+                No one is currently looking to swap for your week types ({userWeekAccommodationTypes.map(t => getAccommodationTypeName(t)).join(', ')}).
               </p>
 
               {/* Try different filters suggestion */}
@@ -238,7 +238,7 @@ export function SwapsBrowseTab({
                   Looking for something you don't have?
                 </p>
                 <a 
-                  href="/marketplace" 
+                  href="/owner/marketplace" 
                   className="inline-block bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-semibold transition"
                 >
                   🛒 Explore Marketplace
@@ -275,7 +275,7 @@ export function SwapsBrowseTab({
                   <div className="mt-3 pt-3 border-t border-blue-200">
                     <p className="text-xs text-gray-600 mb-1">Week Type:</p>
                     <p className="text-sm font-bold text-blue-800">
-                      {getColorEmoji(swap.RequesterWeek?.color)} {getColorName(swap.RequesterWeek?.color)} Week
+                      {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type)} {getAccommodationTypeName(swap.RequesterWeek?.accommodation_type)}
                     </p>
                   </div>
                 </div>
@@ -284,13 +284,13 @@ export function SwapsBrowseTab({
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
                   <p className="text-xs font-bold text-green-700 mb-2">✓ COMPATIBLE!</p>
                   <p className="font-semibold text-gray-900 mb-3">
-                    {getColorEmoji(swap.RequesterWeek?.color)} {getColorName(swap.RequesterWeek?.color)} Week
+                    {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type)} {getAccommodationTypeName(swap.RequesterWeek?.accommodation_type)}
                   </p>
                   
                   <p className="text-xs text-gray-600 font-semibold mb-2">📍 Your matches:</p>
                   <div className="space-y-2 mb-3">
                     {weeks
-                      .filter(w => w.color === swap.RequesterWeek?.color && w.status === 'available')
+                      .filter(w => w.accommodation_type === swap.RequesterWeek?.accommodation_type && w.status === 'available')
                       .map((week) => (
                         <div key={week.id} className="bg-white rounded px-3 py-2 border border-green-200 flex items-start gap-2">
                           <span className="text-green-600 mt-1">✓</span>
@@ -302,7 +302,7 @@ export function SwapsBrowseTab({
                           </div>
                         </div>
                       ))}
-                    {weeks.filter(w => w.color === swap.RequesterWeek?.color && w.status === 'available').length === 0 && (
+                    {weeks.filter(w => w.accommodation_type === swap.RequesterWeek?.accommodation_type && w.status === 'available').length === 0 && (
                       <p className="text-xs text-gray-600 italic px-3 py-2 bg-white rounded border border-gray-200">
                         No available weeks of this type currently
                       </p>

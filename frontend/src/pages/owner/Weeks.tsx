@@ -27,7 +27,6 @@ export default function Weeks(){
     isConfirming
   } = useWeeks();
   const [search, setSearch] = useState('');
-  const [colorFilter, setColorFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<any>(null);
@@ -35,23 +34,22 @@ export default function Weeks(){
   // Stats
   const stats = useMemo(() => {
     const total = weeks.length;
-    const available = weeks.filter(w => w.status === 'available').length;
-    const confirmed = weeks.filter(w => w.status === 'confirmed').length;
-    const converted = weeks.filter(w => w.status === 'converted').length;
-    return { total, available, confirmed, converted };
+    const timeshareWeeks = weeks.filter(w => w.source !== 'booking').length;
+    const marketplaceBookings = weeks.filter(w => w.source === 'booking').length;
+    const used = weeks.filter(w => w.status === 'used' || w.status === 'checked_out').length;
+    return { total, timeshareWeeks, marketplaceBookings, used };
   }, [weeks]);
 
   // Filtered weeks
   const filteredWeeks = useMemo(() => {
     return weeks.filter(w =>
-      (colorFilter === 'all' || w.color === colorFilter) &&
       (statusFilter === 'all' || w.status === statusFilter) &&
       (
         w.Property?.name?.toLowerCase().includes(search.toLowerCase()) ||
         w.Property?.location?.toLowerCase().includes(search.toLowerCase())
       )
     );
-  }, [weeks, colorFilter, statusFilter, search]);
+  }, [weeks, statusFilter, search]);
 // Feed de actividad reciente
 const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard();
   // Datos para gráfico de uso mensual (semanas confirmadas por mes)
@@ -85,19 +83,19 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-4 flex flex-col items-center">
           <span className="text-lg font-semibold text-gray-700">{stats.total}</span>
-          <span className="text-xs text-gray-500">{t('owner.weeks.total')}</span>
+          <span className="text-xs text-gray-500">Total de reservas</span>
         </div>
-        <div className="bg-green-50 rounded-lg shadow p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold text-green-700">{stats.available}</span>
-          <span className="text-xs text-green-700">{t('owner.weeks.available')}</span>
-        </div>
-        <div className="bg-yellow-50 rounded-lg shadow p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold text-yellow-700">{stats.confirmed}</span>
-          <span className="text-xs text-yellow-700">{t('owner.weeks.confirmed')}</span>
+        <div className="bg-purple-50 rounded-lg shadow p-4 flex flex-col items-center">
+          <span className="text-lg font-semibold text-purple-700">{stats.timeshareWeeks}</span>
+          <span className="text-xs text-purple-700">Semanas Timeshare</span>
         </div>
         <div className="bg-blue-50 rounded-lg shadow p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold text-blue-700">{stats.converted}</span>
-          <span className="text-xs text-blue-700">{t('owner.weeks.converted')}</span>
+          <span className="text-lg font-semibold text-blue-700">{stats.marketplaceBookings}</span>
+          <span className="text-xs text-blue-700">Reservas Marketplace</span>
+        </div>
+        <div className="bg-green-50 rounded-lg shadow p-4 flex flex-col items-center">
+          <span className="text-lg font-semibold text-green-700">{stats.used}</span>
+          <span className="text-xs text-green-700">Utilizadas</span>
         </div>
       </div>
 
@@ -108,27 +106,20 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
 
       {/* Filters and search */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 flex flex-col md:flex-row md:items-center gap-4">
-        <div className="flex gap-2">
-          <select value={colorFilter} onChange={e => setColorFilter(e.target.value)} className="border rounded px-2 py-1 text-sm">
-            <option value="all">{t('owner.weeks.allColors')}</option>
-            <option value="red">{t('owner.weeks.red')}</option>
-            <option value="blue">{t('owner.weeks.blue')}</option>
-            <option value="white">{t('owner.weeks.white')}</option>
-          </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1 text-sm">
-            <option value="all">{t('owner.weeks.allStatuses')}</option>
-            <option value="available">{t('owner.weeks.available')}</option>
-            <option value="confirmed">{t('owner.weeks.confirmed')}</option>
-            <option value="converted">{t('owner.weeks.converted')}</option>
-          </select>
-        </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1 text-sm bg-white">
+          <option value="all">Todas las reservas</option>
+          <option value="available">Disponible</option>
+          <option value="confirmed">Confirmado</option>
+          <option value="used">Utilizado</option>
+          <option value="checked_out">Finalizado</option>
+        </select>
         <div className="flex items-center border rounded px-2 py-1 w-full md:w-64 bg-white">
           <Search className="h-4 w-4 text-gray-400 mr-2" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={t('owner.weeks.searchPlaceholder')}
+            placeholder="Buscar propiedad..."
             className="outline-none w-full text-sm bg-transparent"
           />
         </div>
@@ -140,19 +131,19 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('owner.weeks.property')}
+                  Propiedad
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('owner.weeks.dates')}
+                  Fechas
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('owner.weeks.color')}
+                  Tipo
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('owner.weeks.status')}
+                  Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('owner.weeks.actions')}
+                  Acciones
                 </th>
               </tr>
             </thead>
@@ -160,33 +151,46 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
               {filteredWeeks.map((week) => (
                 <tr key={week.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{week.Property?.name}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {week.Property?.name}
+                      {(week as any).source === 'booking' && (
+                        <span className="ml-2 inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Marketplace</span>
+                      )}
+                    </div>
                     <div className="text-sm text-gray-500">{week.Property?.location}</div>
+                    {(week as any).guest_name && (
+                      <div className="text-xs text-gray-600 mt-1">Guest: {(week as any).guest_name}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(week.start_date).toLocaleDateString()} - {new Date(week.end_date).toLocaleDateString()}
+                    {new Date(week.start_date).toLocaleDateString('es-ES')} - {new Date(week.end_date).toLocaleDateString('es-ES')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      week.color === 'red' ? 'bg-red-100 text-red-800' :
-                      week.color === 'blue' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {t(`owner.weeks.${week.color}`)}
-                    </span>
+                    {(week as any).source === 'booking' ? (
+                      <span className="px-3 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        Marketplace
+                      </span>
+                    ) : (
+                      <span className="px-3 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                        Timeshare
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    <span className={`px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       week.status === 'available' ? 'bg-green-100 text-green-800' :
                       week.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
-                      week.status === 'converted' ? 'bg-blue-100 text-blue-800' :
+                      week.status === 'used' || week.status === 'checked_out' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {t(`owner.weeks.${week.status}`)}
+                      {week.status === 'used' ? 'Utilizado' : 
+                       week.status === 'checked_out' ? 'Finalizado' :
+                       week.status === 'confirmed' ? 'Confirmado' :
+                       week.status === 'available' ? 'Disponible' : week.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {week.status === 'available' && (
+                    {week.status === 'available' && !((week as any).source === 'booking') && (
                       <button
                         className="text-primary hover:text-primary/80 mr-3"
                         onClick={() => {
@@ -194,8 +198,13 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                           setModalOpen(true);
                         }}
                       >
-                        {t('owner.weeks.confirm')}
+                        Confirmar
                       </button>
+                    )}
+                    {((week as any).source === 'booking') && (
+                      <a href={`/owner/bookings/${(week as any).booking_id}`} className="text-primary hover:text-primary/80 mr-3">
+                        Ver detalles
+                      </a>
                     )}
                   </td>
                 </tr>
@@ -207,7 +216,7 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
 
       {/* Activity Feed - parte inferior */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <h2 className="text-lg font-bold text-gray-900 mt-8 mb-2">{t('owner.dashboard.activityFeed', 'Actividad reciente')}</h2>
+        <h2 className="text-lg font-bold text-gray-900 mt-8 mb-2">Actividad reciente</h2>
         {loadingDashboard ? (
           <LoadingSpinner size="md" />
         ) : (

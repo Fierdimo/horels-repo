@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ArrowLeft, CreditCard } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
+import { extractUserFromToken } from '@/utils/tokenUtils';
 
 // Inicializar Stripe (usa tu clave pública)
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
@@ -33,7 +34,7 @@ export default function MarketplaceCheckout() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, setAuth } = useAuthStore();
   const location = useLocation();
   const state = location.state as {
     checkIn: string;
@@ -354,9 +355,26 @@ export default function MarketplaceCheckout() {
 
                         if (paymentIntent?.status === 'succeeded') {
                           // Confirmar booking después de autenticación exitosa
-                          await apiClient.post('/public/bookings/confirm-payment', {
+                          const response = await apiClient.post('/public/bookings/confirm-payment', {
                             payment_intent_id: paymentIntent.id
                           });
+                          
+                          // El token ahora viene en response.data.token (raíz)
+                          const token = response.data.token;
+                          
+                          if (token) {
+                            const newUser = extractUserFromToken(token);
+                            if (newUser) {
+                              setAuth(token, newUser as any);
+                              localStorage.setItem('sw2_token', token);
+                              localStorage.setItem('sw2_user', JSON.stringify(newUser));
+                              
+                              // Navegar a la ruta del owner con delay para Zustand
+                              const ownerPath = newUser.role === 'owner' ? '/owner/marketplace' : '/guest/marketplace';
+                              setTimeout(() => {
+                                navigate(ownerPath);
+                              }, 100);
+                              return;
                           
                           navigate(`${getMarketplaceBasePath()}/booking-success`, {
                             state: { paymentIntentId: paymentIntent.id }
@@ -364,6 +382,23 @@ export default function MarketplaceCheckout() {
                         }
                       } else if (data.success) {
                         // Pago exitoso sin autenticación adicional
+                        // El token ahora viene en data.token (raíz)
+                        const token = data.token;
+                        
+                        if (token) {
+                          const newUser = extractUserFromToken(token);
+                          if (newUser) {
+                            setAuth(token, newUser as any);
+                            localStorage.setItem('sw2_token', token);
+                            localStorage.setItem('sw2_user', JSON.stringify(newUser));
+                            
+                            // Navegar a la ruta del owner con delay para Zustand
+                            const ownerPath = newUser.role === 'owner' ? '/owner/marketplace' : '/guest/marketplace';
+                            setTimeout(() => {
+                              navigate(ownerPath);
+                            }, 100);
+                            return;
+                        
                         navigate(`${getMarketplaceBasePath()}/booking-success`, {
                           state: { paymentIntentId }
                         });

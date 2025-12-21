@@ -1,5 +1,5 @@
 import helmet from 'helmet';
-import cors from 'cors';
+import cors = require('cors');
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 
@@ -165,10 +165,14 @@ export const dataMinimization = (req: any, res: any, next: any) => {
     const removeSensitive = (obj: any) => {
       if (typeof obj !== 'object' || obj === null) return;
 
-      // Remove sensitive fields, but keep token for auth responses
+      // Remove sensitive fields, but keep token for auth and payment confirmation responses
       const sensitiveFields = ['password', 'creditCard', 'ssn'];
-      // Only remove token if it's not an auth response
-      if (!req.originalUrl.includes('/auth/')) {
+      
+      // Only remove token if it's not an auth response or payment confirmation response
+      const isAuthRoute = req.originalUrl.includes('/auth/');
+      const isPaymentConfirmation = req.originalUrl.includes('/bookings/confirm-payment');
+      
+      if (!isAuthRoute && !isPaymentConfirmation) {
         sensitiveFields.push('token');
       }
 

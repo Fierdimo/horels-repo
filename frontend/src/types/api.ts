@@ -41,9 +41,9 @@ export interface ConfirmWeekRequest {
 }
 
 export interface CreateSwapRequest {
-  requester_week_id: number;
-  desired_start_date: string;
-  desired_property_id: number;
+  requester_week_id: number | string; // Can be number or "booking_X"
+  desired_start_date?: string;
+  desired_property_id?: number;
 }
 
 export interface AcceptSwapRequest {

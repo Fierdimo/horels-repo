@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 import { User, Role } from '../models';
 import { authenticateToken } from '../middleware/authMiddleware';
 import LoggingService from '../services/loggingService';
@@ -228,7 +228,21 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ where: { email }, include: Role });
+    const user = await User.findOne({ 
+      where: { email }, 
+      include: [
+        {
+          model: Role,
+          as: 'Role'
+        },
+        {
+          model: (await import('../models')).Property,
+          as: 'Property',
+          attributes: ['id', 'name', 'location', 'city', 'country'],
+          required: false
+        }
+      ]
+    });
     if (!user) {
       // Log failed login attempt
       await LoggingService.logFailedLogin(email, req);
@@ -253,7 +267,8 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
         id: user.id, 
         email: user.email, 
         role: (user as any).Role?.name,
-        status: user.status 
+        status: user.status,
+        property_id: user.property_id
       },
       process.env.JWT_SECRET!,
       { expiresIn: '24h' }
@@ -269,6 +284,8 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
         email: user.email,
         role: (user as any).Role?.name,
         status: user.status,
+        property_id: user.property_id,
+        property: (user as any).Property || null,
         firstName: user.firstName,
         lastName: user.lastName,
         phone: user.phone,
@@ -287,16 +304,39 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
     return res.status(401).json({ error: 'User not authenticated' });
   }
 
+  // Fetch latest user data with property info
+  const user = await User.findByPk(req.user.id, {
+    include: [
+      {
+        model: Role,
+        as: 'Role',
+        attributes: ['id', 'name']
+      },
+      {
+        model: (await import('../models')).Property,
+        as: 'Property',
+        attributes: ['id', 'name', 'location', 'city', 'country'],
+        required: false
+      }
+    ]
+  });
+
+  if (!user) {
+    return res.status(401).json({ error: 'User not found' });
+  }
+
   res.json({
     user: {
-      id: req.user.id,
-      email: req.user.email,
-      role: (req.user as any).Role?.name,
-      status: req.user.status,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      phone: req.user.phone,
-      address: req.user.address
+      id: user.id,
+      email: user.email,
+      role: (user as any).Role?.name,
+      status: user.status,
+      property_id: user.property_id,
+      property: (user as any).Property || null,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      address: user.address
     }
   });
 });
@@ -384,12 +424,18 @@ router.delete('/me', authenticateToken, async (req: AuthRequest, res: Response) 
 router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findByPk(req.user!.id, {
-      attributes: ['id', 'email', 'firstName', 'lastName', 'phone', 'address', 'stripe_customer_id'],
+      attributes: ['id', 'email', 'firstName', 'lastName', 'phone', 'address', 'property_id', 'status', 'stripe_customer_id'],
       include: [
         {
           model: Role,
           as: 'Role',
           attributes: ['id', 'name']
+        },
+        {
+          model: (await import('../models')).Property,
+          as: 'Property',
+          attributes: ['id', 'name', 'location', 'city', 'country'],
+          required: false // LEFT JOIN para permitir usuarios sin property
         }
       ]
     });

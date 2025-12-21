@@ -423,6 +423,9 @@ export default function StaffRooms() {
                     {t('common.status')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reservas Activas
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Marketplace
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -455,6 +458,33 @@ export default function StaffRooms() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(room.status)}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {room.bookings && room.bookings.length > 0 ? (
+                        <div className="space-y-2 max-w-xs">
+                          {room.bookings.map((booking: any, idx: number) => (
+                            <div key={idx} className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                              <div className="font-medium text-blue-900">{booking.guest_name}</div>
+                              <div className="text-blue-700 text-xs">
+                                {new Date(booking.check_in).toLocaleDateString()} - {new Date(booking.check_out).toLocaleDateString()}
+                              </div>
+                              <div className="text-blue-600 text-xs">{booking.guest_email}</div>
+                              <div className="mt-1">
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                  booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                  booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {booking.status.toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="text-blue-600 font-semibold text-xs mt-1">€{booking.total_amount}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-sm">Sin reservas</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button

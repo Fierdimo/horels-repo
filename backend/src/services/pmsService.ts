@@ -70,8 +70,10 @@ class PMSService {
     this.baseURL = process.env.PMS_API_URL || 'https://api.cloudbeds.com/v1.1';
     this.apiKey = process.env.PMS_API_KEY || '';
 
+    // Only throw error if no client is provided and no API key is configured
+    // This allows the service to be instantiated for non-PMS routes
     if (!this.apiKey && !client) {
-      throw new Error('PMS_API_KEY environment variable is required');
+      console.warn('PMS_API_KEY not configured - PMS functionality will be limited');
     }
 
     // Use provided client or create new one

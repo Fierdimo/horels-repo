@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { Property, Week, User, Room, Booking } from '../models';
+import { Property, Week, User, Room, Booking, Role } from '../models';
 import { Op } from 'sequelize';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { PMSFactory } from '../services/pms/PMSFactory';
@@ -7,6 +7,8 @@ import { decryptPMSCredentials } from '../utils/pmsEncryption';
 import pricingService from '../services/pricingService';
 import bookingStatusService from '../services/bookingStatusService';
 import { StripeService } from '../services/stripeService';
+import RoomEnrichmentService from '../services/roomEnrichmentService';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
 const stripeService = new StripeService();
@@ -91,7 +93,21 @@ router.get('/properties/:id', async (req: Request, res: Response) => {
         status: 'active'
       },
       attributes: {
-        exclude: ['pms_credentials', 'bank_account_info', 'stripe_connect_account_id'] // No exponer datos sensibles
+        exclude: ['pms_credentials', 'bank_account_info', 'stripe_connect_account_id'], // No exponer datos sensibles
+        include: [
+          [Property.sequelize!.fn('COALESCE', 
+            Property.sequelize!.col('marketplace_description'), 
+            Property.sequelize!.col('description')
+          ), 'description'],
+          [Property.sequelize!.fn('COALESCE', 
+            Property.sequelize!.col('marketplace_images'), 
+            Property.sequelize!.col('images')
+          ), 'images'],
+          [Property.sequelize!.fn('COALESCE', 
+            Property.sequelize!.col('marketplace_amenities'), 
+            Property.sequelize!.col('amenities')
+          ), 'amenities'],
+        ]
       }
     });
 
@@ -285,7 +301,7 @@ router.get('/properties/:id/availability', async (req: Request, res: Response) =
 router.get('/properties/:id/rooms', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { type, min_capacity, max_price } = req.query;
+    const { type, min_capacity, max_price, checkIn, checkOut } = req.query;
 
     const property = await Property.findOne({
       where: { id, status: 'active' }
@@ -301,24 +317,59 @@ router.get('/properties/:id/rooms', async (req: Request, res: Response) => {
     // Solo mostrar habitaciones habilitadas en marketplace
     const where: any = {
       propertyId: property.id,
-      isMarketplaceEnabled: true,
-      status: 'available'
+      isMarketplaceEnabled: true
     };
-
-    if (type) where.type = type;
-    if (min_capacity) where.capacity = { [Op.gte]: parseInt(min_capacity as string) };
 
     const rooms = await Room.findAll({
       where,
-      order: [['type', 'ASC'], ['name', 'ASC']]
+      order: [['pmsResourceId', 'ASC']]
     });
 
-    // Aplicar filtro de precio después de calcular precio efectivo
-    let filteredRooms = rooms;
+    if (rooms.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0
+      });
+    }
+
+    // Filtrar habitaciones ocupadas si se proporcionan fechas
+    let availableRooms = rooms;
+    if (checkIn && checkOut) {
+      const checkInDate = new Date(checkIn as string);
+      const checkOutDate = new Date(checkOut as string);
+      
+      availableRooms = [];
+      for (const room of rooms) {
+        const isAvailable = await bookingStatusService.checkRoomAvailability(
+          room.id,
+          checkInDate,
+          checkOutDate
+        );
+        if (isAvailable) {
+          availableRooms.push(room);
+        }
+      }
+    }
+
+    // Enriquecer habitaciones con datos del PMS
+    let enrichedRooms = await RoomEnrichmentService.enrichRooms(availableRooms);
+
+    // Aplicar filtro de tipo y capacidad después del enriquecimiento
+    if (type) {
+      enrichedRooms = enrichedRooms.filter((room: any) => room.type === type);
+    }
+    if (min_capacity) {
+      const minCapNum = parseInt(min_capacity as string);
+      enrichedRooms = enrichedRooms.filter((room: any) => (room.capacity || 0) >= minCapNum);
+    }
+
+    // Aplicar filtro de precio
+    let filteredRooms = enrichedRooms;
     if (max_price) {
       const maxPriceNum = parseFloat(max_price as string);
-      filteredRooms = rooms.filter((room: Room) => {
-        const effectivePrice = room.customPrice || room.basePrice || 0;
+      filteredRooms = enrichedRooms.filter((room: any) => {
+        const effectivePrice = room.price || 0;
         return effectivePrice <= maxPriceNum;
       });
     }
@@ -326,14 +377,22 @@ router.get('/properties/:id/rooms', async (req: Request, res: Response) => {
     // Agregar precio efectivo con comisión de plataforma a cada habitación
     const roomsWithPrice = await Promise.all(
       filteredRooms.map(async (room: any) => {
-        const hotelPrice = room.customPrice || room.basePrice || 0;
+        const hotelPrice = room.price || 0;
         const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
         const commissionRate = await pricingService.getPlatformCommissionRate();
 
         return {
-          ...room.toJSON(),
-          hotelPrice, // Precio que configuró el hotel (no se muestra normalmente al guest)
-          guestPrice, // Precio que pagará el guest (incluye comisión)
+          id: room.id,
+          pmsResourceId: room.pmsResourceId,
+          name: room.name,
+          type: room.type,
+          capacity: room.capacity,
+          floor: room.floor,
+          description: room.description,
+          amenities: room.amenities,
+          images: room.images,
+          hotelPrice: hotelPrice, // Precio del hotel
+          guestPrice, // Precio final que pagará el guest
           platformCommission: parseFloat((guestPrice - hotelPrice).toFixed(2)),
           commissionRate // Porcentaje de comisión
         };
@@ -368,8 +427,7 @@ router.get('/properties/:propertyId/rooms/:roomId', async (req: Request, res: Re
       where: {
         id: roomId,
         propertyId,
-        isMarketplaceEnabled: true,
-        status: 'available'
+        isMarketplaceEnabled: true
       }
     });
 
@@ -381,7 +439,7 @@ router.get('/properties/:propertyId/rooms/:roomId', async (req: Request, res: Re
     }
 
     // Agregar precio con comisión de plataforma
-    const hotelPrice = room.customPrice || room.basePrice || 0;
+    const hotelPrice = room.customPrice || 0;
     const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
     const priceBreakdown = await pricingService.getPriceBreakdown(hotelPrice);
 
@@ -557,8 +615,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
       where: {
         id: roomId,
         propertyId: property.id,
-        isMarketplaceEnabled: true,
-        status: 'available'
+        isMarketplaceEnabled: true
       }
     });
 
@@ -587,7 +644,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
     const nights = Math.ceil(
       (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
     );
-    const hotelPrice = room.customPrice || room.basePrice || 0;
+    const hotelPrice = room.customPrice || 0;
     const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
     const totalAmount = guestPrice * nights;
 
@@ -602,7 +659,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
       guest_email,
       check_in: checkInDate,
       check_out: checkOutDate,
-      room_type: room.type,
+      room_type: room.roomTypeId,
       status: 'pending', // Estado inicial para aprobación de staff
       guest_token,
       total_amount: totalAmount,
@@ -611,6 +668,15 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
 
     // Notificar al staff (esto se puede hacer mediante email, websocket, etc.)
     // TODO: Implementar notificación al staff de nueva reserva pendiente
+
+    // Enriquecer room con datos del PMS para la respuesta
+    let enrichedRoom;
+    try {
+      enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+    } catch (error: any) {
+      console.warn('Warning: Could not enrich room:', error.message);
+      enrichedRoom = { name: `Room ${roomId}` } as any;
+    }
 
     res.status(201).json({
       success: true,
@@ -631,8 +697,8 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
           price_per_night: guestPrice
         },
         room: {
-          name: room.name,
-          type: room.type
+          name: enrichedRoom.name,
+          type: room.roomTypeId
         },
         property: {
           name: property.name,
@@ -685,8 +751,7 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
       where: { 
         id: roomId, 
         propertyId: propertyId,
-        isMarketplaceEnabled: true,
-        status: 'available'
+        isMarketplaceEnabled: true
       }
     });
 
@@ -710,7 +775,7 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
     }
 
     // Determinar precio base
-    let pricePerNight = room.basePrice || 0;
+    let pricePerNight = room.customPrice || 0;
     let isTestPrice = false;
 
     // En desarrollo/testing, si el precio es 0, usar precio de prueba
@@ -736,10 +801,21 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
       });
     }
 
+    // Enriquecer room para obtener el nombre desde PMS
+    let enrichedRoom;
+    try {
+      enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+    } catch (error: any) {
+      console.warn('Warning: Could not enrich room with PMS data:', error.message);
+      // Continuar sin enriquecimiento si falla
+      enrichedRoom = { name: `Room ${room.id}` } as any;
+    }
+
     // Crear Payment Intent
     const paymentIntent = await stripeService.createMarketplacePaymentIntent({
       propertyId: parseInt(propertyId),
       roomId: parseInt(roomId),
+      roomName: enrichedRoom.name,
       guestName,
       guestEmail,
       guestPhone,
@@ -787,12 +863,36 @@ router.post('/bookings/confirm-payment', async (req: Request, res: Response) => 
     }
 
     // Confirmar pago y crear booking
-    const booking = await stripeService.confirmBookingPayment(payment_intent_id);
+    const { booking, user } = await stripeService.confirmBookingPayment(payment_intent_id);
 
-    res.json({
+    let token = null;
+    
+    // Si el usuario fue convertido de guest a owner, generar nuevo token
+    if (user) {
+      const userRole = (user as any).Role?.name || 'owner';
+      token = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          role: userRole,
+          status: user.status,
+          property_id: user.property_id
+        },
+        process.env.JWT_SECRET!,
+        { expiresIn: '24h' }
+      );
+    }
+
+    const bookingData = booking ? booking.toJSON() : booking;
+    
+    // Construir la respuesta con el token si está disponible
+    const responseData = {
       success: true,
-      data: booking
-    });
+      data: bookingData,
+      token
+    };
+
+    res.json(responseData);
 
   } catch (error: any) {
     console.error('Error confirming payment:', error);
@@ -837,11 +937,30 @@ router.post('/bookings/confirm-payment-with-saved-card', authenticateToken, asyn
 
     // Si el pago fue exitoso, crear el booking
     if (paymentIntent.status === 'succeeded') {
-      const booking = await stripeService.confirmBookingPayment(payment_intent_id);
+      const { booking, user } = await stripeService.confirmBookingPayment(payment_intent_id);
+
+      let token = null;
+      
+      // Si el usuario fue convertido de guest a owner, generar nuevo token
+      if (user) {
+        const userRole = (user as any).Role?.name || 'owner';
+        token = jwt.sign(
+          {
+            id: user.id,
+            email: user.email,
+            role: userRole,
+            status: user.status,
+            property_id: user.property_id
+          },
+          process.env.JWT_SECRET!,
+          { expiresIn: '24h' }
+        );
+      }
 
       return res.json({
         success: true,
-        data: booking
+        data: booking,
+        token // Retornar el nuevo token si está disponible
       });
     }
 

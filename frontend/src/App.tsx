@@ -19,6 +19,7 @@ const PendingApproval = lazy(() => import('@/pages/auth/PendingApproval'));
 const AccountSuspended = lazy(() => import('@/pages/auth/AccountSuspended'));
 const OwnerDashboard = lazy(() => import('@/pages/owner/Dashboard'));
 const Weeks = lazy(() => import('@/pages/owner/Weeks'));
+const BookingDetails = lazy(() => import('@/pages/owner/BookingDetails'));
 const Swaps = lazy(() => import('@/pages/owner/Swaps'));
 const Credits = lazy(() => import('@/pages/owner/Credits'));
 const CreateNightCreditRequest = lazy(() => import('@/pages/owner/NightCreditRequests'));
@@ -37,6 +38,7 @@ const StaffHistory = lazy(() => import('@/pages/staff/History'));
 const StaffAvailability = lazy(() => import('@/pages/staff/Availability'));
 const StaffProfile = lazy(() => import('@/pages/staff/Profile'));
 const StaffMarketplaceSettings = lazy(() => import('@/pages/staff/MarketplaceSettings'));
+const StaffSwapApprovals = lazy(() => import('@/pages/staff/SwapApprovals'));
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
 const AdminPendingApprovals = lazy(() => import('@/pages/admin/PendingApprovals'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
@@ -159,6 +161,16 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/owner/bookings/:bookingId"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <BookingDetails />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/owner/swaps"
           element={
             <ProtectedRoute allowedRoles={['owner']}>
@@ -268,6 +280,7 @@ function AppRoutes() {
           <Route path="availability" element={<StaffAvailability />} />
           <Route path="profile" element={<StaffProfile />} />
           <Route path="marketplace-settings" element={<StaffMarketplaceSettings />} />
+          <Route path="swaps" element={<StaffSwapApprovals />} />
           <Route path="marketplace" element={<MarketplaceHome />} />
           <Route path="marketplace/properties/:id" element={<PropertyDetails />} />
           <Route path="marketplace/properties/:propertyId/rooms/:roomId/book" element={<BookingForm />} />

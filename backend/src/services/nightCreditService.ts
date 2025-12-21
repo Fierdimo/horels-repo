@@ -5,9 +5,7 @@ import pricingService from './pricingService';
 import bookingStatusService from './bookingStatusService';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 export class NightCreditService {
   /**

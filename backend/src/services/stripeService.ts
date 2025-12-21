@@ -3,14 +3,14 @@ import Booking from '../models/Booking';
 import Property from '../models/Property';
 import Room from '../models/room';
 import User from '../models/User';
+import Role from '../models/Role';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.clover'
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 interface CreatePaymentIntentParams {
   propertyId: number;
   roomId: number;
+  roomName?: string;
   checkIn: Date;
   checkOut: Date;
   guestName: string;
@@ -77,6 +77,7 @@ export class StripeService {
     const {
       propertyId,
       roomId,
+      roomName,
       checkIn,
       checkOut,
       guestName,
@@ -91,10 +92,9 @@ export class StripeService {
 
     // Obtener información de property y room para metadata
     const property = await Property.findByPk(propertyId);
-    const room = await Room.findByPk(roomId);
 
-    if (!property || !room) {
-      throw new Error('Property or room not found');
+    if (!property) {
+      throw new Error('Property not found');
     }
 
     // Obtener o crear customer si el usuario está autenticado
@@ -120,7 +120,7 @@ export class StripeService {
         property_id: propertyId.toString(),
         property_name: property.name,
         room_id: roomId.toString(),
-        room_name: room.name,
+        room_name: roomName || `Room ${roomId}`,
         guest_name: guestName,
         guest_email: guestEmail,
         guest_phone: guestPhone || '',
@@ -129,7 +129,7 @@ export class StripeService {
         nights: nights.toString(),
         price_per_night: pricePerNight.toString()
       },
-      description: `Marketplace Booking - ${property.name} - ${room.name} (${nights} nights)`,
+      description: `Marketplace Booking - ${property.name} - ${roomName || `Room ${roomId}`} (${nights} nights)`,
       receipt_email: guestEmail,
     };
 
@@ -151,6 +151,8 @@ export class StripeService {
 
   /**
    * Confirmar booking después de pago exitoso
+   * Nota: Automáticamente convierte el usuario guest a owner después de la compra
+   * Retorna: { booking, user } para que se pueda generar un nuevo token JWT
    */
   async confirmBookingPayment(paymentIntentId: string) {
     // Obtener Payment Intent de Stripe
@@ -182,7 +184,89 @@ export class StripeService {
       payment_status: 'paid'
     });
 
-    return booking;
+    let updatedUser = null;
+
+    // Convertir guest a owner después de la compra exitosa
+    try {
+      console.log(`[StripeService] Looking for user with email: ${metadata.guest_email}`);
+      
+      let guestUser = await User.findOne({
+        where: { email: metadata.guest_email },
+        include: [{ model: Role }]
+      });
+
+      console.log(`[StripeService] User found:`, guestUser ? { id: guestUser.id, email: guestUser.email, roleId: guestUser.role_id } : 'NOT FOUND');
+
+      if (!guestUser) {
+        // Si el usuario no existe, crear un usuario guest
+        console.log(`[StripeService] Creating new guest user for email: ${metadata.guest_email}`);
+        
+        try {
+          const guestRole = await Role.findOne({ where: { name: 'guest' } });
+          console.log(`[StripeService] Guest role:`, guestRole ? { id: guestRole.id, name: guestRole.name } : 'NOT FOUND');
+          
+          if (!guestRole) {
+            throw new Error('Guest role not found in database');
+          }
+
+          guestUser = await User.create({
+            email: metadata.guest_email,
+            password: `temp_${Date.now()}`, // Contraseña temporal
+            role_id: guestRole.id,
+            status: 'approved', // Aprobar automáticamente los usuarios creados por compra
+            firstName: metadata.guest_name?.split(' ')[0] || 'Guest',
+            lastName: metadata.guest_name?.split(' ').slice(1).join(' ') || ''
+          });
+
+          console.log(`[StripeService] New user created:`, { id: guestUser.id, email: guestUser.email, roleId: guestUser.role_id });
+
+          // Recargar para obtener el Role
+          await guestUser.reload({
+            include: [{ model: Role }]
+          });
+
+          console.log(`[StripeService] New guest user ${guestUser.id} (${guestUser.email}) created from booking`);
+        } catch (createError) {
+          console.error('[StripeService] Error creating guest user:', createError);
+          // Si no podemos crear el usuario, al menos retornar null pero no fallar el booking
+          guestUser = null;
+        }
+      }
+
+      if (guestUser) {
+        // Obtener el rol 'owner'
+        const ownerRole = await Role.findOne({ where: { name: 'owner' } });
+        console.log(`[StripeService] Owner role:`, ownerRole ? { id: ownerRole.id, name: ownerRole.name } : 'NOT FOUND');
+
+        const currentRole = (guestUser as any).Role?.name;
+        console.log(`[StripeService] Current user role: ${currentRole}`);
+
+        if (ownerRole && currentRole === 'guest') {
+          // Solo convertir si es guest
+          console.log(`[StripeService] Converting user ${guestUser.id} from guest to owner`);
+          await guestUser.update({ role_id: ownerRole.id });
+          
+          // Recargar el usuario para obtener el Role actualizado
+          await guestUser.reload({
+            include: [{ model: Role }]
+          });
+          
+          updatedUser = guestUser;
+          console.log(`[StripeService] User ${guestUser.id} (${guestUser.email}) converted from guest to owner after booking payment`);
+        } else if (ownerRole) {
+          // Si ya es owner o tiene otro rol, retornar de todas formas
+          updatedUser = guestUser;
+          console.log(`[StripeService] User ${guestUser.id} (${guestUser.email}) already has role: ${currentRole}`);
+        }
+      }
+    } catch (error) {
+      console.error('[StripeService] Error in guest to owner conversion:', error);
+      // No fallar la operación de booking por este error
+    }
+
+    console.log(`[StripeService] Returning updatedUser:`, updatedUser ? { id: updatedUser.id, email: updatedUser.email, role: (updatedUser as any).Role?.name } : 'NULL');
+
+    return { booking, user: updatedUser };
   }
 
   /**
@@ -246,6 +330,74 @@ export class StripeService {
     });
 
     return paymentIntent;
+  }
+
+  /**
+   * Crear Payment Intent para swap fee
+   */
+  async createSwapFeePaymentIntent(
+    userId: number,
+    swapId: number,
+    requesterWeekId: number,
+    amount: number = 10.00, // €10 swap fee
+    email?: string
+  ) {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Get or create customer
+    const customerId = await this.getOrCreateCustomer(userId, email || user.email);
+
+    // Create payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      customer: customerId,
+      amount: Math.round(amount * 100), // Convert to cents (€10 = 1000 cents)
+      currency: 'eur',
+      description: `Swap fee for week ${requesterWeekId}`,
+      metadata: {
+        type: 'swap_fee',
+        swap_id: swapId.toString(),
+        week_id: requesterWeekId.toString(),
+        user_id: userId.toString()
+      },
+      automatic_payment_methods: {
+        enabled: true
+      }
+    });
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount: amount,
+      currency: 'EUR',
+      status: paymentIntent.status
+    };
+  }
+
+  /**
+   * Confirmar swap fee payment
+   */
+  async confirmSwapFeePayment(paymentIntentId: string, swapId: number) {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`Payment not succeeded. Status: ${paymentIntent.status}`);
+    }
+
+    if (paymentIntent.metadata.swap_id !== swapId.toString()) {
+      throw new Error('Payment intent does not match swap ID');
+    }
+
+    return {
+      success: true,
+      paymentIntentId: paymentIntent.id,
+      status: paymentIntent.status,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency.toUpperCase()
+    };
   }
 
   /**

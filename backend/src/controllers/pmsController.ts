@@ -24,6 +24,14 @@ class PMSController {
         return;
       }
 
+      if (!process.env.PMS_API_KEY) {
+        res.status(503).json({
+          success: false,
+          error: 'PMS service not configured. Please set PMS_API_KEY environment variable'
+        });
+        return;
+      }
+
       const availability = await this.pmsService.getAvailability(propertyId, startDate, endDate);
 
       res.json({

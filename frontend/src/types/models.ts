@@ -4,6 +4,8 @@ export interface User {
   email: string;
   role: 'owner' | 'guest' | 'staff' | 'admin';
   status?: 'pending' | 'approved' | 'rejected';
+  property_id?: number | null;
+  property?: Property | null;
   firstName?: string;
   lastName?: string;
   phone?: string;
@@ -29,21 +31,29 @@ export interface Week {
   property_id: number;
   start_date: string;
   end_date: string;
-  color: 'red' | 'blue' | 'white';
+  accommodation_type: string; // e.g., 'sencilla', 'duplex', 'suite'
   status: 'available' | 'confirmed' | 'converted' | 'used';
   Property?: Property;
 }
 
 // Swap types
 export interface SwapRequest {
-  id: number;
-  requester_week_id: number;
+  id?: number;
+  requester_id?: number;
+  requester_week_id?: number;
   responder_week_id?: number;
-  status: 'pending' | 'matched' | 'completed' | 'cancelled';
-  swap_fee: number;
-  created_at: string;
+  responder_id?: number;
+  status?: 'pending' | 'matched' | 'awaiting_payment' | 'completed' | 'cancelled';
+  staff_approval_status?: 'pending_review' | 'approved' | 'rejected';
+  responder_acceptance?: 'pending' | 'accepted' | 'rejected';
+  swap_fee?: number;
+  payment_intent_id?: string;
+  payment_status?: 'pending' | 'succeeded' | 'failed';
+  created_at?: string;
   RequesterWeek?: Week;
   ResponderWeek?: Week;
+  Requester?: User;
+  Responder?: User;
 }
 
 // Night Credit types

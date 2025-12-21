@@ -37,9 +37,10 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: false,
       },
-      color: {
-        type: Sequelize.ENUM('red', 'blue', 'white'),
+      accommodation_type: {
+        type: Sequelize.STRING,
         allowNull: false,
+        comment: 'Type of accommodation (sencilla, duplex, suite, etc.) - inherited from room.type'
       },
       status: {
         type: Sequelize.ENUM('available', 'confirmed', 'converted', 'used'),

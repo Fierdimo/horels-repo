@@ -2,7 +2,7 @@
 
 **Project Name:** Secret World Hotels (Timeshare & Multiproperty Management)  
 **Version:** MVP  
-**Last Updated:** December 19, 2025 - Week Color & Marketplace Integration Complete
+**Last Updated:** December 21, 2025 - Accommodation Type System Implemented
 
 ---
 
@@ -82,89 +82,66 @@ HotelService
   - Current status badge
   - 3 action buttons
 
-**Week Color Definitions:**
+**Week Accommodation Type:**
 
-The week color is a **fundamental characteristic** that determines the commercial value and seasonal timing of each week. Every timeshare week must have exactly one color, which is **inherited from the room's color assignment**.
+Each timeshare week is tied to a specific **accommodation type** (room type). Owners can only swap weeks with other weeks of the **same accommodation type**.
 
-| Color | Nights | Value | Typical Season | Use Cases |
-|-------|--------|-------|---|---|
-| 🔴 **RED** | 6 nights | Highest value | Peak/High season (holidays, summer) | Premium dates, maximum flexibility |
-| 🔵 **BLUE** | 5 nights | Medium value | Shoulder season (spring, fall) | Good balance of value & availability |
-| ⚪ **WHITE** | 4 nights | Lower value | Low season (winter low, slow periods) | Budget-friendly, less desirable dates |
+| Accommodation Type | Example | Swap Rule |
+|---|---|---|
+| **Sencilla** | Single room, basic amenities | Only swap with other "Sencilla" weeks |
+| **Duplex** | 2-level unit, 2 bedrooms | Only swap with other "Duplex" weeks |
+| **Suite** | Premium unit, all amenities | Only swap with other "Suite" weeks |
+| *Custom types* | Owner-defined room types | Only swap with same custom type |
 
 **Key Rules:**
-- ✅ **Color assigned by staff:** Staff defines room color when setting up the property
-- ✅ **Inherited by weeks:** When a marketplace booking is approved, a week is created with the room's color
-- ✅ **Same-color swaps only:** Red↔Red, Blue↔Blue, White↔White (owners can only swap with same-color weeks)
-- ✅ **Immutable:** Color cannot change after booking approval / week creation
+- ✅ **Accommodation type inherited from room:** When a marketplace booking is approved, a week is created with the room's type
+- ✅ **Same-type swaps only:** Sencilla↔Sencilla, Duplex↔Duplex, Suite↔Suite
+- ✅ **Set by room definition:** Staff defines room.type when creating/editing rooms (no separate color assignment needed)
+- ✅ **Immutable:** Type cannot change after booking approval / week creation
 - ✅ **Database structure:** 
-  - Rooms table: has `color` column (Red/Blue/White)
-  - Weeks table: inherits color from room when created
+  - Rooms table: has `type` column (sencilla, duplex, suite, etc.)
+  - Weeks table: inherits `accommodation_type` from room when created
 
 **Implementation Details:**
 
-**Backend API (NEW):**
+**Workflow (No API needed for color assignment):**
 ```
-PUT    /api/properties/:propertyId/rooms/:roomId/color  → Staff assigns color to room
-POST   /api/public/properties/:propertyId/rooms/:roomId/book → Guest books room in marketplace
-[AUTO] Create Week with room's color                     → When booking approved
-```
-
-**Color Assignment Flow:**
-```
-1. Staff creates/configures Property
+1. Staff creates Property
    ↓
-2. Staff creates Rooms for the property
+2. Staff creates Rooms with TYPE defined (e.g., "sencilla", "duplex", "suite")
    ↓
-3. Staff assigns COLOR to each room (Red/Blue/White)
+3. Room is published to marketplace with its type
    ↓
-4. Room is published to marketplace with its color
+4. Guest books room via marketplace → Creates BOOKING
    ↓
-5. Guest books room via marketplace → Creates BOOKING
+5. Staff approves booking → Creates WEEK with room's accommodation_type
    ↓
-6. Staff approves booking → Creates WEEK with room's color
-   ↓
-7. Guest (now owner) can use week for:
-   - Swaps (only with same-color weeks)
+6. Guest (now owner) can use week for:
+   - Swaps (only with same-type weeks)
    - Convert to Night Credits
    - Future bookings
 ```
 
-**Color Selection Guidelines for Staff:**
-| Season/Period | Room Type | Suggested Color | Rationale |
-|---|---|---|---|
-| Holiday periods (Dec, Jul-Aug, Easter) | Any | RED | High demand = premium = 6 nights |
-| Spring/Fall (Apr-May, Sep-Oct) | Standard | BLUE | Good value = 5 nights |
-| Low season (Jan-Feb, low-demand weeks) | Standard | WHITE | Low demand = budget = 4 nights |
-| Premium suite/penthouse | Any | RED | Higher tier = premium value |
-| Basic/Budget room | Any | WHITE | Lower tier = less valuable |
-
-**Current Data Flow:**
+**Example Scenario:**
 ```
-Property
-├── Staff creates Rooms
-│   ├── Room 1: "Suite A" → Assign Color RED
-│   ├── Room 2: "Standard" → Assign Color BLUE
-│   └── Room 3: "Budget" → Assign Color WHITE
-│
-Marketplace
-├── Guest books Suite A (Dec 15-22)
-│   └── Creates Booking (pending)
-│
-Staff Dashboard
-├── Approve Booking
-│   └── Automatically creates Week:
-│       - owner: guest (new user)
-│       - property: Suite's property
-│       - dates: Dec 15-22
-│       - color: RED (from Suite A)
-│       - status: confirmed
-│
-Owner Portal
-├── Sees Week: "Dec 15-22, RED (6 nights equivalent)"
-├── Can create Swap requests: only with other RED weeks
-├── Can convert to Credits: RED = 6 night credits
-└── Can view in Swaps feature with color badge
+Property "Beachfront Resort" has:
+├── Room 1: "Sencilla Oceanview" (type: "sencilla")
+├── Room 2: "Duplex Suite" (type: "duplex")
+└── Room 3: "Penthouse" (type: "suite")
+
+Guest books "Sencilla Oceanview" for Jan 1-8
+└─→ Booking created (pending approval)
+└─→ Staff approves
+    └─→ Week created: 
+        - owner: guest
+        - accommodation_type: "sencilla"
+        - dates: Jan 1-8
+
+Later, another guest books different "Sencilla" room
+└─→ Week created with accommodation_type: "sencilla"
+
+Owner 1 can SWAP both weeks (same type: sencilla)
+Owner 1 CANNOT SWAP with Duplex or Suite weeks
 ```
 
 ---
@@ -1185,8 +1162,7 @@ backend/
 - Booking approval workflow
 - Revenue/usage reports
 - Activity logs dashboard
-- **Staff assigns colors to rooms** ← (API ready, need staff UI form to assign color when editing room)
-- **Auto-create weeks on booking approval** ← (API ready, implements creation with room color)
+- **Auto-create weeks on booking approval** ← Implementation complete: creates weeks with room's accommodation_type
 
 ---
 
@@ -1205,8 +1181,6 @@ backend/
 - Advanced analytics
 - Bulk operations
 - User approval workflows
-- **Staff room management UI** - Form to assign room colors (Red/Blue/White) when creating/editing rooms
-- **Bulk room color assignment** - Upload CSV to set colors for multiple rooms at once
 
 ---
 
