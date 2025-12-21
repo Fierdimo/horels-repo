@@ -387,7 +387,11 @@ class ConversionService {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const PlatformSettingLocal = require('../models/PlatformSetting').default;
         if (PlatformSettingLocal) {
-          const row = await PlatformSettingLocal.findOne({ where: { key: 'swap_fee' } });
+          // Try both 'swap_fee' and 'swapFee' keys
+          let row = await PlatformSettingLocal.findOne({ where: { key: 'swap_fee' } });
+          if (!row) {
+            row = await PlatformSettingLocal.findOne({ where: { key: 'swapFee' } });
+          }
           if (row && row.value) {
             const parsed = Number(row.value);
             if (!Number.isNaN(parsed)) return parsed;
