@@ -122,10 +122,12 @@ export const timeshareApi = {
    * Accept a swap request (as responder)
    * POST /owner/swaps/:swapId/accept
    */
-  acceptSwap: async (swapId: number): Promise<SwapRequest> => {
+  acceptSwap: async (swapId: number | string, responderWeekId?: number | string): Promise<SwapRequest> => {
     try {
+      const body = responderWeekId ? { responderWeekId } : {};
       const { data } = await apiClient.post<ApiResponse<SwapRequest>>(
-        `/owner/swaps/${swapId}/accept`
+        `/owner/swaps/${swapId}/accept`,
+        body
       );
       return data.data!;
     } catch (error) {

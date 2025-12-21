@@ -590,7 +590,8 @@ export class SwapService {
    */
   static async acceptSwap(
     swapId: number,
-    ownerId: number
+    ownerId: number,
+    responderWeekId?: number | string
   ): Promise<any> {
     try {
       const swap = await SwapRequest.findByPk(swapId, {
@@ -604,21 +605,77 @@ export class SwapService {
         throw new Error('Swap request not found');
       }
 
-      // Verify this owner owns the responder week
-      const responderWeek = (swap as any).ResponderWeek;
-      if (!responderWeek || responderWeek.owner_id !== ownerId) {
-        throw new Error('You do not own the responder week');
+      // Prepare update data
+      const updateData: any = {
+        responder_acceptance: 'accepted',
+        responder_acceptance_date: new Date(),
+        status: 'matched'
+      };
+
+      // If responderWeekId is provided, handle it
+      if (responderWeekId) {
+        console.log(`[SwapService.acceptSwap] Setting responder to ${responderWeekId}`);
+        
+        // Handle both booking IDs (strings like 'booking_14') and week IDs (numbers)
+        const isBookingId = String(responderWeekId).startsWith('booking_');
+        
+        if (isBookingId) {
+          // For booking IDs: extract the numeric ID and mark the source
+          const bookingIdMatch = String(responderWeekId).match(/booking_(\d+)/);
+          if (!bookingIdMatch) {
+            throw new Error('Invalid booking ID format');
+          }
+          
+          const bookingId = Number(bookingIdMatch[1]);
+          
+          // Verify the booking exists and belongs to this user
+          const booking = await Booking.findOne({
+            where: {
+              id: bookingId,
+              guest_email: await User.findByPk(ownerId).then(u => u?.email)
+            }
+          });
+          
+          if (!booking) {
+            throw new Error('Booking not found or does not belong to you');
+          }
+          
+          // Set both the source type and ID
+          updateData.responder_source_type = 'booking';
+          updateData.responder_source_id = bookingId;
+          // For responder_week_id, we can store NULL or the booking ID
+          // Let's store NULL to indicate it's not a week
+          updateData.responder_week_id = null;
+        } else {
+          // For week IDs: verify ownership and store normally
+          const weekId = Number(responderWeekId);
+          const responderWeek = await Week.findByPk(weekId);
+          
+          if (!responderWeek) {
+            throw new Error('Responder week not found');
+          }
+          
+          if (responderWeek.owner_id !== ownerId) {
+            throw new Error('You do not own the responder week');
+          }
+          
+          updateData.responder_week_id = weekId;
+          updateData.responder_source_type = 'week';
+          updateData.responder_source_id = null;
+        }
+      } else {
+        // If no responderWeekId provided, use existing ResponderWeek
+        const responderWeek = (swap as any).ResponderWeek;
+        if (!responderWeek || responderWeek.owner_id !== ownerId) {
+          throw new Error('You do not own the responder week');
+        }
       }
 
-      if (swap.status !== 'awaiting_payment' && swap.status !== 'matched') {
+      if (swap.status !== 'pending' && swap.status !== 'awaiting_payment' && swap.status !== 'matched') {
         throw new Error('Swap cannot be accepted in its current status');
       }
 
-      const updated = await swap.update({
-        responder_acceptance: 'accepted',
-        responder_acceptance_date: new Date(),
-        status: 'awaiting_payment'
-      });
+      const updated = await swap.update(updateData);
 
       return updated;
 
@@ -751,34 +808,61 @@ export class SwapService {
 
       console.log(`[SwapService] Getting available swaps for user ${userId} (${user.email})`);
 
+      // Get user's weeks (timeshare weeks they own)
+      const userWeeks = await Week.findAll({
+        where: { owner_id: userId, status: 'available' },
+        attributes: ['id', 'accommodation_type', 'start_date', 'end_date', 'status']
+      });
+
       // Get user's bookings (from marketplace) using email
       const userBookings = await Booking.findAll({
         where: { guest_email: user.email },
         attributes: ['id', 'room_type', 'check_in', 'check_out', 'status']
       });
 
-      console.log(`[SwapService] User has ${userBookings.length} bookings:`, 
-        userBookings.map(b => ({ 
-          type: b.room_type, 
-          checkIn: b.check_in, 
-          checkOut: b.check_out,
-          duration: Math.ceil((new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / (1000 * 60 * 60 * 24)),
-          status: b.status
-        }))
+      console.log(`[SwapService] User has ${userWeeks.length} weeks and ${userBookings.length} bookings:`,
+        {
+          weeks: userWeeks.map(w => ({
+            type: w.accommodation_type,
+            start: w.start_date,
+            end: w.end_date,
+            duration: Math.ceil((new Date(w.end_date).getTime() - new Date(w.start_date).getTime()) / (1000 * 60 * 60 * 24)),
+            status: w.status
+          })),
+          bookings: userBookings.map(b => ({
+            type: b.room_type,
+            checkIn: b.check_in,
+            checkOut: b.check_out,
+            duration: Math.ceil((new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / (1000 * 60 * 60 * 24)),
+            status: b.status
+          }))
+        }
       );
 
-      if (userBookings.length === 0) {
-        console.log(`[SwapService] No bookings found for user, returning empty`);
+      // If user has neither weeks nor bookings, they can't participate in swaps
+      if (userWeeks.length === 0 && userBookings.length === 0) {
+        console.log(`[SwapService] No weeks or bookings found for user, returning empty`);
         return [];
       }
 
-      // Extract accommodation types and durations from user's bookings
-      const userAccommodationTypes = [...new Set(userBookings.map(b => b.room_type))];
-      const userDurations = userBookings.map(b => {
+      // Extract accommodation types and durations from BOTH user's weeks and bookings
+      const weekAccommodationTypes = [...new Set(userWeeks.map(w => w.accommodation_type))];
+      const bookingAccommodationTypes = [...new Set(userBookings.map(b => b.room_type))];
+      const userAccommodationTypes = [...new Set([...weekAccommodationTypes, ...bookingAccommodationTypes])];
+      
+      const weekDurations = userWeeks.map(w => {
+        const start = new Date(w.start_date);
+        const end = new Date(w.end_date);
+        return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      });
+
+      const bookingDurations = userBookings.map(b => {
         const checkIn = new Date(b.check_in);
         const checkOut = new Date(b.check_out);
         return Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
       });
+
+      const userDurations = [...new Set([...weekDurations, ...bookingDurations])];
 
       console.log(`[SwapService] User accommodation types:`, userAccommodationTypes);
       console.log(`[SwapService] User booking durations:`, userDurations);

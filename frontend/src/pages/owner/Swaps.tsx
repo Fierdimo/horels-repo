@@ -9,6 +9,7 @@ import { SwapPaymentModal } from '@/components/owner/SwapPaymentModal';
 import { useSwaps } from '@/hooks/useSwaps';
 import { useWeeks } from '@/hooks/useWeeks';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import type { SwapRequest } from '@/types/models';
 import type { CreateSwapRequest } from '@/types/api';
 
@@ -19,6 +20,7 @@ export default function Swaps() {
   const { user } = useAuth();
   const { swaps, isLoading, error, createSwap, acceptSwap, isCreating, isAccepting, availableSwaps } = useSwaps();
   const { weeks } = useWeeks();
+  const { settings } = usePlatformSettings();
   
   // Tab navigation
   const [activeTab, setActiveTab] = useState<TabType>('browse');
@@ -32,7 +34,7 @@ export default function Swaps() {
 
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [selectedResponderWeek, setSelectedResponderWeek] = useState<number | null>(null);
+  const [selectedResponderWeek, setSelectedResponderWeek] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Only show loading if both are loading for the first time
@@ -104,9 +106,15 @@ export default function Swaps() {
   };
 
   const handleAcceptSwap = (swap: SwapRequest) => {
+    console.log('[handleAcceptSwap] swap:', swap);
+    console.log('[handleAcceptSwap] swap.id:', swap.id);
+    console.log('[handleAcceptSwap] selectedResponderWeek:', selectedResponderWeek);
+    
     if (selectedResponderWeek && swap.id) {
+      console.log('[handleAcceptSwap] Sending: swapId=', swap.id, 'responderWeekId=', selectedResponderWeek);
+      
       acceptSwap(
-        { swapId: swap.id, data: { responderWeekId: selectedResponderWeek } },
+        { swapId: swap.id, responderWeekId: selectedResponderWeek },
         {
           onSuccess: () => {
             setShowDetails(false);
@@ -115,6 +123,8 @@ export default function Swaps() {
           }
         } as any
       );
+    } else {
+      console.log('[handleAcceptSwap] Missing selectedResponderWeek or swap.id');
     }
   };
 
@@ -174,6 +184,31 @@ export default function Swaps() {
       default:
         return '🏘️';
     }
+  };
+
+  // Get the accommodation type and duration offered in the swap
+  const getSwapOfferedDetails = (swap: SwapRequest | null) => {
+    if (!swap) return { type: null, duration: null };
+
+    if (swap.RequesterWeek) {
+      const start = new Date(swap.RequesterWeek.start_date);
+      const end = new Date(swap.RequesterWeek.end_date);
+      const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        type: swap.RequesterWeek.accommodation_type,
+        duration
+      };
+    } else if (swap.RequesterBookings && swap.RequesterBookings.length > 0) {
+      const checkIn = new Date(swap.RequesterBookings[0].check_in);
+      const checkOut = new Date(swap.RequesterBookings[0].check_out);
+      const duration = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        type: swap.RequesterBookings[0].room_type,
+        duration
+      };
+    }
+
+    return { type: null, duration: null };
   };
 
   return (
@@ -271,6 +306,11 @@ export default function Swaps() {
         {/* Swap Details Modal */}
         {showDetails && selectedSwap && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            {(() => {
+              console.log('[Modal] selectedSwap:', selectedSwap);
+              console.log('[Modal] selectedSwap.id:', selectedSwap.id);
+              return null;
+            })()}
             <div className="bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-gray-100 px-6 py-4 border-b flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-900">
@@ -298,73 +338,142 @@ export default function Swaps() {
 
                 {/* What They Offer */}
                 <div>
-                  <p className="text-xs text-gray-600 mb-2">What they offer:</p>
+                  <p className="text-xs text-gray-600 mb-2">🏨 What they offer:</p>
                   <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="font-semibold text-gray-900">{selectedSwap.RequesterWeek?.Property?.name}</p>
-                    <p className="text-sm text-gray-700 mt-1">
-                      {new Date(selectedSwap.RequesterWeek?.start_date || '').toLocaleDateString()} -{' '}
-                      {new Date(selectedSwap.RequesterWeek?.end_date || '').toLocaleDateString()}
-                    </p>
+                    {/* Get data from either RequesterWeek or RequesterBookings */}
+                    {selectedSwap.RequesterWeek ? (
+                      <>
+                        <p className="font-semibold text-gray-900">{selectedSwap.RequesterWeek.Property?.name}</p>
+                        {selectedSwap.RequesterWeek.Property?.city && selectedSwap.RequesterWeek.Property?.country && (
+                          <p className="text-xs text-gray-700 mt-1">📍 {selectedSwap.RequesterWeek.Property.city}, {selectedSwap.RequesterWeek.Property.country}</p>
+                        )}
+                        <p className="text-sm text-gray-700 mt-2">
+                          📅 {new Date(selectedSwap.RequesterWeek.start_date).toLocaleDateString()} -{' '}
+                          {new Date(selectedSwap.RequesterWeek.end_date).toLocaleDateString()}
+                        </p>
+                      </>
+                    ) : selectedSwap.RequesterBookings && selectedSwap.RequesterBookings.length > 0 ? (
+                      <>
+                        <p className="font-semibold text-gray-900">{selectedSwap.RequesterBookings[0].Property?.name}</p>
+                        {selectedSwap.RequesterBookings[0].Property?.city && selectedSwap.RequesterBookings[0].Property?.country && (
+                          <p className="text-xs text-gray-700 mt-1">📍 {selectedSwap.RequesterBookings[0].Property.city}, {selectedSwap.RequesterBookings[0].Property.country}</p>
+                        )}
+                        <p className="text-sm text-gray-700 mt-2">
+                          📅 {new Date(selectedSwap.RequesterBookings[0].check_in).toLocaleDateString()} -{' '}
+                          {new Date(selectedSwap.RequesterBookings[0].check_out).toLocaleDateString()}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-gray-600">No booking information available</p>
+                    )}
                   </div>
                 </div>
 
                 {/* Fee */}
                 <div>
-                  <p className="text-xs text-gray-600 mb-2">Platform Fee:</p>
-                  <p className="text-2xl font-bold text-yellow-700">€{selectedSwap.swap_fee}</p>
-                  <p className="text-xs text-gray-600 mt-1">Charged to both owners when swap is completed</p>
+                  <p className="text-xs text-gray-600 mb-2">💰 Platform Fee:</p>
+                  <p className="text-2xl font-bold text-yellow-700">€{settings.swapFee ? Number(settings.swapFee).toFixed(2) : '—'}</p>
+                  <p className="text-xs text-gray-600 mt-1">Charged when swap is completed</p>
                 </div>
 
                 {/* Accept Swap - Only show if user is NOT the requester */}
                 {selectedSwap.status === 'pending' && selectedSwap.requester_id !== user?.id && (
                   <div className="border-t pt-4">
                     <p className="text-sm font-semibold text-gray-900 mb-3">
-                      Select which of your weeks to offer in exchange:
+                      ✓ Select your week to offer in exchange:
                     </p>
                     <p className="text-xs text-gray-600 mb-3">
                       💡 You can exchange weeks of different lengths. Both parties must agree to the terms.
                     </p>
-                    <select
-                      value={selectedResponderWeek || ''}
-                      onChange={(e) =>
-                        setSelectedResponderWeek(
-                          e.target.value ? Number(e.target.value) : null
-                        )
+                    {(() => {
+                      const offeredDetails = getSwapOfferedDetails(selectedSwap);
+                      console.log('[Swaps Modal] Offered details:', offeredDetails);
+                      console.log('[Swaps Modal] Available weeks:', weeks.map(w => ({
+                        id: w.id,
+                        type: w.accommodation_type,
+                        status: w.status,
+                        start: w.start_date,
+                        end: w.end_date,
+                        duration: Math.ceil((new Date(w.end_date).getTime() - new Date(w.start_date).getTime()) / (1000 * 60 * 60 * 24))
+                      })));
+                      
+                      const compatibleWeeks = weeks.filter((w) => {
+                        // Must be available or confirmed status
+                        if (w.status !== 'available' && w.status !== 'confirmed') {
+                          console.log(`[Swaps Modal] Week ${w.id} filtered out: status=${w.status}`);
+                          return false;
+                        }
+                        
+                        // If swap has type info, must match
+                        if (offeredDetails.type) {
+                          const normalizedOfferedType = (offeredDetails.type || '').toLowerCase();
+                          const normalizedUserType = (w.accommodation_type || '').toLowerCase();
+                          if (normalizedUserType !== normalizedOfferedType) {
+                            console.log(`[Swaps Modal] Week ${w.id} filtered out: type mismatch ${normalizedUserType} !== ${normalizedOfferedType}`);
+                            return false;
+                          }
+                        }
+                        
+                        // If swap has duration info, must match
+                        if (offeredDetails.duration) {
+                          const userDuration = Math.ceil(
+                            (new Date(w.end_date).getTime() - new Date(w.start_date).getTime()) / (1000 * 60 * 60 * 24)
+                          );
+                          if (userDuration !== offeredDetails.duration) {
+                            console.log(`[Swaps Modal] Week ${w.id} filtered out: duration mismatch ${userDuration} !== ${offeredDetails.duration}`);
+                            return false;
+                          }
+                        }
+                        
+                        console.log(`[Swaps Modal] Week ${w.id} MATCHES!`);
+                        return true;
+                      });
+
+                      console.log('[Swaps Modal] Compatible weeks:', compatibleWeeks.length);
+
+                      if (compatibleWeeks.length === 0) {
+                        return (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                            <p className="text-sm text-yellow-800">
+                              ⚠️ You don't have any {offeredDetails.type} weeks of {offeredDetails.duration} nights to offer.
+                            </p>
+                          </div>
+                        );
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                    >
-                      <option value="">{t('common.select')}</option>
-                      {weeks
-                        .filter(
-                          (w) =>
-                            w.status === 'available' && 
-                            w.Property?.id === selectedSwap.RequesterWeek?.Property?.id
-                        )
-                        .map((week) => {
-                          const nights = Math.ceil(
-                            (new Date(week.end_date).getTime() - new Date(week.start_date).getTime()) / (1000 * 60 * 60 * 24)
-                          );
-                          const requesterNights = Math.ceil(
-                            (new Date(selectedSwap.RequesterWeek?.end_date || '').getTime() - new Date(selectedSwap.RequesterWeek?.start_date || '').getTime()) / (1000 * 60 * 60 * 24)
-                          );
-                          return (
-                            <option key={week.id} value={week.id}>
-                              {new Date(week.start_date).toLocaleDateString()} -{' '}
-                              {new Date(week.end_date).toLocaleDateString()}{' '}
-                              ({nights} nights) {nights !== requesterNights && `vs ${requesterNights} nights offered`}
-                            </option>
-                          );
-                        })}
-                    </select>
-                    <button
-                      onClick={() => handleAcceptSwap(selectedSwap)}
-                      disabled={!selectedResponderWeek || isAccepting}
-                      className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
-                    >
-                      {isAccepting
-                        ? t('common.processing')
-                        : t('owner.swaps.confirmAccept')}
-                    </button>
+
+                      return (
+                        <>
+                          <select
+                            value={selectedResponderWeek || ''}
+                            onChange={(e) => {
+                              const val = e.target.value || null;
+                              console.log('[Swaps Modal] Select changed to:', val);
+                              setSelectedResponderWeek(val);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                          >
+                            <option value="">{t('common.select')}</option>
+                            {compatibleWeeks.map((week) => {
+                              const nights = Math.ceil(
+                                (new Date(week.end_date).getTime() - new Date(week.start_date).getTime()) / (1000 * 60 * 60 * 24)
+                              );
+                              return (
+                                <option key={week.id} value={String(week.id)}>
+                                  {week.Property?.name} - {new Date(week.start_date).toLocaleDateString()} to {new Date(week.end_date).toLocaleDateString()} ({nights}n)
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <button
+                            onClick={() => handleAcceptSwap(selectedSwap)}
+                            disabled={!selectedResponderWeek || isAccepting}
+                            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-semibold transition"
+                          >
+                            {isAccepting ? `${t('common.loading')}...` : `✓ ${t('owner.swaps.confirmAccept')}`}
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 

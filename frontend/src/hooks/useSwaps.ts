@@ -51,7 +51,8 @@ export function useSwaps() {
 
   // Accept a swap as responder
   const acceptSwapMutation = useMutation({
-    mutationFn: (swapId: number) => timeshareApi.acceptSwap(swapId),
+    mutationFn: ({ swapId, responderWeekId }: { swapId: number | string; responderWeekId?: number | string }) => 
+      timeshareApi.acceptSwap(swapId, responderWeekId),
     onSuccess: () => {
       toast.success('Swap accepted successfully');
       queryClient.invalidateQueries({ queryKey: ['swaps'] });

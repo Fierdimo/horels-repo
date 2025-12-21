@@ -194,9 +194,12 @@ export class SwapController {
   static async acceptSwap(req: any, res: Response) {
     try {
       const { swapId } = req.params;
+      const { responderWeekId } = req.body;
       const userId = req.user.id;
 
-      const swap = await SwapService.acceptSwap(Number(swapId), userId);
+      console.log(`[SwapController] acceptSwap: swapId=${swapId}, responderWeekId=${responderWeekId}, userId=${userId}`);
+
+      const swap = await SwapService.acceptSwap(Number(swapId), userId, responderWeekId);
 
       res.json({
         success: true,
