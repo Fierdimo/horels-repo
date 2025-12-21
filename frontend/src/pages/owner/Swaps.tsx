@@ -78,8 +78,12 @@ export default function Swaps() {
     );
   }
 
-  // Get user's owned week types (for display purposes)
-  const userWeekAccommodationTypes = [...new Set(weeks.map(w => w.accommodation_type))];
+  // Get user's owned week types (from weeks AND marketplace bookings)
+  // The backend filters based on actual booking types, so if availableSwaps exist, 
+  // the user has compatible bookings
+  const userWeekAccommodationTypes = [
+    ...new Set(weeks.map(w => w.accommodation_type))
+  ];
 
   // availableSwaps come directly from the hook (already filtered by backend)
 

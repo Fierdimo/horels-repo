@@ -147,6 +147,11 @@ export class PMSSyncWorker {
       // Ejecutar sincronizaciones según el tipo
       const syncResults: any = {};
 
+      // Sincronizar información de la propiedad (location, city, country, etc)
+      if (syncType === 'full') {
+        syncResults.propertyInfo = await this.syncPropertyInfo(adapter, property);
+      }
+
       if (syncType === 'full' || syncType === 'availability') {
         syncResults.availability = await this.syncAvailability(adapter, property);
       }
@@ -198,6 +203,59 @@ export class PMSSyncWorker {
       }
 
       throw error;
+    }
+  }
+
+  /**
+   * Sincronizar información de la propiedad (location, city, country, etc)
+   */
+  private async syncPropertyInfo(adapter: any, property: Property): Promise<any> {
+    try {
+      // Obtener información de la propiedad del PMS
+      const propertyInfo = await adapter.getPropertyInfo();
+
+      if (!propertyInfo) {
+        return {
+          success: false,
+          error: 'No property info returned from PMS'
+        };
+      }
+
+      // Extraer datos de ubicación del PMS
+      const updateData: any = {};
+
+      if (propertyInfo.city) {
+        updateData.city = propertyInfo.city;
+      }
+
+      if (propertyInfo.country) {
+        updateData.country = propertyInfo.country;
+      }
+
+      if (propertyInfo.location) {
+        updateData.location = propertyInfo.location;
+      } else if (propertyInfo.city && propertyInfo.country) {
+        // Si no hay location pero tenemos city y country, crear una
+        updateData.location = `${propertyInfo.city}, ${propertyInfo.country}`;
+      }
+
+      // Actualizar solo los campos que no están vacíos
+      if (Object.keys(updateData).length > 0) {
+        await property.update(updateData);
+        console.log(`[PMSSyncWorker] Updated property ${property.id} location info:`, updateData);
+      }
+
+      return {
+        success: true,
+        updated: Object.keys(updateData).length > 0,
+        fields: updateData
+      };
+    } catch (error: any) {
+      console.error(`Error syncing property info for property ${property.id}:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 

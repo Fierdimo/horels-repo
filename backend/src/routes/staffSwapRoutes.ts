@@ -45,14 +45,14 @@ router.get(
             association: 'RequesterWeek',
             include: [
               { association: 'Owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-              { association: 'Property', attributes: ['id', 'name'] }
+              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
             ]
           },
           {
             association: 'ResponderWeek',
             include: [
               { association: 'Owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-              { association: 'Property', attributes: ['id', 'name'] }
+              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
             ]
           },
           { association: 'Requester', attributes: ['id', 'firstName', 'lastName', 'email'] }
@@ -111,14 +111,14 @@ router.get(
             association: 'RequesterWeek',
             include: [
               { association: 'Owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-              { association: 'Property', attributes: ['id', 'name'] }
+              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
             ]
           },
           {
             association: 'ResponderWeek',
             include: [
               { association: 'Owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-              { association: 'Property', attributes: ['id', 'name'] }
+              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
             ]
           },
           { association: 'Requester', attributes: ['id', 'firstName', 'lastName', 'email'] }
@@ -163,14 +163,14 @@ router.get(
             association: 'RequesterWeek',
             include: [
               { association: 'Owner', attributes: ['id', 'full_name', 'email'] },
-              { association: 'Property', attributes: ['id', 'name', 'location'] }
+              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
             ]
           },
           {
             association: 'ResponderWeek',
             include: [
               { association: 'Owner', attributes: ['id', 'full_name', 'email'] },
-              { association: 'Property', attributes: ['id', 'name', 'location'] }
+              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
             ]
           },
           { association: 'Requester', attributes: ['id', 'full_name', 'email'] }

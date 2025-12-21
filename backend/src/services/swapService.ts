@@ -411,7 +411,7 @@ export class SwapService {
               {
                 model: Property,
                 as: 'Property',
-                attributes: ['id', 'name', 'location']
+                attributes: ['id', 'name', 'location', 'city', 'country']
               }
             ]
           },
@@ -428,7 +428,7 @@ export class SwapService {
               {
                 model: Property,
                 as: 'Property',
-                attributes: ['id', 'name', 'location']
+                attributes: ['id', 'name', 'location', 'city', 'country']
               }
             ]
           },
@@ -452,7 +452,7 @@ export class SwapService {
               include: [
                 {
                   association: 'Property',
-                  attributes: ['id', 'name', 'location']
+                  attributes: ['id', 'name', 'location', 'city', 'country']
                 }
               ]
             });
@@ -478,7 +478,7 @@ export class SwapService {
               include: [
                 {
                   association: 'Property',
-                  attributes: ['id', 'name', 'location']
+                  attributes: ['id', 'name', 'location', 'city', 'country']
                 }
               ]
             });
@@ -741,35 +741,61 @@ export class SwapService {
    */
   static async getAvailableSwapsForUser(userId: number): Promise<any[]> {
     try {
-      // Get user's week accommodation types
-      const userWeeks = await Week.findAll({
-        where: { owner_id: userId }
+      // Get user info
+      const user = await User.findByPk(userId, {
+        attributes: ['id', 'email']
       });
 
-      const userAccommodationTypes = [...new Set(userWeeks.map(w => w.accommodation_type))];
-
-      if (userAccommodationTypes.length === 0) {
+      if (!user) {
         return [];
       }
 
-      // Find pending swaps where:
-      // 1. User is NOT the requester
-      // 2. Status is 'pending' (no one has accepted yet)
-      // 3. Requester's accommodation type matches one of user's accommodation types
+      console.log(`[SwapService] Getting available swaps for user ${userId} (${user.email})`);
+
+      // Get user's bookings (from marketplace) using email
+      const userBookings = await Booking.findAll({
+        where: { guest_email: user.email },
+        attributes: ['id', 'room_type', 'check_in', 'check_out', 'status']
+      });
+
+      console.log(`[SwapService] User has ${userBookings.length} bookings:`, 
+        userBookings.map(b => ({ 
+          type: b.room_type, 
+          checkIn: b.check_in, 
+          checkOut: b.check_out,
+          duration: Math.ceil((new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / (1000 * 60 * 60 * 24)),
+          status: b.status
+        }))
+      );
+
+      if (userBookings.length === 0) {
+        console.log(`[SwapService] No bookings found for user, returning empty`);
+        return [];
+      }
+
+      // Extract accommodation types and durations from user's bookings
+      const userAccommodationTypes = [...new Set(userBookings.map(b => b.room_type))];
+      const userDurations = userBookings.map(b => {
+        const checkIn = new Date(b.check_in);
+        const checkOut = new Date(b.check_out);
+        return Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      });
+
+      console.log(`[SwapService] User accommodation types:`, userAccommodationTypes);
+      console.log(`[SwapService] User booking durations:`, userDurations);
+
+      // Find pending swaps
       const swaps = await SwapRequest.findAll({
         where: {
-          requester_id: { [Op.ne]: userId }, // NOT the user
-          status: 'pending', // Only pending swaps
-          responder_week_id: null // Not yet assigned a responder
+          requester_id: { [Op.ne]: userId },
+          status: 'pending',
+          responder_week_id: null
         },
         include: [
           {
             model: Week,
             as: 'RequesterWeek',
             attributes: ['id', 'owner_id', 'property_id', 'accommodation_type', 'start_date', 'end_date', 'status'],
-            where: {
-              accommodation_type: { [Op.in]: userAccommodationTypes } // Must match user's types
-            },
             include: [
               {
                 model: User,
@@ -779,20 +805,95 @@ export class SwapService {
               {
                 model: Property,
                 as: 'Property',
-                attributes: ['id', 'name', 'location']
+                attributes: ['id', 'name', 'location', 'city', 'country']
               }
             ]
           },
           {
             model: User,
             as: 'Requester',
-            attributes: ['id', 'firstName', 'lastName', 'email']
+            attributes: ['id', 'email']
           }
         ],
         order: [['created_at', 'DESC']]
       });
 
-      return swaps;
+      // For each swap, get the requester's matching bookings
+      const swapsWithBookings = await Promise.all(swaps.map(async (swap: any) => {
+        const requesterEmail = swap.Requester?.email;
+        
+        const requesterBookings = await Booking.findAll({
+          where: {
+            guest_email: requesterEmail,
+            status: 'confirmed'
+          },
+          attributes: ['id', 'room_type', 'check_in', 'check_out', 'property_id'],
+          include: [
+            {
+              model: Property,
+              as: 'Property',
+              attributes: ['id', 'name', 'location', 'city', 'country']
+            }
+          ]
+        });
+        
+        console.log(`[SwapService] Requester bookings for ${requesterEmail}:`, requesterBookings.map(b => ({
+          type: b.room_type,
+          property: b.Property?.name,
+          location: `${b.Property?.city || 'undefined'}, ${b.Property?.country || 'undefined'}`
+        })));
+        
+        // Convert bookings to plain objects to ensure proper serialization
+        const bookingsJSON = requesterBookings.map((b: any) => b.toJSON ? b.toJSON() : b);
+        
+        return {
+          ...swap.toJSON(),
+          RequesterBookings: bookingsJSON
+        };
+      }));
+
+      console.log(`[SwapService] Found ${swapsWithBookings.length} pending swaps`);
+
+      // Filter swaps based on matching accommodation type and duration
+      const availableSwaps = [];
+
+      for (const swap of swapsWithBookings) {
+        try {
+          console.log(`[SwapService] Swap ${swap.id} from ${swap.Requester.email}: ${swap.RequesterBookings.length} bookings`);
+
+          // Check if any requester booking matches user's criteria
+          for (const requesterBooking of swap.RequesterBookings) {
+            const checkIn = new Date(requesterBooking.check_in);
+            const checkOut = new Date(requesterBooking.check_out);
+            const requesterDuration = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+            console.log(`[SwapService] Swap ${swap.id}: Checking booking type=${requesterBooking.room_type}, duration=${requesterDuration}`);
+            console.log(`[SwapService] Swap ${swap.id}: User types=${userAccommodationTypes}, User durations=${userDurations}`);
+
+            // Check if room type matches
+            if (!userAccommodationTypes.includes(requesterBooking.room_type)) {
+              console.log(`[SwapService] Swap ${swap.id}: Type mismatch - ${requesterBooking.room_type} not in ${userAccommodationTypes}`);
+              continue;
+            }
+
+            // Check if duration matches any of user's bookings
+            if (userDurations.includes(requesterDuration)) {
+              console.log(`[SwapService] Swap ${swap.id}: MATCH! Adding to available swaps`);
+              availableSwaps.push(swap);
+              break;
+            } else {
+              console.log(`[SwapService] Swap ${swap.id}: Duration mismatch - ${requesterDuration} not in ${userDurations}`);
+            }
+          }
+        } catch (error) {
+          console.error(`[SwapService] Error processing swap ${swap.id}:`, error);
+          continue;
+        }
+      }
+
+      console.log(`[SwapService] Returning ${availableSwaps.length} available swaps`);
+      console.log(`[SwapService] First swap example:`, JSON.stringify(availableSwaps[0], null, 2));
+      return availableSwaps;
 
     } catch (error) {
       console.error('Error fetching available swaps for user:', error);

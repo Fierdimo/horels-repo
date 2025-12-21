@@ -258,11 +258,11 @@ router.get('/swaps', authenticateToken, requireOwnerRole, authorize(['view_own_w
       include: [
         {
           association: 'RequesterWeek',
-          include: [{ association: 'Property' }]
+          include: [{ association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }]
         },
         {
           association: 'ResponderWeek',
-          include: [{ association: 'Property' }],
+          include: [{ association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }],
           required: false
         }
       ],

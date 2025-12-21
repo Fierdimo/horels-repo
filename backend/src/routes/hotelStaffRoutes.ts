@@ -265,7 +265,9 @@ router.put('/marketplace/config',
         is_marketplace_enabled, 
         marketplace_description, 
         marketplace_images, 
-        marketplace_amenities 
+        marketplace_amenities,
+        city,
+        country
       } = req.body;
 
       if (!propertyId) {
@@ -312,6 +314,14 @@ router.put('/marketplace/config',
       
       if (marketplace_amenities !== undefined) {
         updateData.marketplace_amenities = marketplace_amenities;
+      }
+
+      if (city !== undefined) {
+        updateData.city = city;
+      }
+
+      if (country !== undefined) {
+        updateData.country = country;
       }
 
       await property.update(updateData);

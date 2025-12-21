@@ -375,6 +375,8 @@ export default function MarketplaceCheckout() {
                                 navigate(ownerPath);
                               }, 100);
                               return;
+                            }
+                          }
                           
                           navigate(`${getMarketplaceBasePath()}/booking-success`, {
                             state: { paymentIntentId: paymentIntent.id }
@@ -398,6 +400,8 @@ export default function MarketplaceCheckout() {
                               navigate(ownerPath);
                             }, 100);
                             return;
+                          }
+                        }
                         
                         navigate(`${getMarketplaceBasePath()}/booking-success`, {
                           state: { paymentIntentId }

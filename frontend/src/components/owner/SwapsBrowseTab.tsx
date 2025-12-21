@@ -179,7 +179,7 @@ export function SwapsBrowseTab({
       </div>
 
       {/* Browse Results */}
-      {filteredSwaps.length === 0 ? (
+      {availableSwaps.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
           <p className="text-gray-600 mb-4 text-lg">😴 No matching swaps available</p>
           
@@ -249,7 +249,7 @@ export function SwapsBrowseTab({
         </div>
       ) : (
         <div className="grid gap-4">
-          {filteredSwaps.map((swap) => (
+          {availableSwaps.map((swap) => (
             <div
               key={swap.id}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition border-l-4 border-blue-500"
@@ -259,63 +259,119 @@ export function SwapsBrowseTab({
                 {/* Their Offering */}
                 <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
                   <p className="text-xs font-bold text-blue-700 mb-2">🏨 THEY OFFER</p>
-                  <p className="font-bold text-lg text-blue-900">
-                    {swap.RequesterWeek?.Property?.name}
-                  </p>
                   
-                  {/* Country Badge */}
-                  <div className="mt-2 inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
-                    🌍 {extractCountry(swap.RequesterWeek?.Property?.location || 'Unknown')}
-                  </div>
-                  
-                  <p className="text-sm text-gray-700 mt-3 mb-2">
-                    📅 {new Date(swap.RequesterWeek?.start_date || '').toLocaleDateString('es-ES')} – {' '}
-                    {new Date(swap.RequesterWeek?.end_date || '').toLocaleDateString('es-ES')}
-                  </p>
-                  <div className="mt-3 pt-3 border-t border-blue-200">
-                    <p className="text-xs text-gray-600 mb-1">Week Type:</p>
-                    <p className="text-sm font-bold text-blue-800">
-                      {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type)} {getAccommodationTypeName(swap.RequesterWeek?.accommodation_type)}
-                    </p>
-                  </div>
+                  {swap.RequesterWeek?.Property?.name ? (
+                    <>
+                      <p className="font-bold text-lg text-blue-900">
+                        {swap.RequesterWeek?.Property?.name}
+                      </p>
+                      
+                      {/* Country Badge */}
+                      <div className="mt-2 inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+                        🌍 {extractCountry(swap.RequesterWeek?.Property?.location || 'Unknown')}
+                      </div>
+                      
+                      <p className="text-sm text-gray-700 mt-3 mb-2">
+                        📅 {new Date(swap.RequesterWeek?.start_date || '').toLocaleDateString('es-ES')} – {' '}
+                        {new Date(swap.RequesterWeek?.end_date || '').toLocaleDateString('es-ES')}
+                      </p>
+                      <div className="mt-3 pt-3 border-t border-blue-200">
+                        <p className="text-xs text-gray-600 mb-1">Week Type:</p>
+                        <p className="text-sm font-bold text-blue-800">
+                          {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type)} {getAccommodationTypeName(swap.RequesterWeek?.accommodation_type)}
+                        </p>
+                      </div>
+                    </>
+                  ) : swap.RequesterBookings && swap.RequesterBookings.length > 0 ? (
+                    <>
+                      <p className="font-bold text-lg text-blue-900">
+                        {swap.RequesterBookings[0]?.Property?.name || swap.RequesterBookings[0]?.room_type || '📱 Marketplace Reservation'}
+                      </p>
+                      
+                      {(swap.RequesterBookings[0]?.Property?.city || swap.RequesterBookings[0]?.Property?.country) && (
+                        <div className="mt-2 inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+                          🌍 {`${swap.RequesterBookings[0]?.Property?.city || ''}${swap.RequesterBookings[0]?.Property?.city && swap.RequesterBookings[0]?.Property?.country ? ', ' : ''}${swap.RequesterBookings[0]?.Property?.country || ''}`.trim() || 'Unknown'}
+                        </div>
+                      )}
+                      
+                      {swap.RequesterBookings.map((booking: any, idx: number) => (
+                        <div key={idx} className="mt-2 pt-2 border-t border-blue-200">
+                          <p className="text-sm font-semibold text-blue-800">{booking.room_type}</p>
+                          <p className="text-sm text-gray-700">
+                            📅 {new Date(booking.check_in).toLocaleDateString('es-ES')} – {' '}
+                            {new Date(booking.check_out).toLocaleDateString('es-ES')}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            ⏱️ {Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24))} days
+                          </p>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-600">No booking information available</p>
+                  )}
                 </div>
 
                 {/* What They Want & What You Can Offer */}
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border-2 border-green-200">
                   <p className="text-xs font-bold text-green-700 mb-2">✓ COMPATIBLE!</p>
-                  <p className="font-semibold text-gray-900 mb-3">
-                    {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type)} {getAccommodationTypeName(swap.RequesterWeek?.accommodation_type)}
-                  </p>
                   
-                  <p className="text-xs text-gray-600 font-semibold mb-2">📍 Your matches:</p>
-                  <div className="space-y-2 mb-3">
-                    {weeks
-                      .filter(w => w.accommodation_type === swap.RequesterWeek?.accommodation_type && w.status === 'available')
-                      .map((week) => (
-                        <div key={week.id} className="bg-white rounded px-3 py-2 border border-green-200 flex items-start gap-2">
-                          <span className="text-green-600 mt-1">✓</span>
-                          <div>
-                            <p className="text-xs font-semibold text-gray-800">{week.Property?.name}</p>
-                            <p className="text-xs text-gray-600">
-                              {new Date(week.start_date).toLocaleDateString('es-ES')} – {new Date(week.end_date).toLocaleDateString('es-ES')}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    {weeks.filter(w => w.accommodation_type === swap.RequesterWeek?.accommodation_type && w.status === 'available').length === 0 && (
-                      <p className="text-xs text-gray-600 italic px-3 py-2 bg-white rounded border border-gray-200">
-                        No available weeks of this type currently
+                  {swap.RequesterWeek?.accommodation_type ? (
+                    <>
+                      <p className="font-semibold text-gray-900 mb-3">
+                        {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type)} {getAccommodationTypeName(swap.RequesterWeek?.accommodation_type)}
                       </p>
-                    )}
-                  </div>
+                      
+                      <p className="text-xs text-gray-600 font-semibold mb-2">📍 Your matches:</p>
+                      <div className="space-y-2 mb-3">
+                        {weeks
+                          .filter(w => w.accommodation_type === swap.RequesterWeek?.accommodation_type && w.status === 'available')
+                          .map((week) => (
+                            <div key={week.id} className="bg-white rounded px-3 py-2 border border-green-200 flex items-start gap-2">
+                              <span className="text-green-600 mt-1">✓</span>
+                              <div>
+                                <p className="text-xs font-semibold text-gray-800">{week.Property?.name}</p>
+                                <p className="text-xs text-gray-600">
+                                  {new Date(week.start_date).toLocaleDateString('es-ES')} – {new Date(week.end_date).toLocaleDateString('es-ES')}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        {weeks.filter(w => w.accommodation_type === swap.RequesterWeek?.accommodation_type && w.status === 'available').length === 0 && (
+                          <p className="text-xs text-gray-600 italic px-3 py-2 bg-white rounded border border-gray-200">
+                            No available weeks of this type currently
+                          </p>
+                        )}
+                      </div>
 
-                  {/* Room Type Compatibility */}
-                  <div className="border-t border-green-200 pt-2">
-                    <p className="text-xs text-gray-600 mb-1">🏠 Room type offered:</p>
-                    <span className="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
-                      {swap.RequesterWeek?.Property?.name}
-                    </span>
-                  </div>
+                      {/* Room Type Compatibility */}
+                      <div className="border-t border-green-200 pt-2">
+                        <p className="text-xs text-gray-600 mb-1">🏠 Room type offered:</p>
+                        <span className="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
+                          {swap.RequesterWeek?.Property?.name}
+                        </span>
+                      </div>
+                    </>
+                  ) : swap.RequesterBookings && swap.RequesterBookings.length > 0 ? (
+                    <>
+                      <p className="font-semibold text-gray-900 mb-3">
+                        📱 Marketplace Booking Match
+                      </p>
+                      
+                      <p className="text-xs text-gray-600 font-semibold mb-2">🎯 Room Type Match:</p>
+                      <p className="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded mb-3">
+                        {swap.RequesterBookings[0]?.room_type}
+                      </p>
+                      
+                      <p className="text-xs text-gray-600 font-semibold mb-2">📍 Your matching bookings:</p>
+                      <div className="space-y-2">
+                        {/* We match by room type and duration from backend */}
+                        <p className="text-xs text-gray-600 italic px-3 py-2 bg-white rounded border border-green-200">
+                          Backend confirmed this swap is compatible with your bookings
+                        </p>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
 
                 {/* Fee */}

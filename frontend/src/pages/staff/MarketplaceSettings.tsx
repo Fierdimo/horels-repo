@@ -63,7 +63,9 @@ export default function MarketplaceSettings() {
         is_marketplace_enabled: configData.is_marketplace_enabled,
         marketplace_description: configData.marketplace_description || configData.description || '',
         marketplace_images: parseArray(configData.marketplace_images || configData.images),
-        marketplace_amenities: parseArray(configData.marketplace_amenities || configData.amenities)
+        marketplace_amenities: parseArray(configData.marketplace_amenities || configData.amenities),
+        city: configData.city || '',
+        country: configData.country || ''
       });
     }
   }, [configData]);
@@ -217,6 +219,51 @@ export default function MarketplaceSettings() {
         </p>
       </div>
 
+      {/* Location Information Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">📍 Location Information</h3>
+          {!isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {t('common.edit')}
+            </button>
+          )}
+        </div>
+        
+        {isEditing ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+              <input
+                type="text"
+                value={formData.city || ''}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., London"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+              <input
+                type="text"
+                value={formData.country || ''}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., United Kingdom"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 text-gray-700">
+            <p><strong>City:</strong> {config.city || 'Not configured'}</p>
+            <p><strong>Country:</strong> {config.country || 'Not configured'}</p>
+          </div>
+        )}
+      </div>
+
       {/* Edit Mode Toggle */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">
@@ -238,7 +285,9 @@ export default function MarketplaceSettings() {
                   is_marketplace_enabled: config.is_marketplace_enabled,
                   marketplace_description: config.marketplace_description || config.description || '',
                   marketplace_images: config.marketplace_images || config.images || [],
-                  marketplace_amenities: config.marketplace_amenities || config.amenities || []
+                  marketplace_amenities: config.marketplace_amenities || config.amenities || [],
+                  city: config.city || '',
+                  country: config.country || ''
                 });
               }}
               className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"

@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/authorizationMiddleware';
 import { logAction } from '../middleware/loggingMiddleware';
 import { pmsSyncWorker } from '../workers/pmsSyncWorker';
+import DistributedLockService from '../services/distributedLockService';
 import { Property, PMSSyncLog } from '../models';
 import { Op } from 'sequelize';
 
@@ -260,6 +261,56 @@ router.get(
       res.status(500).json({
         success: false,
         error: 'Failed to fetch sync log',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/sync/health
+ * @desc    Get health status of sync system (Redis, locks, caching)
+ * @access  Private (admin only)
+ */
+router.get(
+  '/health',
+  authenticateToken,
+  authorize(['view_users']), // Solo admin
+  async (req: Request, res: Response) => {
+    try {
+      const redisStatus = await DistributedLockService.getStatus();
+      const workerStatus = pmsSyncWorker.getStatus();
+
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        systems: {
+          redis: {
+            connected: redisStatus.connected,
+            error: redisStatus.error || null
+          },
+          syncWorker: {
+            isRunning: workerStatus.isRunning,
+            intervalMs: workerStatus.interval,
+            intervalMinutes: Math.round(workerStatus.interval / 1000 / 60)
+          },
+          distributedLocking: {
+            enabled: redisStatus.connected,
+            description: 'Prevents cache stampede with distributed locks'
+          }
+        },
+        recommendations: redisStatus.connected 
+          ? [] 
+          : [
+              'Redis is not connected - Distributed locking is disabled',
+              'Falling back to local caching only',
+              'Verify Redis is running: docker-compose up -d'
+            ]
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get sync health status',
         message: error.message
       });
     }

@@ -42,21 +42,18 @@ export function useAuth() {
   const login = (credentials: LoginRequest, options?: LoginOptions) => {
     loginMutation.mutate(credentials, {
       onSuccess: (data) => {
-        console.log('Login mutation success:', data);
         
         // Set auth state
         setAuth(data.token, data.user);
         localStorage.setItem('sw2_token', data.token);
         localStorage.setItem('sw2_user', JSON.stringify(data.user));
         
-        console.log('Auth state updated, user role:', data.user.role, 'status:', data.user.status);
         
         // Call custom success callback if provided
         options?.onSuccess?.();
         
         // Determine redirect based on role and status
         const redirectPath = getRoleBasedRedirect(data.user.role, data.user.status);
-        console.log('Redirecting to:', redirectPath);
         navigate(redirectPath);
       },
       onError: (error) => {

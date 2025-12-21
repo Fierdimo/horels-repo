@@ -13,6 +13,7 @@
 import Room from '../models/room';
 import { PMSFactory } from './pms/PMSFactory';
 import Property from '../models/Property';
+import DistributedLockService from './distributedLockService';
 
 export interface EnrichedRoom {
   // Local data
@@ -41,6 +42,53 @@ export interface EnrichedRoom {
 }
 
 export class RoomEnrichmentService {
+  // Cache local para datos de PMS - { propertyId: { data, timestamp } }
+  private static pmsAvailabilityCache: Map<number, { data: any; timestamp: number }> = new Map();
+  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+  /**
+   * Obtener datos de disponibilidad del PMS con caché y lock distribuido
+   * 
+   * El lock distribuido asegura que:
+   * - Solo una petición obtiene datos del PMS (evita "thundering herd")
+   * - Las otras peticiones esperan el resultado
+   * - Todo se cachea por 5 minutos
+   * - Funciona en múltiples instancias Node.js usando Redis
+   */
+  private static async getAvailabilityWithCache(propertyId: number, pmsService: any): Promise<any> {
+    const lockKey = `pms-availability-${propertyId}`;
+    const now = Date.now();
+    const cached = this.pmsAvailabilityCache.get(propertyId);
+
+    // Si hay caché local y no ha expirado, usarlo directamente (sin Redis)
+    if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
+      console.log(`[RoomEnrichment] Using local cached PMS availability for property ${propertyId}`);
+      return cached.data;
+    }
+
+    // Caché expirado o no existe, obtener con lock distribuido
+    const availability = await DistributedLockService.executeWithLock(
+      lockKey,
+      async () => {
+        console.log(`[RoomEnrichment] Fetching fresh PMS availability for property ${propertyId}`);
+        return await pmsService.getAvailability({});
+      },
+      {
+        lockTTL: 30000, // 30 segundos para ejecutar la llamada al PMS
+        waitTimeout: 60000, // Esperar máximo 60 segundos por el resultado
+        pollInterval: 100 // Chequear cada 100ms
+      }
+    );
+
+    // Guardar en caché local
+    this.pmsAvailabilityCache.set(propertyId, {
+      data: availability,
+      timestamp: now
+    });
+
+    return availability;
+  }
+
   /**
    * Enriquece una habitación local con datos del PMS
    */
@@ -50,9 +98,9 @@ export class RoomEnrichmentService {
         throw new Error('Room must have propertyId and pmsResourceId');
       }
 
-      // Obtener datos del PMS
+      // Obtener datos del PMS (con caché)
       const pmsService = await PMSFactory.getAdapter(roomLocal.propertyId);
-      const availability = await pmsService.getAvailability({});
+      const availability = await this.getAvailabilityWithCache(roomLocal.propertyId, pmsService);
       
       // Encontrar el recurso (habitación) específico
       const resources = availability?.resources || [];
@@ -118,8 +166,8 @@ export class RoomEnrichmentService {
       const propertyId = roomsLocal[0].propertyId;
       const pmsService = await PMSFactory.getAdapter(propertyId);
       
-      // Hacer UNA sola llamada a getAvailability para obtener TODOS los datos del PMS
-      const availability = await pmsService.getAvailability({});
+      // Hacer UNA sola llamada a getAvailability para obtener TODOS los datos del PMS (con caché)
+      const availability = await this.getAvailabilityWithCache(propertyId, pmsService);
       const resources = availability?.resources || [];
       const services = availability?.services || [];
 
@@ -195,7 +243,7 @@ export class RoomEnrichmentService {
           const pmsRoom = resources.find((r: any) => r.Id === roomLocal.pmsResourceId);
 
           if (!pmsRoom) {
-            console.warn(`Room ${roomLocal.id} (${roomLocal.pmsResourceId}) not found in PMS availability`);
+            console.log(`[RoomEnrichment] Room ${roomLocal.id} (${roomLocal.pmsResourceId}) not found in PMS availability - using local data`);
             // Retornar con datos mínimos si no está en PMS
             return {
               id: roomLocal.id,
