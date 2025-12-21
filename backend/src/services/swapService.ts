@@ -822,11 +822,18 @@ export class SwapService {
       const swapsWithBookings = await Promise.all(swaps.map(async (swap: any) => {
         const requesterEmail = swap.Requester?.email;
         
+        // If the swap is based on a booking, get only that specific booking
+        const whereCondition: any = {
+          guest_email: requesterEmail,
+          status: 'confirmed'
+        };
+        
+        if (swap.requester_source_type === 'booking' && swap.requester_source_id) {
+          whereCondition.id = swap.requester_source_id;
+        }
+        
         const requesterBookings = await Booking.findAll({
-          where: {
-            guest_email: requesterEmail,
-            status: 'confirmed'
-          },
+          where: whereCondition,
           attributes: ['id', 'room_type', 'check_in', 'check_out', 'property_id'],
           include: [
             {
