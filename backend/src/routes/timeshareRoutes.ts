@@ -5,7 +5,6 @@ import { requireOwnerRole } from '../middleware/ownerOnly';
 import { logAction } from '../middleware/loggingMiddleware';
 import { Week, SwapRequest, NightCredit, HotelService, Booking, User, Property, Role } from '../models';
 import { pmsService } from '../services/pmsServiceFactory';
-import ConversionService from '../services/conversionService';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
@@ -185,19 +184,14 @@ router.post('/swaps', authenticateToken, requireOwnerRole, authorize(['view_own_
       return res.status(400).json({ error: 'Property is not available for swaps (no active staff)' });
     }
 
-    // Get swap fee from conversion service
-    const conversionService = new ConversionService();
-    const swapFee = await conversionService.calculateSwapFee();
-
-    // Create swap request
+    // Create swap request (fee will be calculated when approved)
     const swapRequest = await SwapRequest.create({
       requester_week_id: weekId,
       requester_id: userId,
       desired_start_date: desiredStartDate,
       desired_end_date: desiredEndDate,
       status: 'pending',
-      notes,
-      swap_fee: swapFee
+      notes
     });
 
     res.json({

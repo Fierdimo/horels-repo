@@ -269,7 +269,17 @@ export class SwapController {
         });
       }
 
-      // Create Stripe payment intent for €10 swap fee
+      // Calculate swap fee from platform settings at payment time
+      const ConversionService = require('../services/conversionService').default;
+      const conversionService = new ConversionService();
+      const swapFee = await conversionService.calculateSwapFee();
+      
+      // Update swap with calculated fee if not already set
+      if (!swap.swap_fee) {
+        await swap.update({ swap_fee: swapFee });
+      }
+
+      // Create Stripe payment intent with the swap fee
       const paymentResult = await stripeService.createSwapFeePaymentIntent(
         userId,
         Number(swapId),

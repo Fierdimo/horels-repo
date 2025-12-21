@@ -1,7 +1,6 @@
 import { Week, SwapRequest, User, Property, Booking } from '../models';
 import { Op, Sequelize } from 'sequelize';
 import sequelize from '../config/database';
-import ConversionService from './conversionService';
 
 /**
  * Service for managing swap requests and matching compatible weeks
@@ -328,12 +327,7 @@ export class SwapService {
         throw new Error('Property not found');
       }
 
-      // Get swap fee from conversion service
-      const conversionService = new ConversionService();
-      const swapFee = await conversionService.calculateSwapFee();
-      console.log(`[SwapService] Creating swap with fee: ${swapFee}`);
-
-      // Create swap request
+      // Create swap request (fee will be calculated when approved)
       const swapRequest = await SwapRequest.create(
         {
           requester_id: requesterId,
@@ -347,7 +341,6 @@ export class SwapService {
           desired_property_id: options?.desired_property_id || null,
           notes: options?.notes || null,
           accommodation_type: requesterWeek.accommodation_type,
-          swap_fee: swapFee,
           status: responderWeekId ? 'matched' : 'pending',
           staff_approval_status: 'pending_review',
           responder_acceptance: 'pending',
