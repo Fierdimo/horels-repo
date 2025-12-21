@@ -17,6 +17,16 @@ router.get(
 );
 
 /**
+ * @route   GET /api/settings/public/swap-fee
+ * @desc    Get swap fee (public endpoint)
+ * @access  Public (no authentication required)
+ */
+router.get(
+  '/public/swap-fee',
+  settingsController.getSwapFee
+);
+
+/**
  * @route   GET /api/settings/:key
  * @desc    Get a specific setting by key
  * @access  Admin only

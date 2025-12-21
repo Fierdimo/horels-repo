@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { SwapRequest, Week } from '@/types/models';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 interface BrowseFilter {
   country: string;
@@ -54,6 +55,8 @@ export function SwapsBrowseTab({
     country: 'all',
     roomType: 'all'
   });
+
+  const { settings } = usePlatformSettings();
 
   const availableCountries = getAvailableCountries(availableSwaps);
   const userRoomTypes = getUserRoomTypes(weeks);
@@ -248,8 +251,20 @@ export function SwapsBrowseTab({
           )}
         </div>
       ) : (
-        <div className="grid gap-4">
-          {availableSwaps.map((swap) => (
+        <div className="space-y-4">
+          {/* Platform Fee Information Banner */}
+          <div className="bg-yellow-50 border-l-4 border-yellow-600 p-4 rounded-lg">
+            <p className="text-sm font-semibold text-gray-900">
+              💰 Platform Fee Information
+            </p>
+            <p className="text-sm text-gray-700 mt-2">
+              A platform fee of <span className="font-bold text-yellow-700">€{settings?.swapFee ? Number(settings.swapFee).toFixed(2) : '—'}</span> will be charged when you accept a swap and complete the payment. The fee is configured by the platform administrators.
+            </p>
+          </div>
+
+          {/* Swaps Grid */}
+          <div className="grid gap-4">
+            {availableSwaps.map((swap) => (
             <div
               key={swap.id}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition border-l-4 border-blue-500"
@@ -374,13 +389,6 @@ export function SwapsBrowseTab({
                   ) : null}
                 </div>
 
-                {/* Fee */}
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">PLATFORM FEE</p>
-                  <p className="font-bold text-2xl text-yellow-700">€{swap.swap_fee}</p>
-                  <p className="text-xs text-gray-600 mt-1">If you accept</p>
-                </div>
-
                 {/* Action */}
                 <div className="flex flex-col justify-center">
                   <button
@@ -398,7 +406,8 @@ export function SwapsBrowseTab({
                 </div>
               </div>
             </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

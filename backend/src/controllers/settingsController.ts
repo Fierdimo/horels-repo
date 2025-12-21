@@ -233,3 +233,27 @@ export const resetSettings = async (req: Request, res: Response): Promise<void> 
     });
   }
 };
+
+/**
+ * Get public swap fee (public endpoint - no authentication required)
+ */
+export const getSwapFee = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const setting = await PlatformSetting.findOne({
+      where: { key: 'swapFee' },
+    });
+
+    const swapFee = setting ? (setting as any).value : DEFAULT_SETTINGS.swapFee;
+
+    res.json({
+      success: true,
+      swapFee: Number(swapFee) || Number(DEFAULT_SETTINGS.swapFee),
+    });
+  } catch (error: any) {
+    console.error('Error fetching swap fee:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch swap fee',
+    });
+  }
+};
