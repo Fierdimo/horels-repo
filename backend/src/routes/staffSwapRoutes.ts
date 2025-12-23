@@ -32,33 +32,8 @@ router.get(
         });
       }
 
-      // Build where clause
-      const whereClause: any = {
-        status: { [Op.in]: ['pending', 'matched'] },
-        property_id: propertyId
-      };
-
-      const pendingSwaps = await SwapRequest.findAll({
-        where: whereClause,
-        include: [
-          {
-            association: 'RequesterWeek',
-            include: [
-              { association: 'Owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
-            ]
-          },
-          {
-            association: 'ResponderWeek',
-            include: [
-              { association: 'Owner', attributes: ['id', 'firstName', 'lastName', 'email'] },
-              { association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }
-            ]
-          },
-          { association: 'Requester', attributes: ['id', 'firstName', 'lastName', 'email'] }
-        ],
-        order: [['created_at', 'DESC']]
-      });
+      // Get all swaps for this property with status pending or matched
+      const pendingSwaps = await SwapService.getStaffPendingSwaps(propertyId);
 
       res.json({
         success: true,

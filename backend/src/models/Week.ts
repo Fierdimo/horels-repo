@@ -8,7 +8,7 @@ class Week extends Model {
   public start_date!: Date;
   public end_date!: Date;
   public accommodation_type!: string; // e.g., 'sencilla', 'duplex', 'suite'
-  public status!: 'available' | 'confirmed' | 'converted' | 'used';
+  public status!: 'available' | 'confirmed' | 'converted' | 'used' | 'pending_swap';
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
 }

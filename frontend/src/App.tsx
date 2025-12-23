@@ -22,6 +22,7 @@ const Weeks = lazy(() => import('@/pages/owner/Weeks'));
 const BookingDetails = lazy(() => import('@/pages/owner/BookingDetails'));
 const Swaps = lazy(() => import('@/pages/owner/Swaps'));
 const Credits = lazy(() => import('@/pages/owner/Credits'));
+const OwnerProfile = lazy(() => import('@/pages/owner/Profile'));
 const CreateNightCreditRequest = lazy(() => import('@/pages/owner/NightCreditRequests'));
 const MyNightCreditRequests = lazy(() => import('@/pages/owner/MyNightCreditRequests'));
 const GuestBooking = lazy(() => import('@/pages/guest/BookingAccess'));
@@ -206,6 +207,16 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['owner']}>
               <MainLayout>
                 <MyNightCreditRequests />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/profile"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <OwnerProfile />
               </MainLayout>
             </ProtectedRoute>
           }

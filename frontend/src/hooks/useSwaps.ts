@@ -9,6 +9,8 @@ export function useSwaps() {
   const { user } = useAuth();
   const isStaff = user?.role === 'staff';
 
+  console.log('[useSwaps] Current user:', user?.email, 'role:', user?.role, 'isStaff:', isStaff);
+
   // ============================================================================
   // Owner Queries and Mutations
   // ============================================================================
@@ -21,6 +23,11 @@ export function useSwaps() {
     retry: 1
   });
 
+  // Debug logging for available swaps
+  if (availableSwaps) {
+    console.log('[useSwaps] Available swaps received from API:', availableSwaps.length, availableSwaps);
+  }
+
   // Pending swaps created by the user
   const { data: pendingSwaps, isLoading: pendingLoading } = useQuery({
     queryKey: ['swaps', 'pending'],
@@ -29,13 +36,21 @@ export function useSwaps() {
     retry: 1
   });
 
-  // User's own swaps
+  // User's own swaps (both as requester and responder)
   const { data: swaps, isLoading, error } = useQuery({
     queryKey: ['swaps'],
-    queryFn: () => timeshareApi.getSwaps(),
+    queryFn: () => timeshareApi.getSwaps('both'), // Get swaps where user is requester OR responder
     enabled: !isStaff,
     retry: 1
   });
+
+  // Debug logging
+  if (swaps) {
+    console.log('[useSwaps] Swaps received from API:', swaps.length, swaps);
+  }
+  if (error) {
+    console.error('[useSwaps] Error loading swaps:', error);
+  }
 
   // Search for compatible weeks
   const searchCompatibleMutation = useMutation({
@@ -52,6 +67,7 @@ export function useSwaps() {
       toast.success('Swap created successfully');
       queryClient.invalidateQueries({ queryKey: ['swaps'] });
       queryClient.invalidateQueries({ queryKey: ['swaps', 'pending'] });
+      queryClient.invalidateQueries({ queryKey: ['weeks'] }); // Invalidate weeks to remove the offered one
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to create swap');
@@ -79,6 +95,7 @@ export function useSwaps() {
     onSuccess: () => {
       toast.success('Swap rejected');
       queryClient.invalidateQueries({ queryKey: ['swaps'] });
+      queryClient.invalidateQueries({ queryKey: ['weeks'] }); // Invalidate weeks to show cancelled bookings again
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to reject swap');
@@ -133,6 +150,7 @@ export function useSwaps() {
       toast.success('Swap approved');
       queryClient.invalidateQueries({ queryKey: ['staff', 'swaps'] });
       queryClient.invalidateQueries({ queryKey: ['staff', 'swaps', 'pending'] });
+      queryClient.invalidateQueries({ queryKey: ['weeks'] }); // Invalidate to reflect exchanged bookings
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to approve swap');
@@ -147,6 +165,7 @@ export function useSwaps() {
       toast.success('Swap rejected');
       queryClient.invalidateQueries({ queryKey: ['staff', 'swaps'] });
       queryClient.invalidateQueries({ queryKey: ['staff', 'swaps', 'pending'] });
+      queryClient.invalidateQueries({ queryKey: ['weeks'] }); // Invalidate to show reverted bookings
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to reject swap');

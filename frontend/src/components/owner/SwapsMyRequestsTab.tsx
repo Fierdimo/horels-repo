@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSwaps } from '@/hooks/useSwaps';
+import { useAuth } from '@/hooks/useAuth';
 import type { SwapRequest, Week } from '@/types/models';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -25,22 +26,34 @@ export function SwapsMyRequestsTab({
   getStatusIcon
 }: SwapsMyRequestsTabProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { rejectSwap, isRejecting } = useSwaps();
   const [requestFilters, setRequestFilters] = useState<SwapFilter>({
     status: 'all'
   });
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
+  // Debug: Log swaps to see what we're receiving
+  console.log('[SwapsMyRequestsTab] Total swaps received:', swaps.length);
+  console.log('[SwapsMyRequestsTab] Swaps by status:', {
+    pending: swaps.filter(s => s.status === 'pending').length,
+    matched: swaps.filter(s => s.status === 'matched').length,
+    completed: swaps.filter(s => s.status === 'completed').length,
+    cancelled: swaps.filter(s => s.status === 'cancelled').length,
+  });
+
   const filteredSwaps = swaps.filter((swap) => {
     if (requestFilters.status !== 'all' && swap.status !== requestFilters.status) return false;
     return true;
   });
 
+  const isRequester = (swap: SwapRequest) => swap.requester_id === user?.id;
+
   const handleCancelSwap = async (swapId: number) => {
     if (!window.confirm('¿Estás seguro de que quieres cancelar esta solicitud de intercambio?')) {
       return;
     }
-    
+
     setCancellingId(swapId);
     rejectSwap(swapId, {
       onSuccess: () => {
@@ -107,15 +120,24 @@ export function SwapsMyRequestsTab({
                   swap.status === 'pending'
                     ? '#fbbf24'
                     : swap.status === 'matched'
-                    ? '#3b82f6'
-                    : swap.status === 'completed'
-                    ? '#10b981'
-                    : '#ef4444'
+                      ? '#3b82f6'
+                      : swap.status === 'completed'
+                        ? '#10b981'
+                        : '#ef4444'
               }}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
+                    {isRequester(swap) ? (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">
+                        📤 Mi solicitud
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">
+                        📥 He aceptado
+                      </span>
+                    )}
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
                         swap.status
@@ -148,7 +170,7 @@ export function SwapsMyRequestsTab({
                       Math.ceil(
                         (new Date(swap.RequesterWeek.end_date).getTime() -
                           new Date(swap.RequesterWeek.start_date).getTime()) /
-                          (1000 * 60 * 60 * 24)
+                        (1000 * 60 * 60 * 24)
                       )
                     )}{' '}
                     noches
@@ -163,8 +185,8 @@ export function SwapsMyRequestsTab({
                     {swap.status === 'pending'
                       ? 'Se cobra si alguien acepta'
                       : swap.status === 'matched'
-                      ? 'Pendiente de pago'
-                      : 'Pagado'}
+                        ? 'Pendiente de pago'
+                        : 'Pagado'}
                   </p>
                 </div>
               </div>
@@ -183,12 +205,25 @@ export function SwapsMyRequestsTab({
                 </div>
               )}
 
+              {/* Staff Rejection Notice */}
+              {swap.status === 'cancelled' && swap.staff_notes && (
+                <div className="bg-red-50 border border-red-200 p-3 rounded mb-4">
+                  <p className="text-xs text-red-700 font-semibold mb-1">🚫 Cancelado por el hotel:</p>
+                  <p className="text-sm text-red-900">{swap.staff_notes}</p>
+                  {swap.staff_review_date && (
+                    <p className="text-xs text-red-600 mt-2">
+                      Fecha: {new Date(swap.staff_review_date).toLocaleDateString('es-ES')}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-4 border-t">
                 <p className="text-xs text-gray-500">
                   Creado: {new Date(swap.created_at).toLocaleDateString('es-ES')}
                 </p>
                 <div className="flex gap-2">
-                  {swap.status === 'pending' && (
+                  {(swap.status === 'pending' || swap.status === 'matched') && (
                     <button
                       onClick={() => handleCancelSwap(swap.id)}
                       disabled={cancellingId === swap.id}

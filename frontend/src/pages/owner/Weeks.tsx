@@ -153,8 +153,10 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
                       {week.Property?.name}
-                      {(week as any).source === 'booking' && (
-                        <span className="ml-2 inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Marketplace</span>
+                      {(week as any).acquired_via_swap && (
+                        <span className="ml-2 inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                          📦 Obtenido por Swap
+                        </span>
                       )}
                     </div>
                     <div className="text-sm text-gray-500">{week.Property?.location}</div>
@@ -166,15 +168,9 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                     {new Date(week.start_date).toLocaleDateString('es-ES')} - {new Date(week.end_date).toLocaleDateString('es-ES')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {(week as any).source === 'booking' ? (
-                      <span className="px-3 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        Marketplace
-                      </span>
-                    ) : (
-                      <span className="px-3 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                        Timeshare
-                      </span>
-                    )}
+                    <span className="px-3 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                      {(week as any).accommodation_type || 'Standard'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${

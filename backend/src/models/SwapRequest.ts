@@ -6,6 +6,7 @@ class SwapRequest extends Model {
   public requester_id!: number;
   public requester_week_id!: number;
   public responder_week_id?: number;
+  public responder_id?: number; // NEW: ID of user who accepted/responded
   public requester_source_type!: 'week' | 'booking'; // NEW: type of source
   public requester_source_id!: number; // NEW: actual ID of week or booking
   public responder_source_type?: 'week' | 'booking'; // NEW: type of responder source
@@ -59,6 +60,15 @@ SwapRequest.init({
     type: DataTypes.INTEGER,
     allowNull: true,
     comment: 'DEPRECATED: Use responder_source_type and responder_source_id instead'
+  },
+  responder_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'ID of user who accepted/responded to the swap'
   },
   requester_source_type: {
     type: DataTypes.ENUM('week', 'booking'),

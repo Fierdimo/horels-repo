@@ -17,9 +17,10 @@ export const timeshareApi = {
   // WEEKS
   // ============================================================================
   
-  getWeeks: async (): Promise<Week[]> => {
+  getWeeks: async (filter?: 'all' | 'available'): Promise<Week[]> => {
     try {
-      const { data } = await apiClient.get<ApiResponse<Week[]>>('/timeshare/weeks');
+      const url = filter ? `/timeshare/weeks?filter=${filter}` : '/timeshare/weeks';
+      const { data } = await apiClient.get<ApiResponse<Week[]>>(url);
       return Array.isArray(data.data) ? data.data : [];
     } catch (error) {
       console.error('Failed to fetch weeks:', error);
@@ -81,7 +82,10 @@ export const timeshareApi = {
    */
   getAvailableSwaps: async (): Promise<SwapRequest[]> => {
     try {
-      const { data } = await apiClient.get<ApiResponse<SwapRequest[]>>('/owner/swaps/browse/available');
+      console.log('[timeshareApi.getAvailableSwaps] Calling /timeshare/swaps/browse/available');
+      const { data } = await apiClient.get<ApiResponse<SwapRequest[]>>('/timeshare/swaps/browse/available');
+      console.log('[timeshareApi.getAvailableSwaps] Response:', data);
+      console.log('[timeshareApi.getAvailableSwaps] Swaps count:', Array.isArray(data.data) ? data.data.length : 0);
       return Array.isArray(data.data) ? data.data : [];
     } catch (error) {
       console.error('Failed to fetch available swaps:', error);
@@ -110,7 +114,9 @@ export const timeshareApi = {
   getSwaps: async (role?: 'requester' | 'responder' | 'both'): Promise<SwapRequest[]> => {
     try {
       const url = role ? `/owner/swaps?role=${role}` : '/owner/swaps';
+      console.log('[timeshareApi.getSwaps] Calling URL:', url);
       const { data } = await apiClient.get<ApiResponse<SwapRequest[]>>(url);
+      console.log('[timeshareApi.getSwaps] Response:', data);
       return Array.isArray(data.data) ? data.data : [];
     } catch (error) {
       console.error('Failed to fetch swaps:', error);

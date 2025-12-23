@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useProfile } from '@/hooks/useProfile';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { User, Mail, Phone, MapPin, Building, CreditCard, Save, X } from 'lucide-react';
+import PaymentMethodSetup from '@/components/owner/PaymentMethodSetup';
 
 export default function Profile() {
   const { t } = useTranslation();
@@ -275,6 +276,11 @@ export default function Profile() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Payment Methods Section */}
+        <div className="mb-6">
+          <PaymentMethodSetup />
         </div>
 
         {/* Property Information Section */}

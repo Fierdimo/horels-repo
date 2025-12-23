@@ -26,6 +26,8 @@ export default function Settings() {
   const [commissionRate, setCommissionRate] = useState(10);
   const [swapFee, setSwapFee] = useState(25);
   const [creditConversionFee, setCreditConversionFee] = useState(5);
+  const [chargeSwapFeeToRequester, setChargeSwapFeeToRequester] = useState(true);
+  const [chargeSwapFeeToResponder, setChargeSwapFeeToResponder] = useState(false);
   
   // Auto-Approval Settings State
   const [autoApproveGuests, setAutoApproveGuests] = useState(false);
@@ -55,6 +57,8 @@ export default function Settings() {
       setCommissionRate(Number(settings.commissionRate) || 10);
       setSwapFee(Number(settings.swapFee) || 25);
       setCreditConversionFee(Number(settings.creditConversionFee) || 5);
+      setChargeSwapFeeToRequester(settings.chargeSwapFeeToRequester !== 'false');
+      setChargeSwapFeeToResponder(settings.chargeSwapFeeToResponder === 'true');
       setAutoApproveGuests(settings.autoApproveGuests === 'true');
       setAutoApproveStaff(settings.autoApproveStaff === 'true');
       setRequireEmailVerification(settings.requireEmailVerification === 'true');
@@ -78,6 +82,8 @@ export default function Settings() {
         commissionRate: String(commissionRate),
         swapFee: String(swapFee),
         creditConversionFee: String(creditConversionFee),
+        chargeSwapFeeToRequester: String(chargeSwapFeeToRequester),
+        chargeSwapFeeToResponder: String(chargeSwapFeeToResponder),
       });
       toast.success(t('admin.settings.settingsSaved'));
     } catch (error: any) {
@@ -232,6 +238,53 @@ export default function Settings() {
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">{t('admin.settings.swapFeeHelp')}</p>
+            </div>
+
+            {/* Swap Fee Charges */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cobrar fee de intercambio a:
+              </label>
+              
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Quien propone el intercambio</p>
+                  <p className="text-xs text-gray-500">El usuario que crea la solicitud de intercambio</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChargeSwapFeeToRequester(!chargeSwapFeeToRequester)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    chargeSwapFeeToRequester ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      chargeSwapFeeToRequester ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Quien acepta el intercambio</p>
+                  <p className="text-xs text-gray-500">El usuario que responde a la solicitud</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChargeSwapFeeToResponder(!chargeSwapFeeToResponder)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    chargeSwapFeeToResponder ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      chargeSwapFeeToResponder ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Credit Conversion Fee */}

@@ -9,6 +9,7 @@ import clientRoutes from './routes/clientRoutes';
 import timeshareRoutes from './routes/timeshareRoutes';
 import swapRoutes from './routes/swapRoutes';
 import staffSwapRoutes from './routes/staffSwapRoutes';
+import paymentMethodRoutes from './routes/paymentMethodRoutes';
 import ownerNightCreditRoutes from './routes/ownerNightCreditRoutes';
 import staffNightCreditRoutes from './routes/staffNightCreditRoutes';
 import hotelGuestRoutes from './routes/hotelGuestRoutes';
@@ -77,6 +78,7 @@ app.use('/hotels/api', clientRoutes);
 app.use('/hotels/timeshare', authenticateToken, timeshareRoutes); // Timeshare routes for owners
 app.use('/hotels/owner/swaps', authenticateToken, swapRoutes); // Owner swap management
 app.use('/hotels/staff/swaps', authenticateToken, staffSwapRoutes); // Staff swap approval
+app.use('/hotels/payment-methods', authenticateToken, paymentMethodRoutes); // Payment method management
 app.use('/hotels/owner', authenticateToken, ownerNightCreditRoutes); // Owner night credit requests
 app.use('/hotels/staff', authenticateToken, staffNightCreditRoutes); // Staff night credit management
 app.use('/hotels/hotel', hotelGuestRoutes); // Hotel guest routes (light access)

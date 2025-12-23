@@ -5,6 +5,7 @@ import { requireOwnerRole } from '../middleware/ownerOnly';
 import { logAction } from '../middleware/loggingMiddleware';
 import { Week, SwapRequest, NightCredit, HotelService, Booking, User, Property, Role } from '../models';
 import { pmsService } from '../services/pmsServiceFactory';
+import SwapService from '../services/swapService';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
@@ -14,13 +15,24 @@ const router = Router();
 router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_weeks']), logAction('view_weeks'), async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
+    const filter = req.query.filter as string; // 'available' | 'all'
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
 
-    // Obtener weeks del propietario - excluir pending_swap como con los bookings
+    // Build where clause for weeks
+    const weekWhere: any = { 
+      owner_id: userId,
+      status: { [Op.ne]: 'pending_swap' } // Always exclude pending_swap
+    };
+    
+    // If filter is 'available', only show future dates
+    if (filter === 'available') {
+      weekWhere.start_date = { [Op.gte]: today };
+    }
+
+    // Obtener weeks del propietario
     const weeks = await Week.findAll({
-      where: { 
-        owner_id: userId,
-        status: { [Op.ne]: 'pending_swap' } // Excluir weeks en swaps pendientes
-      },
+      where: weekWhere,
       include: [{
         association: 'Property',
         attributes: ['name', 'location']
@@ -28,18 +40,26 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
       order: [['start_date', 'ASC']]
     });
 
-    // Obtener también bookings confirmadas/checked_in que pertenecen a este usuario (como guest)
-    // Buscar User con email que coincida con guest_email en las bookings
-    const userEmail = req.user.email;
+    // Build where clause for bookings
+    const bookingWhere: any = {
+      guest_email: req.user.email,
+      status: { [Op.notIn]: ['pending_swap', 'cancelled'] } // Exclude pending_swap and cancelled
+    };
+
+    // If filter is 'available', only show future dates and exclude checked_out
+    if (filter === 'available') {
+      bookingWhere.check_in = { [Op.gte]: today };
+      bookingWhere.status = { [Op.in]: ['confirmed', 'checked_in'] };
+    }
+
+    // Obtener también bookings que pertenecen a este usuario (como guest)
     const bookingsAsGuest = await Booking.findAll({
-      where: {
-        guest_email: userEmail,
-        status: { [Op.in]: ['confirmed', 'checked_in', 'checked_out'] } // Exclude pending_swap
-      },
+      where: bookingWhere,
       include: [{
         association: 'Property',
         attributes: ['name', 'location']
       }],
+      attributes: { include: ['acquired_via_swap_id'] }, // Include swap info
       order: [['check_in', 'ASC']]
     });
 
@@ -51,10 +71,10 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
       start_date: booking.check_in,
       end_date: booking.check_out,
       accommodation_type: booking.room_type || 'Standard',
-      status: booking.status === 'checked_out' ? 'used' 
-            : booking.status === 'pending_swap' ? 'pending_swap'
-            : 'confirmed',
+      status: booking.status === 'checked_in' ? 'checked_in' : 'confirmed',
       source: 'booking', // Marcar que viene de una reserva marketplace
+      acquired_via_swap: booking.acquired_via_swap_id ? true : false, // Indicar si fue por swap
+      acquired_via_swap_id: booking.acquired_via_swap_id,
       booking_id: booking.id,
       guest_name: booking.guest_name,
       guest_email: booking.guest_email,
@@ -154,6 +174,31 @@ router.post('/weeks/:weekId/confirm', authenticateToken, requireOwnerRole, autho
   } catch (error) {
     console.error('Error confirming week:', error);
     res.status(500).json({ error: 'Failed to confirm week' });
+  }
+});
+
+// Get available swaps to browse (swaps from other users that are pending)
+router.get('/swaps/browse/available', authenticateToken, requireOwnerRole, authorize(['view_own_weeks']), logAction('browse_available_swaps'), async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log('[GET /swaps/browse/available] userId:', userId);
+    
+    // Get swaps that:
+    // 1. Are in 'pending' status (waiting for someone to accept)
+    // 2. Were NOT created by the current user
+    // 3. Include full week/booking details
+    const availableSwaps = await SwapService.getAvailableSwapsForBrowse(userId);
+    
+    console.log('[GET /swaps/browse/available] Found', availableSwaps.length, 'available swaps');
+    
+    res.json({
+      success: true,
+      data: availableSwaps
+    });
+  } catch (error) {
+    console.error('Error fetching available swaps:', error);
+    res.status(500).json({ error: 'Failed to fetch available swaps' });
   }
 });
 
@@ -257,27 +302,14 @@ router.post('/swaps/:swapId/authorize', authenticateToken, requireOwnerRole, aut
 router.get('/swaps', authenticateToken, requireOwnerRole, authorize(['view_own_weeks']), logAction('view_swap_requests'), async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
+    const role = req.query.role as 'requester' | 'responder' | 'both' | undefined;
 
-    const swapRequests = await SwapRequest.findAll({
-      include: [
-        {
-          association: 'RequesterWeek',
-          include: [{ association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }]
-        },
-        {
-          association: 'ResponderWeek',
-          include: [{ association: 'Property', attributes: ['id', 'name', 'location', 'city', 'country'] }],
-          required: false
-        }
-      ],
-      where: {
-        [Op.or]: [
-          { requester_id: userId },
-          { '$ResponderWeek.owner_id$': userId }
-        ]
-      },
-      order: [['created_at', 'DESC']]
-    });
+    console.log('[GET /owner/swaps] userId:', userId, 'role:', role);
+
+    // Use SwapService to get swaps with proper booking enrichment
+    const swapRequests = await SwapService.getOwnerSwaps(userId, role || 'both');
+
+    console.log('[GET /owner/swaps] Found', swapRequests.length, 'swaps');
 
     res.json({
       success: true,

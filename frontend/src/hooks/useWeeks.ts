@@ -3,12 +3,12 @@ import { timeshareApi } from '@/api/timeshare';
 import { toast } from 'react-hot-toast';
 import type { ConfirmWeekRequest } from '@/types/api';
 
-export function useWeeks() {
+export function useWeeks(filter?: 'all' | 'available') {
   const queryClient = useQueryClient();
 
   const { data: weeks, isLoading, error } = useQuery({
-    queryKey: ['weeks'],
-    queryFn: timeshareApi.getWeeks,
+    queryKey: ['weeks', filter],
+    queryFn: () => timeshareApi.getWeeks(filter),
     retry: 1
   });
 

@@ -7,17 +7,23 @@ import type { SwapRequest } from '@/types/models';
 
 export default function StaffSwapApprovals() {
   const { t } = useTranslation();
-  const { pendingSwaps, pendingLoading, approveSwap, approvingSwap, rejectStaffSwap, rejectingStaffSwap } = useSwaps();
+  const { staffPendingSwaps, staffPendingLoading, staffSwaps, staffLoading, approveSwap, approvingSwap, rejectStaffSwap, rejectingStaffSwap } = useSwaps();
   
   const [selectedSwap, setSelectedSwap] = useState<SwapRequest | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [approveNotes, setApproveNotes] = useState('');
+  const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
 
-  if (pendingLoading) {
+  if (staffPendingLoading || staffLoading) {
     return <LoadingSpinner />;
   }
+
+  // Filter history swaps (completed and cancelled)
+  const historySwaps = (staffSwaps || []).filter(swap => 
+    swap.status === 'completed' || swap.status === 'cancelled'
+  );
 
   const getAccommodationTypeName = (type: string) => {
     switch (type?.toLowerCase()) {
@@ -89,15 +95,44 @@ export default function StaffSwapApprovals() {
           </p>
         </div>
 
-        {/* Pending Swaps Count */}
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800 font-semibold">
-            {pendingSwaps.length} {t('staff.swaps.pendingCount', { defaultValue: 'pending swaps awaiting approval' })}
-          </p>
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'pending'
+                  ? 'border-yellow-500 text-yellow-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              ⏳ Pendientes ({staffPendingSwaps.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'history'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              📋 Histórico ({historySwaps.length})
+            </button>
+          </nav>
         </div>
 
+        {/* Pending Swaps Tab */}
+        {activeTab === 'pending' && (
+          <>
+            {/* Pending Swaps Count */}
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-yellow-800 font-semibold">
+                {staffPendingSwaps.length} {t('staff.swaps.pendingCount', { defaultValue: 'pending swaps awaiting approval' })}
+              </p>
+            </div>
+
         {/* Empty State */}
-        {pendingSwaps.length === 0 ? (
+        {staffPendingSwaps.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <p className="text-gray-600 text-lg">
               ✓ {t('staff.swaps.noRequests', { defaultValue: 'No swap requests to review at the moment' })}
@@ -105,7 +140,7 @@ export default function StaffSwapApprovals() {
           </div>
         ) : (
           <div className="space-y-4">
-            {pendingSwaps.map((swap) => (
+            {staffPendingSwaps.map((swap) => (
               <div
                 key={swap.id}
                 className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer border-l-4 border-yellow-500"
@@ -128,9 +163,6 @@ export default function StaffSwapApprovals() {
                         {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type || '')} 
                         {' '}{getAccommodationTypeName(swap.RequesterWeek?.accommodation_type || '')}
                       </p>
-                      <p className="text-sm text-gray-700 mt-1">
-                        {swap.RequesterWeek?.Property?.name}
-                      </p>
                       <p className="text-xs text-gray-600 mt-1">
                         📅{' '}
                         {new Date(swap.RequesterWeek?.start_date || '').toLocaleDateString()} -{' '}
@@ -143,7 +175,7 @@ export default function StaffSwapApprovals() {
                   </div>
 
                   {/* Responder Week (if selected) */}
-                  {swap.responder_week_id && swap.ResponderWeek ? (
+                  {swap.ResponderWeek || swap.responder_source_id ? (
                     <div>
                       <p className="text-xs text-gray-600 mb-2">
                         {t('staff.swaps.responderOffers', { defaultValue: 'Responder Offers' })}
@@ -152,9 +184,6 @@ export default function StaffSwapApprovals() {
                         <p className="font-semibold text-gray-900">
                           {getAccommodationTypeEmoji(swap.ResponderWeek?.accommodation_type || '')}
                           {' '}{getAccommodationTypeName(swap.ResponderWeek?.accommodation_type || '')}
-                        </p>
-                        <p className="text-sm text-gray-700 mt-1">
-                          {swap.ResponderWeek?.Property?.name}
                         </p>
                         <p className="text-xs text-gray-600 mt-1">
                           📅{' '}
@@ -179,17 +208,109 @@ export default function StaffSwapApprovals() {
                     </div>
                   )}
                 </div>
-
-                {/* Fee Info */}
-                <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                  <span className="text-gray-700 font-semibold">
-                    {t('staff.swaps.platformFee', { defaultValue: 'Platform Fee' })}
-                  </span>
-                  <span className="text-xl font-bold text-yellow-700">€{swap.swap_fee || 10}</span>
-                </div>
               </div>
             ))}
           </div>
+        )}
+          </>
+        )}
+
+        {/* History Tab */}
+        {activeTab === 'history' && (
+          <>
+            {historySwaps.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <p className="text-gray-600 text-lg">
+                  📋 {t('staff.swaps.noHistory', { defaultValue: 'No swap history yet' })}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historySwaps.map((swap) => (
+                  <div
+                    key={swap.id}
+                    className="bg-white rounded-lg shadow-md p-6 border-l-4"
+                    style={{
+                      borderLeftColor: swap.status === 'completed' ? '#10b981' : '#ef4444'
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span
+                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                              swap.status === 'completed'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {swap.status === 'completed' ? '✓✓ Aprobado' : '✗ Rechazado'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(swap.staff_review_date || swap.created_at || '').toLocaleDateString('es-ES')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                      {/* Requester */}
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="text-xs text-blue-700 font-semibold mb-2">Solicitante:</p>
+                        <p className="font-semibold text-gray-900">
+                          {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type || '')} 
+                          {' '}{getAccommodationTypeName(swap.RequesterWeek?.accommodation_type || '')}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          📅 {new Date(swap.RequesterWeek?.start_date || '').toLocaleDateString()} -{' '}
+                          {new Date(swap.RequesterWeek?.end_date || '').toLocaleDateString()}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-2">
+                          👤 {swap.Requester?.firstName || swap.Requester?.email || 'Unknown'} {swap.Requester?.lastName || ''}
+                        </p>
+                      </div>
+
+                      {/* Responder */}
+                      {swap.ResponderWeek && (
+                        <div className="bg-green-50 p-4 rounded-lg">
+                          <p className="text-xs text-green-700 font-semibold mb-2">Respuesta:</p>
+                          <p className="font-semibold text-gray-900">
+                            {getAccommodationTypeEmoji(swap.ResponderWeek?.accommodation_type || '')}
+                            {' '}{getAccommodationTypeName(swap.ResponderWeek?.accommodation_type || '')}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            📅 {new Date(swap.ResponderWeek?.start_date || '').toLocaleDateString()} -{' '}
+                            {new Date(swap.ResponderWeek?.end_date || '').toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-2">
+                            👤 {swap.Responder?.firstName || swap.Responder?.email || 'Unknown'} {swap.Responder?.lastName || ''}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Staff Notes */}
+                    {swap.staff_notes && (
+                      <div className={`p-3 rounded ${
+                        swap.status === 'completed' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                      }`}>
+                        <p className={`text-xs font-semibold mb-1 ${
+                          swap.status === 'completed' ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          {swap.status === 'completed' ? 'Notas de aprobación:' : 'Razón de rechazo:'}
+                        </p>
+                        <p className={`text-sm ${
+                          swap.status === 'completed' ? 'text-green-900' : 'text-red-900'
+                        }`}>
+                          {swap.staff_notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Swap Details Modal */}
@@ -252,7 +373,7 @@ export default function StaffSwapApprovals() {
                 </div>
 
                 {/* Responder Information */}
-                {selectedSwap.responder_week_id && selectedSwap.ResponderWeek && (
+                {(selectedSwap.ResponderWeek || selectedSwap.responder_source_id) && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                       {t('staff.swaps.responderInfo', { defaultValue: 'Responder Information' })}

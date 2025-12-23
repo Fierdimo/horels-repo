@@ -13,6 +13,7 @@ interface UserAttributes {
   phone?: string | null;
   address?: string | null;
   stripe_customer_id?: string | null;
+  stripe_payment_method_id?: string | null;
 }
 
 class User extends Model<UserAttributes> implements UserAttributes {
@@ -27,6 +28,7 @@ class User extends Model<UserAttributes> implements UserAttributes {
   public phone?: string | null;
   public address?: string | null;
   public stripe_customer_id?: string | null;
+  public stripe_payment_method_id?: string | null;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -82,6 +84,10 @@ User.init({
     type: DataTypes.STRING,
     allowNull: true,
     unique: true,
+  },
+  stripe_payment_method_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
 }, {
   sequelize,

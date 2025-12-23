@@ -12,12 +12,13 @@ class Booking extends Model {
   public check_in!: Date;
   public check_out!: Date;
   public room_type!: string;
-  public status!: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
+  public status!: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'pending_swap';
   public guest_token!: string; // For hotel guest access
   public total_amount?: number;
   public currency?: string;
   public payment_intent_id?: string; // Stripe Payment Intent ID
   public payment_status?: string; // 'pending' | 'processing' | 'paid' | 'failed' | 'refunded'
+  public acquired_via_swap_id?: number; // ID of swap through which this booking was acquired
   // Association: when included, Sequelize will add the related Property instance
   public readonly Property?: Property | null;
   public readonly created_at!: Date;
@@ -115,6 +116,14 @@ Booking.init({
   swap_request_id: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  acquired_via_swap_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'swap_requests',
+      key: 'id',
+    },
   },
   raw: {
     type: DataTypes.JSON,

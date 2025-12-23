@@ -49,6 +49,9 @@ export interface SwapRequest {
   swap_fee?: number;
   payment_intent_id?: string;
   payment_status?: 'pending' | 'succeeded' | 'failed';
+  staff_notes?: string;
+  staff_review_date?: string;
+  reviewed_by_staff_id?: number;
   created_at?: string;
   RequesterWeek?: Week;
   ResponderWeek?: Week;

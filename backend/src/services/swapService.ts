@@ -1,5 +1,5 @@
 import { Week, SwapRequest, User, Property, Booking } from "../models";
-import { Op, Sequelize } from "sequelize";
+import { Op, Sequelize, QueryTypes } from "sequelize";
 import sequelize from "../config/database";
 
 /**
@@ -231,6 +231,14 @@ export class SwapService {
     const tx = await sequelize.transaction();
 
     try {
+      // Check if requester has payment method configured
+      const { PaymentMethodService } = require('./paymentMethodService');
+      const hasPaymentMethod = await PaymentMethodService.hasPaymentMethod(requesterId);
+      
+      if (!hasPaymentMethod) {
+        throw new Error("You must add a payment method before creating swap requests. Please configure your payment method in your profile settings.");
+      }
+
       // Detect if it's a booking ID (string like "booking_4") or week ID (number)
       let requesterWeek: any;
       const isBookingId =
@@ -385,8 +393,20 @@ export class SwapService {
         { transaction: tx }
       );
 
-      // Mark the requester's week as 'pending_swap' if it's a week (not a booking)
-      if (!isBookingId && requesterWeekId) {
+      // Mark the requester's resource as 'pending_swap'
+      if (isBookingId) {
+        // Mark booking as pending_swap
+        const bookingId = parseInt(requesterWeekId.split("_")[1], 10);
+        const { Booking } = require("../models");
+        await Booking.update(
+          { status: "pending_swap" },
+          { where: { id: bookingId }, transaction: tx }
+        );
+        console.log(
+          `[SwapService.createSwapRequest] Marked booking ${bookingId} as pending_swap`
+        );
+      } else if (requesterWeekId) {
+        // Mark week as pending_swap
         await Week.update(
           { status: "pending_swap" },
           { where: { id: Number(requesterWeekId) }, transaction: tx }
@@ -414,25 +434,57 @@ export class SwapService {
     role: "requester" | "responder" | "both" = "both"
   ): Promise<any[]> {
     try {
+      // Get user's email to check for bookings
+      const user = await User.findByPk(ownerId);
+      const userEmail = user?.email || "";
+
       const whereClause: any = {};
 
       if (role === "requester") {
         whereClause.requester_id = ownerId;
       } else if (role === "responder") {
-        // For responder, need to join with weeks to find if owner has the responder week
-        whereClause.responder_week_id = {
-          [Op.in]: Sequelize.literal(
-            `(SELECT id FROM weeks WHERE owner_id = ${ownerId})`
-          ),
-        };
-      } else {
-        // Both requester or has responder week
+        // For responder role, check responder_id OR legacy responder weeks/bookings
         whereClause[Op.or] = [
-          { requester_id: ownerId },
+          // New way: direct responder_id match
+          { responder_id: ownerId },
+          // Legacy: Responder used a week
           {
             responder_week_id: {
               [Op.in]: Sequelize.literal(
                 `(SELECT id FROM weeks WHERE owner_id = ${ownerId})`
+              ),
+            },
+          },
+          // Legacy: Responder used a booking
+          {
+            responder_source_type: "booking",
+            responder_source_id: {
+              [Op.in]: Sequelize.literal(
+                `(SELECT id FROM bookings WHERE guest_email = '${userEmail}')`
+              ),
+            },
+          },
+        ];
+      } else {
+        // Both requester OR responder (by ID or legacy way)
+        whereClause[Op.or] = [
+          { requester_id: ownerId },
+          // New way: direct responder_id match
+          { responder_id: ownerId },
+          // Legacy: Responder used a week
+          {
+            responder_week_id: {
+              [Op.in]: Sequelize.literal(
+                `(SELECT id FROM weeks WHERE owner_id = ${ownerId})`
+              ),
+            },
+          },
+          // Legacy: Responder used a booking
+          {
+            responder_source_type: "booking",
+            responder_source_id: {
+              [Op.in]: Sequelize.literal(
+                `(SELECT id FROM bookings WHERE guest_email = '${userEmail}')`
               ),
             },
           },
@@ -533,7 +585,12 @@ export class SwapService {
                 status: booking.status,
                 source: "booking",
                 booking_id: booking.id,
-                Property: booking.Property,
+                Property: booking.Property ? {
+                  ...booking.Property.toJSON(),
+                  location: booking.Property.city && booking.Property.country
+                    ? `${booking.Property.city}, ${booking.Property.country}`
+                    : booking.Property.location
+                } : null,
               };
             }
           }
@@ -565,7 +622,12 @@ export class SwapService {
                 status: booking.status,
                 source: "booking",
                 booking_id: booking.id,
-                Property: booking.Property,
+                Property: booking.Property ? {
+                  ...booking.Property.toJSON(),
+                  location: booking.Property.city && booking.Property.country
+                    ? `${booking.Property.city}, ${booking.Property.country}`
+                    : booking.Property.location
+                } : null,
               };
             }
           }
@@ -582,7 +644,335 @@ export class SwapService {
   }
 
   /**
-   * Approve swap request (by staff)
+   * Get available swaps for browsing (swaps from other users that are pending)
+   */
+  static async getAvailableSwapsForBrowse(currentUserId: number): Promise<any[]> {
+    try {
+      console.log('[SwapService.getAvailableSwapsForBrowse] User:', currentUserId);
+      
+      // Get swaps that are:
+      // 1. In 'pending' status (no one has accepted yet)
+      // 2. NOT created by the current user
+      const swaps = await SwapRequest.findAll({
+        where: {
+          status: "pending",
+          requester_id: { [Op.ne]: currentUserId }
+        },
+        include: [
+          {
+            model: Week,
+            as: "RequesterWeek",
+            required: false, // Make optional - swaps may use bookings instead
+            attributes: [
+              "id",
+              "owner_id",
+              "property_id",
+              "accommodation_type",
+              "start_date",
+              "end_date",
+              "status",
+            ],
+            include: [
+              {
+                model: User,
+                as: "Owner",
+                required: false,
+                attributes: ["id", "firstName", "lastName", "email"],
+              },
+              {
+                model: Property,
+                as: "Property",
+                required: false,
+                attributes: ["id", "name", "location", "city", "country"],
+              },
+            ],
+          },
+          {
+            model: User,
+            as: "Requester",
+            attributes: ["id", "firstName", "lastName", "email"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
+      });
+
+      console.log('[SwapService.getAvailableSwapsForBrowse] Raw swaps found:', swaps.length);
+      swaps.forEach(s => {
+        console.log(`  - Swap ${s.id}: status=${s.status}, requester_id=${s.requester_id}, source_type=${s.requester_source_type}, source_id=${s.requester_source_id}`);
+      });
+
+      // Enrich with booking data if needed
+      const enrichedSwaps = await Promise.all(
+        swaps.map(async (swap: any) => {
+          const swapData = swap.toJSON();
+
+          // Load requester booking data if needed
+          if (
+            swapData.requester_source_type === "booking" &&
+            swapData.requester_source_id
+          ) {
+            console.log(`[SwapService.getAvailableSwapsForBrowse] Loading booking ${swapData.requester_source_id} for swap ${swapData.id}`);
+            const booking = await Booking.findByPk(
+              swapData.requester_source_id,
+              {
+                include: [
+                  {
+                    association: "Property",
+                    attributes: ["id", "name", "location", "city", "country"],
+                  },
+                ],
+              }
+            );
+
+            if (booking) {
+              swapData.RequesterWeek = {
+                id: `booking_${booking.id}`,
+                property_id: booking.property_id,
+                accommodation_type: booking.room_type || "Standard",
+                start_date: booking.check_in,
+                end_date: booking.check_out,
+                status: booking.status,
+                source: "booking",
+                booking_id: booking.id,
+                Property: booking.Property ? {
+                  ...booking.Property.toJSON(),
+                  // Fix location if it's "undefined, undefined" or similar
+                  location: booking.Property.city && booking.Property.country
+                    ? `${booking.Property.city}, ${booking.Property.country}`
+                    : booking.Property.location
+                } : null,
+              };
+              console.log(`[SwapService.getAvailableSwapsForBrowse] Enriched swap ${swapData.id} with booking data`);
+            } else {
+              console.log(`[SwapService.getAvailableSwapsForBrowse] WARNING: Booking ${swapData.requester_source_id} not found for swap ${swapData.id}`);
+            }
+          }
+
+          return swapData;
+        })
+      );
+
+      console.log('[SwapService.getAvailableSwapsForBrowse] Found', enrichedSwaps.length, 'available swaps');
+      
+      return enrichedSwaps;
+    } catch (error) {
+      console.error("Error fetching available swaps for browse:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pending swap requests for staff to review
+   */
+  static async getStaffPendingSwaps(propertyId: number): Promise<any[]> {
+    try {
+      console.log('[SwapService.getStaffPendingSwaps] Fetching swaps for property:', propertyId);
+
+      // Get swaps where the requester's week belongs to this property
+      // and has a responder (responder_week_id or responder_source_id is set)
+      const swaps = await SwapRequest.findAll({
+        where: {
+          status: "matched", // Status after someone accepts
+          property_id: propertyId,
+          [Op.or]: [
+            { responder_week_id: { [Op.ne]: null } },
+            { responder_source_id: { [Op.ne]: null } }
+          ]
+        },
+        include: [
+          {
+            model: Week,
+            as: "RequesterWeek",
+            attributes: [
+              "id",
+              "owner_id",
+              "property_id",
+              "accommodation_type",
+              "start_date",
+              "end_date",
+              "status",
+            ],
+            include: [
+              {
+                model: User,
+                as: "Owner",
+                attributes: ["id", "firstName", "lastName", "email"],
+              },
+              {
+                model: Property,
+                as: "Property",
+                attributes: ["id", "name", "location", "city", "country"],
+              },
+            ],
+          },
+          {
+            model: Week,
+            as: "ResponderWeek",
+            attributes: [
+              "id",
+              "owner_id",
+              "property_id",
+              "accommodation_type",
+              "start_date",
+              "end_date",
+              "status",
+            ],
+            include: [
+              {
+                model: User,
+                as: "Owner",
+                attributes: ["id", "firstName", "lastName", "email"],
+              },
+              {
+                model: Property,
+                as: "Property",
+                attributes: ["id", "name", "location", "city", "country"],
+              },
+            ],
+          },
+          {
+            model: User,
+            as: "Requester",
+            attributes: ["id", "firstName", "lastName", "email"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
+      });
+
+      console.log('[SwapService.getStaffPendingSwaps] Found', swaps.length, 'swaps');
+
+      // Enrich swaps with booking data if source type is 'booking'
+      const enrichedSwaps = await Promise.all(
+        swaps.map(async (swap: any) => {
+          const swapData = swap.toJSON();
+          
+          console.log('[SwapService.getStaffPendingSwaps] Processing swap:', swapData.id);
+          console.log('[SwapService.getStaffPendingSwaps] Swap data:', {
+            requester_source_type: swapData.requester_source_type,
+            requester_source_id: swapData.requester_source_id,
+            responder_source_type: swapData.responder_source_type,
+            responder_source_id: swapData.responder_source_id,
+            responder_week_id: swapData.responder_week_id,
+            status: swapData.status
+          });
+
+          // Load requester booking data if needed
+          if (
+            swapData.requester_source_type === "booking" &&
+            swapData.requester_source_id
+          ) {
+            console.log('[SwapService.getStaffPendingSwaps] Loading requester booking:', swapData.requester_source_id);
+            const booking = await Booking.findByPk(
+              swapData.requester_source_id,
+              {
+                include: [
+                  {
+                    association: "Property",
+                    attributes: ["id", "name", "location", "city", "country"],
+                  },
+                ],
+              }
+            );
+
+            if (booking) {
+              swapData.RequesterWeek = {
+                id: `booking_${booking.id}`,
+                property_id: booking.property_id,
+                accommodation_type: booking.room_type || "Standard",
+                start_date: booking.check_in,
+                end_date: booking.check_out,
+                status: booking.status,
+                source: "booking",
+                booking_id: booking.id,
+                Property: booking.Property ? {
+                  ...booking.Property.toJSON(),
+                  location: booking.Property.city && booking.Property.country
+                    ? `${booking.Property.city}, ${booking.Property.country}`
+                    : booking.Property.location
+                } : null,
+              };
+              console.log('[SwapService.getStaffPendingSwaps] RequesterWeek enriched with booking');
+            }
+          }
+
+          // Load responder booking data if needed
+          if (
+            swapData.responder_source_type === "booking" &&
+            swapData.responder_source_id
+          ) {
+            console.log('[SwapService.getStaffPendingSwaps] Loading responder booking:', swapData.responder_source_id);
+            const booking = await Booking.findByPk(
+              swapData.responder_source_id,
+              {
+                include: [
+                  {
+                    association: "Property",
+                    attributes: ["id", "name", "location", "city", "country"],
+                  },
+                ],
+              }
+            );
+
+            if (booking) {
+              console.log('[SwapService.getStaffPendingSwaps] Responder booking found:', {
+                id: booking.id,
+                guest_email: booking.guest_email,
+                check_in: booking.check_in,
+                check_out: booking.check_out
+              });
+
+              // Also get the responder user info
+              const responderUser = await User.findOne({
+                where: { email: booking.guest_email },
+                attributes: ["id", "firstName", "lastName", "email"],
+              });
+
+              swapData.ResponderWeek = {
+                id: `booking_${booking.id}`,
+                property_id: booking.property_id,
+                accommodation_type: booking.room_type || "Standard",
+                start_date: booking.check_in,
+                end_date: booking.check_out,
+                status: booking.status,
+                source: "booking",
+                booking_id: booking.id,
+                Property: booking.Property ? {
+                  ...booking.Property.toJSON(),
+                  location: booking.Property.city && booking.Property.country
+                    ? `${booking.Property.city}, ${booking.Property.country}`
+                    : booking.Property.location
+                } : null,
+              };
+
+              if (responderUser) {
+                swapData.Responder = responderUser;
+                console.log('[SwapService.getStaffPendingSwaps] Responder user found:', responderUser.email);
+              } else {
+                console.log('[SwapService.getStaffPendingSwaps] WARNING: Responder user not found for email:', booking.guest_email);
+              }
+            } else {
+              console.log('[SwapService.getStaffPendingSwaps] WARNING: Responder booking not found:', swapData.responder_source_id);
+            }
+          } else if (swapData.responder_week_id && swapData.ResponderWeek) {
+            console.log('[SwapService.getStaffPendingSwaps] Responder has a week (not booking):', swapData.responder_week_id);
+          } else {
+            console.log('[SwapService.getStaffPendingSwaps] WARNING: No responder information found for swap:', swapData.id);
+          }
+
+          return swapData;
+        })
+      );
+
+      console.log('[SwapService.getStaffPendingSwaps] Returning', enrichedSwaps.length, 'enriched swaps');
+      return enrichedSwaps;
+    } catch (error) {
+      console.error("Error fetching staff pending swaps:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Approve swap request (by staff) - Execute the actual swap
    */
   static async approveSwap(
     swapId: number,
@@ -590,33 +980,194 @@ export class SwapService {
     notes?: string
   ): Promise<any> {
     try {
+      console.log('[SwapService.approveSwap] Starting approval for swap:', swapId);
+      
       const swap = await SwapRequest.findByPk(swapId);
       if (!swap) {
         throw new Error("Swap request not found");
       }
 
-      if (swap.status !== "pending" && swap.status !== "matched") {
-        throw new Error("Swap cannot be approved in its current status");
+      if (swap.status !== "matched") {
+        throw new Error("Swap can only be approved when status is 'matched'");
       }
 
-      // Validate responder week availability again
-      if (swap.responder_week_id) {
-        const availability = await this.checkWeekAvailability(
-          swap.responder_week_id
-        );
-        if (!availability.available) {
-          throw new Error("Responder week is no longer available");
+      // Check if both users have payment methods configured
+      const { PaymentMethodService } = require('./paymentMethodService');
+      
+      const requesterHasPayment = await PaymentMethodService.hasPaymentMethod(swap.requester_id);
+      const responderHasPayment = swap.responder_id ? await PaymentMethodService.hasPaymentMethod(swap.responder_id) : false;
+
+      if (!requesterHasPayment) {
+        throw new Error("Requester has no payment method configured. Please ask them to add a payment method in their profile.");
+      }
+
+      if (swap.responder_id && !responderHasPayment) {
+        throw new Error("Responder has no payment method configured. Please ask them to add a payment method in their profile.");
+      }
+
+      // Get swap fee configuration from platform settings
+      const [swapFeeResult] = await sequelize.query(
+        "SELECT value FROM platform_settings WHERE `key` = 'swapFee' LIMIT 1",
+        { type: QueryTypes.SELECT }
+      );
+      const [chargeRequesterResult] = await sequelize.query(
+        "SELECT value FROM platform_settings WHERE `key` = 'chargeSwapFeeToRequester' LIMIT 1",
+        { type: QueryTypes.SELECT }
+      );
+      const [chargeResponderResult] = await sequelize.query(
+        "SELECT value FROM platform_settings WHERE `key` = 'chargeSwapFeeToResponder' LIMIT 1",
+        { type: QueryTypes.SELECT }
+      );
+      
+      const swapFee = swapFeeResult ? parseFloat((swapFeeResult as any).value) : 10.00;
+      const chargeRequester = chargeRequesterResult ? (chargeRequesterResult as any).value !== 'false' : true;
+      const chargeResponder = chargeResponderResult ? (chargeResponderResult as any).value === 'true' : false;
+
+      console.log('[SwapService.approveSwap] Swap fee configuration:', {
+        fee: swapFee,
+        chargeRequester,
+        chargeResponder
+      });
+
+      let totalCharges = 0;
+
+      // Charge requester if configured
+      if (chargeRequester) {
+        try {
+          console.log('[SwapService.approveSwap] Charging', swapFee, 'EUR to requester');
+          const paymentIntentId = await PaymentMethodService.chargeSwapFee(
+            swap.requester_id,
+            swapFee,
+            swapId
+          );
+          console.log('[SwapService.approveSwap] Requester charged successfully, payment intent:', paymentIntentId);
+          
+          await swap.update({ 
+            payment_intent_id: paymentIntentId,
+            payment_status: 'paid',
+            paid_at: new Date(),
+            swap_fee: swapFee
+          });
+          totalCharges += swapFee;
+        } catch (paymentError: any) {
+          console.error('[SwapService.approveSwap] Requester payment failed:', paymentError);
+          throw new Error(`Payment to requester failed: ${paymentError.message}. Swap not approved.`);
         }
       }
 
+      // Charge responder if configured
+      if (chargeResponder && swap.responder_id) {
+        try {
+          console.log('[SwapService.approveSwap] Charging', swapFee, 'EUR to responder');
+          const responderPaymentIntentId = await PaymentMethodService.chargeSwapFee(
+            swap.responder_id,
+            swapFee,
+            swapId
+          );
+          console.log('[SwapService.approveSwap] Responder charged successfully, payment intent:', responderPaymentIntentId);
+          totalCharges += swapFee;
+        } catch (paymentError: any) {
+          console.error('[SwapService.approveSwap] Responder payment failed:', paymentError);
+          // If requester was already charged, we should handle refund or rollback
+          throw new Error(`Payment to responder failed: ${paymentError.message}. Swap not approved.`);
+        }
+      }
+
+      console.log('[SwapService.approveSwap] Total charges:', totalCharges, 'EUR');
+
+      console.log('[SwapService.approveSwap] Swap details:', {
+        requester_source_type: swap.requester_source_type,
+        requester_source_id: swap.requester_source_id,
+        responder_source_type: swap.responder_source_type,
+        responder_source_id: swap.responder_source_id,
+        responder_week_id: swap.responder_week_id
+      });
+
+      // EXECUTE THE SWAP - Exchange the bookings/weeks
+      
+      // Get requester user email
+      const requesterUser = await User.findByPk(swap.requester_id);
+      if (!requesterUser) {
+        throw new Error("Requester user not found");
+      }
+
+      // Get responder user email
+      let responderEmail = "";
+      if (swap.responder_source_type === "booking" && swap.responder_source_id) {
+        const responderBooking = await Booking.findByPk(swap.responder_source_id);
+        responderEmail = responderBooking?.guest_email || "";
+      } else if (swap.responder_week_id) {
+        const responderWeek = await Week.findByPk(swap.responder_week_id);
+        const responderUser = await User.findByPk(responderWeek?.owner_id);
+        responderEmail = responderUser?.email || "";
+      }
+
+      console.log('[SwapService.approveSwap] Users:', {
+        requester: requesterUser.email,
+        responder: responderEmail
+      });
+
+      // 1. Swap requester's booking/week
+      if (swap.requester_source_type === "booking" && swap.requester_source_id) {
+        const requesterBooking = await Booking.findByPk(swap.requester_source_id);
+        if (requesterBooking) {
+          // Transfer requester's booking to responder
+          await requesterBooking.update({
+            guest_email: responderEmail,
+            status: "confirmed",
+            acquired_via_swap_id: swap.id // Mark as acquired via swap
+          });
+          console.log('[SwapService.approveSwap] Requester booking transferred to responder');
+        }
+      } else if (swap.requester_week_id) {
+        const requesterWeek = await Week.findByPk(swap.requester_week_id);
+        if (requesterWeek) {
+          // Transfer requester's week to responder (find responder user id)
+          const responderUser = await User.findOne({ where: { email: responderEmail } });
+          if (responderUser) {
+            await requesterWeek.update({
+              owner_id: responderUser.id,
+              status: "available"
+            });
+            console.log('[SwapService.approveSwap] Requester week transferred to responder');
+          }
+        }
+      }
+
+      // 2. Swap responder's booking/week
+      if (swap.responder_source_type === "booking" && swap.responder_source_id) {
+        const responderBooking = await Booking.findByPk(swap.responder_source_id);
+        if (responderBooking) {
+          // Transfer responder's booking to requester
+          await responderBooking.update({
+            guest_email: requesterUser.email,
+            status: "confirmed",
+            acquired_via_swap_id: swap.id // Mark as acquired via swap
+          });
+          console.log('[SwapService.approveSwap] Responder booking transferred to requester');
+        }
+      } else if (swap.responder_week_id) {
+        const responderWeek = await Week.findByPk(swap.responder_week_id);
+        if (responderWeek) {
+          // Transfer responder's week to requester
+          await responderWeek.update({
+            owner_id: swap.requester_id,
+            status: "available"
+          });
+          console.log('[SwapService.approveSwap] Responder week transferred to requester');
+        }
+      }
+
+      // Update swap status to completed
       const updated = await swap.update({
         staff_approval_status: "approved",
         reviewed_by_staff_id: staffId,
         staff_review_date: new Date(),
         staff_notes: notes || null,
-        status: "awaiting_payment",
+        status: "completed",
       });
 
+      console.log('[SwapService.approveSwap] Swap completed successfully');
       return updated;
     } catch (error) {
       console.error("Error approving swap:", error);
@@ -625,7 +1176,7 @@ export class SwapService {
   }
 
   /**
-   * Reject swap request (by staff)
+   * Reject swap request (by staff) - Revert bookings/weeks to original state
    */
   static async rejectSwap(
     swapId: number,
@@ -633,6 +1184,8 @@ export class SwapService {
     reason: string
   ): Promise<any> {
     try {
+      console.log('[SwapService.rejectSwap] Starting rejection for swap:', swapId);
+      
       const swap = await SwapRequest.findByPk(swapId);
       if (!swap) {
         throw new Error("Swap request not found");
@@ -642,6 +1195,39 @@ export class SwapService {
         throw new Error("Cannot reject a completed or cancelled swap");
       }
 
+      console.log('[SwapService.rejectSwap] Reverting pending_swap status');
+
+      // Revert requester's booking/week from pending_swap to original state
+      if (swap.requester_source_type === "booking" && swap.requester_source_id) {
+        const requesterBooking = await Booking.findByPk(swap.requester_source_id);
+        if (requesterBooking && requesterBooking.status === "pending_swap") {
+          await requesterBooking.update({ status: "confirmed" });
+          console.log('[SwapService.rejectSwap] Requester booking reverted to confirmed');
+        }
+      } else if (swap.requester_week_id) {
+        const requesterWeek = await Week.findByPk(swap.requester_week_id);
+        if (requesterWeek && requesterWeek.status === "pending_swap") {
+          await requesterWeek.update({ status: "available" });
+          console.log('[SwapService.rejectSwap] Requester week reverted to available');
+        }
+      }
+
+      // Revert responder's booking/week from pending_swap to original state
+      if (swap.responder_source_type === "booking" && swap.responder_source_id) {
+        const responderBooking = await Booking.findByPk(swap.responder_source_id);
+        if (responderBooking && responderBooking.status === "pending_swap") {
+          await responderBooking.update({ status: "confirmed" });
+          console.log('[SwapService.rejectSwap] Responder booking reverted to confirmed');
+        }
+      } else if (swap.responder_week_id) {
+        const responderWeek = await Week.findByPk(swap.responder_week_id);
+        if (responderWeek && responderWeek.status === "pending_swap") {
+          await responderWeek.update({ status: "available" });
+          console.log('[SwapService.rejectSwap] Responder week reverted to available');
+        }
+      }
+
+      // Update swap status to cancelled
       const updated = await swap.update({
         staff_approval_status: "rejected",
         reviewed_by_staff_id: staffId,
@@ -650,6 +1236,7 @@ export class SwapService {
         status: "cancelled",
       });
 
+      console.log('[SwapService.rejectSwap] Swap cancelled and states reverted');
       return updated;
     } catch (error) {
       console.error("Error rejecting swap:", error);
@@ -666,6 +1253,14 @@ export class SwapService {
     responderWeekId?: number | string
   ): Promise<any> {
     try {
+      // Check if responder has payment method configured
+      const { PaymentMethodService } = require('./paymentMethodService');
+      const hasPaymentMethod = await PaymentMethodService.hasPaymentMethod(ownerId);
+      
+      if (!hasPaymentMethod) {
+        throw new Error("You must add a payment method before accepting swap requests. Please configure your payment method in your profile settings.");
+      }
+
       const swap = await SwapRequest.findByPk(swapId, {
         include: [
           { model: Week, as: "RequesterWeek" },
@@ -682,6 +1277,7 @@ export class SwapService {
         responder_acceptance: "accepted",
         responder_acceptance_date: new Date(),
         status: "matched",
+        responder_id: ownerId, // Save who accepted the swap
       };
 
       // If responderWeekId is provided, handle it
@@ -808,23 +1404,80 @@ export class SwapService {
         throw new Error("Swap request not found");
       }
 
-      // Verify this owner owns the responder week
-      const responderWeek = (swap as any).ResponderWeek;
-      if (!responderWeek || responderWeek.owner_id !== ownerId) {
-        throw new Error("You do not own the responder week");
+      // Allow rejection if:
+      // 1. User is the requester (can cancel their own swap)
+      // 2. User is the responder (owns responder week/booking)
+      const isRequester = swap.requester_id === ownerId;
+      const isResponder = swap.responder_id === ownerId;
+      
+      if (!isRequester && !isResponder) {
+        // Check if owner owns the responder week (legacy check)
+        const responderWeek = (swap as any).ResponderWeek;
+        if (!responderWeek || responderWeek.owner_id !== ownerId) {
+          throw new Error("You are not authorized to reject this swap");
+        }
       }
 
       if (swap.status === "completed" || swap.status === "cancelled") {
         throw new Error("Cannot reject a completed or cancelled swap");
       }
 
-      const updated = await swap.update({
-        responder_acceptance: "rejected",
-        responder_acceptance_date: new Date(),
-        status: "cancelled",
-      });
+      // If requester is cancelling, revert their own booking/week status
+      if (isRequester) {
+        if (swap.requester_source_type === "booking" && swap.requester_source_id) {
+          const requesterBooking = await Booking.findByPk(swap.requester_source_id);
+          if (requesterBooking && requesterBooking.status === "pending_swap") {
+            await requesterBooking.update({ status: "confirmed" });
+          }
+        } else if (swap.requester_week_id) {
+          const requesterWeek = await Week.findByPk(swap.requester_week_id);
+          if (requesterWeek && requesterWeek.status === "pending_swap") {
+            await requesterWeek.update({ status: "available" });
+          }
+        }
+      }
 
-      return updated;
+      // If responder is rejecting, revert their booking/week status
+      if (isResponder) {
+        if (swap.responder_source_type === "booking" && swap.responder_source_id) {
+          const responderBooking = await Booking.findByPk(swap.responder_source_id);
+          if (responderBooking && responderBooking.status === "pending_swap") {
+            await responderBooking.update({ status: "confirmed" });
+          }
+        } else if (swap.responder_week_id) {
+          const responderWeek = await Week.findByPk(swap.responder_week_id);
+          if (responderWeek && responderWeek.status === "pending_swap") {
+            await responderWeek.update({ status: "available" });
+          }
+        }
+      }
+
+      // Determine the new status:
+      // - If REQUESTER cancels their own pending request → cancel it completely
+      // - If RESPONDER rejects a matched request → revert to pending (so others can accept)
+      
+      if (isResponder && swap.status === 'matched') {
+        // Responder is rejecting after accepting - revert to pending
+        // Clear responder data to make it available for others
+        await swap.update({
+          responder_id: null,
+          responder_week_id: null,
+          responder_source_type: null,
+          responder_source_id: null,
+          responder_acceptance: 'pending',
+          responder_acceptance_date: null,
+          status: 'pending',
+        });
+      } else {
+        // Requester cancels OR responder rejects before accepting
+        await swap.update({
+          responder_acceptance: 'rejected',
+          responder_acceptance_date: new Date(),
+          status: 'cancelled',
+        });
+      }
+
+      return swap;
     } catch (error) {
       console.error("Error rejecting swap:", error);
       throw error;

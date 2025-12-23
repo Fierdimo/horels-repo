@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorMessage } from '@/components/common/ErrorMessage';
 import { SwapsBrowseTab } from '@/components/owner/SwapsBrowseTab';
@@ -11,6 +12,8 @@ import { useSwaps } from '@/hooks/useSwaps';
 import { useWeeks } from '@/hooks/useWeeks';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
+import { paymentMethodApi } from '@/api/paymentMethod';
+import { toast } from 'react-hot-toast';
 import type { SwapRequest } from '@/types/models';
 import type { CreateSwapRequest } from '@/types/api';
 
@@ -19,10 +22,17 @@ type TabType = 'browse' | 'my-requests' | 'create';
 export default function Swaps() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { swaps, isLoading, error, createSwap, acceptSwap, isCreating, isAccepting, availableSwaps } = useSwaps();
-  const { weeks } = useWeeks();
+  const { weeks } = useWeeks('available'); // Only show available weeks for swapping
   const { settings } = usePlatformSettings();
+  
+  // Check if user has payment method
+  const { data: hasPaymentMethod, isLoading: checkingPayment } = useQuery({
+    queryKey: ['payment-method-status'],
+    queryFn: paymentMethodApi.hasPaymentMethod,
+  });
   
   // Tab navigation
   const [activeTab, setActiveTab] = useState<TabType>('browse');
@@ -38,6 +48,7 @@ export default function Swaps() {
   const [showDetails, setShowDetails] = useState(false);
   const [selectedResponderWeek, setSelectedResponderWeek] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPaymentWarning, setShowPaymentWarning] = useState(false);
 
   // Only show loading if both are loading for the first time
   const isInitialLoading = isLoading;
@@ -93,6 +104,13 @@ export default function Swaps() {
 
   const handleCreateSwap = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check payment method first
+    if (!hasPaymentMethod) {
+      setShowPaymentWarning(true);
+      return;
+    }
+    
     if (formData.requester_week_id) {
       createSwap(formData, {
         onSuccess: () => {
@@ -111,6 +129,12 @@ export default function Swaps() {
     console.log('[handleAcceptSwap] swap:', swap);
     console.log('[handleAcceptSwap] swap.id:', swap.id);
     console.log('[handleAcceptSwap] selectedResponderWeek:', selectedResponderWeek);
+    
+    // Check payment method first
+    if (!hasPaymentMethod) {
+      setShowPaymentWarning(true);
+      return;
+    }
     
     if (selectedResponderWeek && swap.id) {
       console.log('[handleAcceptSwap] Sending: swapId=', swap.id, 'responderWeekId=', selectedResponderWeek);
@@ -263,7 +287,7 @@ export default function Swaps() {
         {/* TAB 1: BROWSE AVAILABLE SWAPS */}
         {activeTab === 'browse' && (
           <SwapsBrowseTab
-            availableSwaps={availableSwaps}
+            availableSwaps={availableSwaps || []}
             weeks={weeks}
             userWeekAccommodationTypes={userWeekAccommodationTypes}
             onSelectSwap={(swap) => {
@@ -281,12 +305,8 @@ export default function Swaps() {
         {/* TAB 2: MY SWAP REQUESTS */}
         {activeTab === 'my-requests' && (
           <SwapsMyRequestsTab
-            swaps={swaps}
+            swaps={swaps || []}
             weeks={weeks}
-            onSelectSwap={(swap) => {
-              setSelectedSwap(swap);
-              setShowDetails(true);
-            }}
             onCreateRequest={() => setActiveTab('create')}
             getStatusColor={getStatusColor}
             getStatusIcon={getStatusIcon}
@@ -302,6 +322,7 @@ export default function Swaps() {
             onCancel={() => setActiveTab('browse')}
             weeks={weeks}
             isCreating={isCreating}
+            hasPaymentMethod={hasPaymentMethod}
             getAccommodationTypeName={getAccommodationTypeName}
             getAccommodationTypeEmoji={getAccommodationTypeEmoji}
           />
@@ -549,6 +570,41 @@ export default function Swaps() {
               setSelectedSwap(null);
             }}
           />
+        )}
+
+        {/* Payment Method Warning Modal */}
+        {showPaymentWarning && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+              <div className="text-center">
+                <div className="text-5xl mb-4">⚠️</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Método de Pago Requerido
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Debes configurar un método de pago antes de crear o aceptar intercambios. 
+                  Esto permite procesar automáticamente las tarifas cuando el staff apruebe tu solicitud.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPaymentWarning(false)}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPaymentWarning(false);
+                      navigate('/owner/profile');
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Configurar Ahora
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
