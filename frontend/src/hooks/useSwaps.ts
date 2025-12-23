@@ -21,6 +21,14 @@ export function useSwaps() {
     retry: 1
   });
 
+  // Pending swaps created by the user
+  const { data: pendingSwaps, isLoading: pendingLoading } = useQuery({
+    queryKey: ['swaps', 'pending'],
+    queryFn: () => timeshareApi.getPendingSwaps(),
+    enabled: !isStaff,
+    retry: 1
+  });
+
   // User's own swaps
   const { data: swaps, isLoading, error } = useQuery({
     queryKey: ['swaps'],
@@ -43,6 +51,7 @@ export function useSwaps() {
     onSuccess: () => {
       toast.success('Swap created successfully');
       queryClient.invalidateQueries({ queryKey: ['swaps'] });
+      queryClient.invalidateQueries({ queryKey: ['swaps', 'pending'] });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to create swap');
@@ -56,6 +65,7 @@ export function useSwaps() {
     onSuccess: () => {
       toast.success('Swap accepted successfully');
       queryClient.invalidateQueries({ queryKey: ['swaps'] });
+      queryClient.invalidateQueries({ queryKey: ['swaps', 'available'] });
       queryClient.invalidateQueries({ queryKey: ['weeks'] });
     },
     onError: (error: any) => {
@@ -101,7 +111,7 @@ export function useSwaps() {
   // Staff Queries and Mutations
   // ============================================================================
 
-  const { data: pendingSwaps, isLoading: pendingLoading } = useQuery({
+  const { data: staffPendingSwaps, isLoading: staffPendingLoading } = useQuery({
     queryKey: ['staff', 'swaps', 'pending'],
     queryFn: timeshareApi.getStaffPendingSwaps,
     enabled: isStaff,
@@ -154,6 +164,8 @@ export function useSwaps() {
     error,
     availableSwaps: availableSwaps || [],
     availableLoading,
+    pendingSwaps: pendingSwaps || [],
+    pendingLoading,
 
     // Owner mutations
     searchCompatible: searchCompatibleMutation.mutate,
@@ -177,9 +189,9 @@ export function useSwaps() {
     confirmingPayment: confirmPaymentMutation.isPending,
 
     // Staff data
-    pendingSwaps: pendingSwaps || [],
+    staffPendingSwaps: staffPendingSwaps || [],
     staffSwaps: staffSwaps || [],
-    pendingLoading,
+    staffPendingLoading,
     staffLoading,
 
     // Staff mutations

@@ -90,6 +90,20 @@ export const timeshareApi = {
   },
 
   /**
+   * Get pending swaps created by the user
+   * GET /owner/swaps/pending
+   */
+  getPendingSwaps: async (): Promise<SwapRequest[]> => {
+    try {
+      const { data } = await apiClient.get<ApiResponse<SwapRequest[]>>('/owner/swaps/pending');
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch pending swaps:', error);
+      return [];
+    }
+  },
+
+  /**
    * Get all swap requests for current owner
    * GET /owner/swaps
    */

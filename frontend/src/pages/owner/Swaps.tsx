@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorMessage } from '@/components/common/ErrorMessage';
@@ -18,6 +19,7 @@ type TabType = 'browse' | 'my-requests' | 'create';
 export default function Swaps() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { swaps, isLoading, error, createSwap, acceptSwap, isCreating, isAccepting, availableSwaps } = useSwaps();
   const { weeks } = useWeeks();
   const { settings } = usePlatformSettings();
@@ -120,6 +122,8 @@ export default function Swaps() {
             setShowDetails(false);
             setSelectedSwap(null);
             setSelectedResponderWeek(null);
+            // Force refetch of weeks to reflect the updated status
+            queryClient.refetchQueries({ queryKey: ['weeks'] });
           }
         } as any
       );
@@ -396,8 +400,32 @@ export default function Swaps() {
                         end: w.end_date,
                         duration: Math.ceil((new Date(w.end_date).getTime() - new Date(w.start_date).getTime()) / (1000 * 60 * 60 * 24))
                       })));
+
+                      // Get IDs of weeks already involved in active swaps (where this user is responder)
+                      const weeksInActiveSwaps = new Set(
+                        swaps
+                          .filter(s => s.status === 'pending' || s.status === 'matched')
+                          .map(s => {
+                            if (s.responder_source_type === 'week' && s.responder_week_id) {
+                              return String(s.responder_week_id);
+                            }
+                            if (s.responder_source_type === 'booking' && s.responder_source_id) {
+                              return `booking_${s.responder_source_id}`;
+                            }
+                            return null;
+                          })
+                          .filter(id => id !== null)
+                      );
+
+                      console.log('[Swaps Modal] Weeks in active swaps:', Array.from(weeksInActiveSwaps));
                       
                       const compatibleWeeks = weeks.filter((w) => {
+                        // Exclude weeks already in active swaps
+                        if (weeksInActiveSwaps.has(String(w.id))) {
+                          console.log(`[Swaps Modal] Week ${w.id} filtered out: already in active swap`);
+                          return false;
+                        }
+
                         // Must be available or confirmed status
                         if (w.status !== 'available' && w.status !== 'confirmed') {
                           console.log(`[Swaps Modal] Week ${w.id} filtered out: status=${w.status}`);

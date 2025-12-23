@@ -52,6 +52,19 @@ router.get(
 );
 
 /**
+ * Get pending swaps created by the user (waiting for acceptance)
+ * GET /owner/swaps/pending
+ */
+router.get(
+  '/pending',
+  authenticateToken,
+  requireOwnerRole,
+  authorize(['view_own_weeks']),
+  logAction('browse_pending_swaps'),
+  (req: any, res: Response) => SwapController.getPendingSwaps(req, res)
+);
+
+/**
  * Get all swap requests for current owner
  * GET /owner/swaps
  * Query: role? = 'requester' | 'responder' | 'both'

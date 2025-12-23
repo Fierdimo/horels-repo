@@ -15,9 +15,12 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
   try {
     const userId = req.user.id;
 
-    // Obtener weeks del propietario
+    // Obtener weeks del propietario - excluir pending_swap como con los bookings
     const weeks = await Week.findAll({
-      where: { owner_id: userId },
+      where: { 
+        owner_id: userId,
+        status: { [Op.ne]: 'pending_swap' } // Excluir weeks en swaps pendientes
+      },
       include: [{
         association: 'Property',
         attributes: ['name', 'location']
@@ -31,7 +34,7 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
     const bookingsAsGuest = await Booking.findAll({
       where: {
         guest_email: userEmail,
-        status: { [Op.in]: ['confirmed', 'checked_in', 'checked_out'] }
+        status: { [Op.in]: ['confirmed', 'checked_in', 'checked_out'] } // Exclude pending_swap
       },
       include: [{
         association: 'Property',
@@ -48,7 +51,9 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
       start_date: booking.check_in,
       end_date: booking.check_out,
       accommodation_type: booking.room_type || 'Standard',
-      status: booking.status === 'checked_out' ? 'used' : 'confirmed',
+      status: booking.status === 'checked_out' ? 'used' 
+            : booking.status === 'pending_swap' ? 'pending_swap'
+            : 'confirmed',
       source: 'booking', // Marcar que viene de una reserva marketplace
       booking_id: booking.id,
       guest_name: booking.guest_name,

@@ -133,6 +133,28 @@ export class SwapController {
   }
 
   /**
+   * GET /owner/swaps/pending
+   * Get pending swaps created by the user (waiting for acceptance)
+   */
+  static async getPendingSwaps(req: any, res: Response) {
+    try {
+      const userId = req.user.id;
+
+      const swaps = await SwapService.getPendingSwapsForUser(userId);
+
+      res.json({
+        success: true,
+        data: swaps,
+        total: swaps.length
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching pending swaps:', error);
+      res.status(500).json({ error: 'Failed to fetch pending swaps' });
+    }
+  }
+
+  /**
    * GET /owner/swaps/:swapId
    * Get swap request details
    */
