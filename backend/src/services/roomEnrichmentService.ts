@@ -171,6 +171,13 @@ export class RoomEnrichmentService {
       const resources = availability?.resources || [];
       const services = availability?.services || [];
 
+      // DEBUG: Log para ver estructura de recursos
+      if (resources.length > 0) {
+        console.log('[RoomEnrichment] Sample PMS resource structure:', JSON.stringify(resources[0], null, 2));
+        console.log('[RoomEnrichment] Looking for rooms with IDs:', roomsLocal.map(r => r.pmsResourceId).join(', '));
+        console.log('[RoomEnrichment] PMS resource IDs:', resources.map((r: any) => r.Id || r.id || r.resourceId).join(', '));
+      }
+
       // Obtener imágenes si el adaptador tiene el método
       let imageAssignments: any = {};
       let imageUrls: any = {};

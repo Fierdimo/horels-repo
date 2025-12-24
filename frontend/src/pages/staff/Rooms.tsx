@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Bed, Plus, Edit, Trash2, Search, Filter, X, RefreshCw } from 'lucide-react';
@@ -16,6 +16,7 @@ export default function StaffRooms() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [hasAutoSynced, setHasAutoSynced] = useState(false);
 
   // Fetch rooms
   const { data: roomsData, isLoading } = useQuery({
@@ -25,6 +26,44 @@ export default function StaffRooms() {
       return data;
     }
   });
+
+  // Sync rooms from PMS mutation
+  const syncRoomsMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await apiClient.post('/hotel-staff/rooms/sync');
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      if (!hasAutoSynced) {
+        // No mostrar toast en sincronización automática
+        setHasAutoSynced(true);
+      } else {
+        // Mostrar toast en sincronización manual
+        toast.success(
+          `${t('staff.rooms.syncSuccess')}: ${data.data.created} ${t('staff.rooms.created')}, ${data.data.updated} ${t('staff.rooms.updated')}`
+        );
+      }
+    },
+    onError: (error: any) => {
+      if (hasAutoSynced) {
+        // Solo mostrar error en sincronización manual
+        const errorMsg = error?.response?.data?.error || error.message;
+        toast.error(`${t('staff.rooms.syncError')}: ${errorMsg}`);
+      }
+    }
+  });
+
+  // Auto-sync on component mount
+  useEffect(() => {
+    if (!hasAutoSynced && roomsData) {
+      // Solo sincronizar si no hay habitaciones o si han pasado más de 5 minutos
+      const rooms = roomsData?.data?.rooms || [];
+      if (rooms.length === 0) {
+        syncRoomsMutation.mutate();
+      }
+    }
+  }, [roomsData, hasAutoSynced]);
 
   // Create room mutation
   const createRoomMutation = useMutation({
@@ -83,24 +122,6 @@ export default function StaffRooms() {
     },
     onError: () => {
       toast.error(t('staff.rooms.deleteError'));
-    }
-  });
-
-  // Sync rooms from PMS mutation
-  const syncRoomsMutation = useMutation({
-    mutationFn: async () => {
-      const { data } = await apiClient.post('/hotel-staff/rooms/sync');
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
-      toast.success(
-        `${t('staff.rooms.syncSuccess')}: ${data.data.created} ${t('staff.rooms.created')}, ${data.data.updated} ${t('staff.rooms.updated')}`
-      );
-    },
-    onError: (error: any) => {
-      const errorMsg = error?.response?.data?.error || error.message;
-      toast.error(`${t('staff.rooms.syncError')}: ${errorMsg}`);
     }
   });
 
