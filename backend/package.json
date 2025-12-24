@@ -16,7 +16,8 @@
     "seed": "npx sequelize-cli db:seed:all",
     "start:worker": "ts-node src/bin/start-worker.ts",
     "worker:sync": "ts-node src/bin/worker-sync.ts",
-    "check:mews": "ts-node src/scripts/check_mews_connection.ts"
+    "check:mews": "ts-node src/scripts/check_mews_connection.ts",
+    "clean-resync": "ts-node scripts/clean-and-resync.ts"
   },
   "dependencies": {
     "axios": "^1.13.2",
