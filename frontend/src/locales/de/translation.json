@@ -693,6 +693,103 @@
       "failedToRemove": "Fehler beim Entfernen der Karte",
       "expires": "Läuft ab",
       "paymentMethodNote": "Zahlungsmethoden werden verwendet, um Swap-Gebühren automatisch zu verarbeiten, wenn das Personal eine Anfrage genehmigt."
+    },
+    "nightCredits": {
+      "title": "Nacht-Kredit-Anfragen",
+      "createRequest": "Anfrage erstellen",
+      "newRequest": "Neue Anfrage",
+      "myRequests": "Meine Anfragen",
+      "selectCredit": "Kredit auswählen",
+      "property": "Unterkunft",
+      "checkInDate": "Check-in-Datum",
+      "checkOutDate": "Check-out-Datum",
+      "nightsFromCredit": "Nächte vom Kredit",
+      "roomType": "Zimmertyp",
+      "roomTypeOptional": "Zimmertyp (Optional)",
+      "roomTypePlaceholder": "z.B. Doppelzimmer, Suite, etc.",
+      "summary": "Anfragenzusammenfassung",
+      "totalNights": "Gesamtnächte",
+      "usingFromCredit": "Vom Kredit nutzen",
+      "additionalNights": "Zusätzliche Nächte kaufen",
+      "nightsCost": "Nächte Kosten",
+      "platformFee": "Plattformgebühr (12%)",
+      "totalToPay": "Gesamt zu zahlen",
+      "free": "KOSTENLOS",
+      "nights": "Nächte",
+      "status": {
+        "pending": "Prüfung ausstehend",
+        "approved": "Genehmigt - Zahlung erforderlich",
+        "paid": "Bezahlt - In Bearbeitung",
+        "completed": "Abgeschlossen",
+        "rejected": "Abgelehnt",
+        "cancelled": "Storniert"
+      },
+      "actions": {
+        "cancel": "Anfrage stornieren",
+        "payNow": "Jetzt bezahlen",
+        "viewBooking": "Buchung anzeigen",
+        "goToCredits": "Zu Krediten gehen"
+      },
+      "propertyIdPlaceholder": "Unterkunft-ID eingeben",
+      "propertyIdNote": "Temporär: Unterkunft-ID direkt eingeben (wird in Produktion ein Dropdown sein)",
+      "insufficientNights": "Sie haben nur {{nights}} Nächte in diesem Kredit verfügbar",
+      "nightsMismatch": "Die angeforderten Gesamtnächte müssen der Aufenthaltsdauer entsprechen",
+      "viewManageRequests": "Anzeigen und Verwalten Ihrer Nacht-Kredit-Buchungsanfragen",
+      "totalCost": "Gesamtkosten",
+      "noRequests": "Noch keine Anfragen",
+      "noRequestsDesc": "Erstellen Sie Ihre erste Nacht-Kredit-Anfrage, um einen Aufenthalt zu buchen",
+      "createSuccess": "Anfrage erfolgreich erstellt",
+      "cancelConfirm": "Sind Sie sicher, dass Sie diese Anfrage stornieren möchten?",
+      "cancelSuccess": "Anfrage erfolgreich storniert",
+      "paymentRequired": "Zahlung erforderlich",
+      "rejectionReason": "Ablehnungsgrund",
+      "staffNotes": "Personalmitteilungen",
+      "created": "Erstellt",
+      "usingCredits": "Kredite verwenden",
+      "buying": "Kaufen",
+      "requestId": "Anfrage #"
+    },
+    "staffNightCredits": {
+      "title": "Nacht-Kredit-Anfragen",
+      "subtitle": "Nacht-Kredit-Buchungsanfragen prüfen und genehmigen",
+      "pendingRequests": "Ausstehende Anfragen",
+      "allCaughtUp": "Alles erledigt!",
+      "noRequests": "Derzeit keine ausstehenden Anfragen",
+      "noRequestsDesc": "Es gibt derzeit keine Anfragen",
+      "guest": "Gast",
+      "owner": "Eigentümer",
+      "revenue": "Einnahmen",
+      "commission": "Provision",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "roomType": "Zimmertyp",
+      "notSpecified": "Nicht angegeben",
+      "usingCredits": "Kredite verwenden",
+      "purchasing": "Kaufen",
+      "nights": "Nächte",
+      "actions": {
+        "approve": "Genehmigen",
+        "reject": "Ablehnen"
+      },
+      "approveModal": {
+        "title": "Anfrage genehmigen #",
+        "subtitle": "Optionale Notizen für den Gast hinzufügen:",
+        "notesPlaceholder": "Optionale Notizen...",
+        "confirm": "Genehmigung bestätigen",
+        "approving": "Genehmigung läuft..."
+      },
+      "rejectModal": {
+        "title": "Anfrage ablehnen #",
+        "subtitle": "Bitte geben Sie einen Grund für die Ablehnung an:",
+        "reasonPlaceholder": "Grund für die Ablehnung (erforderlich)...",
+        "confirm": "Ablehnung bestätigen",
+        "rejecting": "Ablehnung läuft...",
+        "required": "Grund ist erforderlich"
+      },
+      "requested": "Angefordert",
+      "status": {
+        "pending": "Ausstehend"
+      }
     }
   },
   "guest": {

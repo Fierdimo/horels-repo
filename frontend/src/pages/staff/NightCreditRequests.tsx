@@ -210,17 +210,17 @@ export default function StaffNightCreditDashboard() {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Approve Request #{selectedRequest}
+                {t('staffNightCredits.approveModal.title')}{selectedRequest}
               </h3>
               <p className="text-sm text-gray-600 mb-4">
-                Add optional notes for the guest:
+                {t('staffNightCredits.approveModal.subtitle')}
               </p>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 rows={3}
-                placeholder="Optional notes..."
+                placeholder={t('staffNightCredits.approveModal.notesPlaceholder')}
               />
               <div className="flex gap-3 mt-6">
                 <button
@@ -231,14 +231,14 @@ export default function StaffNightCreditDashboard() {
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={confirmApprove}
                   disabled={approveRequest.isPending}
                   className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {approveRequest.isPending ? 'Approving...' : 'Confirm Approval'}
+                  {approveRequest.isPending ? t('staffNightCredits.approveModal.approving') : t('staffNightCredits.approveModal.confirm')}
                 </button>
               </div>
             </div>
@@ -254,18 +254,18 @@ export default function StaffNightCreditDashboard() {
               <div className="flex items-center mb-4">
                 <AlertTriangle className="h-6 w-6 text-red-600 mr-2" />
                 <h3 className="text-lg font-bold text-gray-900">
-                  Reject Request #{selectedRequest}
+                  {t('staffNightCredits.rejectModal.title')}{selectedRequest}
                 </h3>
               </div>
               <p className="text-sm text-gray-600 mb-4">
-                Please provide a reason for rejection:
+                {t('staffNightCredits.rejectModal.subtitle')}
               </p>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 rows={3}
-                placeholder="Reason for rejection (required)..."
+                placeholder={t('staffNightCredits.rejectModal.reasonPlaceholder')}
                 required
               />
               <div className="flex gap-3 mt-6">
@@ -277,14 +277,14 @@ export default function StaffNightCreditDashboard() {
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={confirmReject}
                   disabled={!reason.trim() || rejectRequest.isPending}
                   className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
-                  {rejectRequest.isPending ? 'Rejecting...' : 'Confirm Rejection'}
+                  {rejectRequest.isPending ? t('staffNightCredits.rejectModal.rejecting') : t('staffNightCredits.rejectModal.confirm')}
                 </button>
               </div>
             </div>

@@ -693,6 +693,103 @@
       "failedToRemove": "Échec de la suppression de la carte",
       "expires": "Expire",
       "paymentMethodNote": "Les méthodes de paiement sont utilisées pour traiter automatiquement les frais d'échange lorsque le personnel approuve une demande."
+    },
+    "nightCredits": {
+      "title": "Demandes de Crédits de Nuits",
+      "createRequest": "Créer une Demande",
+      "newRequest": "Nouvelle Demande",
+      "myRequests": "Mes Demandes",
+      "selectCredit": "Sélectionner un Crédit",
+      "property": "Propriété",
+      "checkInDate": "Date d'Arrivée",
+      "checkOutDate": "Date de Départ",
+      "nightsFromCredit": "Nuits du Crédit",
+      "roomType": "Type de Chambre",
+      "roomTypeOptional": "Type de Chambre (Optionnel)",
+      "roomTypePlaceholder": "ex. Double, Suite, etc.",
+      "summary": "Résumé de la Demande",
+      "totalNights": "Total de nuits",
+      "usingFromCredit": "Utiliser du crédit",
+      "additionalNights": "Nuits supplémentaires à acheter",
+      "nightsCost": "Coût des nuits",
+      "platformFee": "Frais de plateforme (12%)",
+      "totalToPay": "Total à payer",
+      "free": "GRATUIT",
+      "nights": "nuits",
+      "status": {
+        "pending": "En Attente de Révision",
+        "approved": "Approuvé - Paiement Requis",
+        "paid": "Payé - En Traitement",
+        "completed": "Terminé",
+        "rejected": "Rejeté",
+        "cancelled": "Annulé"
+      },
+      "actions": {
+        "cancel": "Annuler la Demande",
+        "payNow": "Payer Maintenant",
+        "viewBooking": "Voir la Réservation",
+        "goToCredits": "Aller aux Crédits"
+      },
+      "propertyIdPlaceholder": "Entrer l'ID de la propriété",
+      "propertyIdNote": "Temporaire: Entrer l'ID de la propriété directement (sera un menu déroulant en production)",
+      "insufficientNights": "Vous n'avez que {{nights}} nuits disponibles dans ce crédit",
+      "nightsMismatch": "Le total de nuits demandées doit correspondre à la durée du séjour",
+      "viewManageRequests": "Voir et gérer vos demandes de réservation avec crédits de nuits",
+      "totalCost": "Coût Total",
+      "noRequests": "Pas encore de demandes",
+      "noRequestsDesc": "Créez votre première demande de crédit de nuits pour réserver un séjour",
+      "createSuccess": "Demande créée avec succès",
+      "cancelConfirm": "Êtes-vous sûr de vouloir annuler cette demande?",
+      "cancelSuccess": "Demande annulée avec succès",
+      "paymentRequired": "Paiement requis",
+      "rejectionReason": "Raison du Rejet",
+      "staffNotes": "Notes du Personnel",
+      "created": "Créé",
+      "usingCredits": "Utiliser les Crédits",
+      "buying": "Acheter",
+      "requestId": "Demande #"
+    },
+    "staffNightCredits": {
+      "title": "Demandes de Crédits de Nuits",
+      "subtitle": "Examiner et approuver les demandes de réservation avec crédits de nuits",
+      "pendingRequests": "Demandes en Attente",
+      "allCaughtUp": "Tout est à jour !",
+      "noRequests": "Aucune demande en attente pour le moment",
+      "noRequestsDesc": "Il n'y a actuellement aucune demande",
+      "guest": "Invité",
+      "owner": "Propriétaire",
+      "revenue": "Revenu",
+      "commission": "commission",
+      "checkIn": "Arrivée",
+      "checkOut": "Départ",
+      "roomType": "Type de Chambre",
+      "notSpecified": "Non spécifié",
+      "usingCredits": "Utiliser les Crédits",
+      "purchasing": "Acheter",
+      "nights": "nuits",
+      "actions": {
+        "approve": "Approuver",
+        "reject": "Rejeter"
+      },
+      "approveModal": {
+        "title": "Approuver la Demande #",
+        "subtitle": "Ajouter des notes optionnelles pour l'invité:",
+        "notesPlaceholder": "Notes optionnelles...",
+        "confirm": "Confirmer l'Approbation",
+        "approving": "Approbation en cours..."
+      },
+      "rejectModal": {
+        "title": "Rejeter la Demande #",
+        "subtitle": "Veuillez fournir une raison pour le rejet:",
+        "reasonPlaceholder": "Raison du rejet (requis)...",
+        "confirm": "Confirmer le Rejet",
+        "rejecting": "Rejet en cours...",
+        "required": "La raison est requise"
+      },
+      "requested": "Demandé",
+      "status": {
+        "pending": "En attente"
+      }
     }
   },
   "guest": {

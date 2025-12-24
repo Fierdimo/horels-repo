@@ -544,8 +544,15 @@
       "actions": {
         "cancel": "Cancelar Solicitud",
         "payNow": "Pagar Ahora",
-        "viewBooking": "Ver Reserva"
+        "viewBooking": "Ver Reserva",
+        "goToCredits": "Ir a Créditos"
       },
+      "propertyIdPlaceholder": "Ingresa el ID de la propiedad",
+      "propertyIdNote": "Temporal: Ingresa el ID de la propiedad directamente (será un desplegable en producción)",
+      "insufficientNights": "Solo tienes {{nights}} noches disponibles en este crédito",
+      "nightsMismatch": "El total de noches solicitadas debe coincidir con la duración de la estancia",
+      "viewManageRequests": "Ver y gestionar tus solicitudes de reserva con créditos nocturnos",
+      "totalCost": "Costo Total",
       "noRequests": "No hay solicitudes aún",
       "noRequestsDesc": "Crea tu primera solicitud de crédito nocturno para reservar una estancia",
       "createSuccess": "Solicitud creada exitosamente",
@@ -574,6 +581,7 @@
       "notSpecified": "No especificado",
       "usingCredits": "Usando Créditos",
       "purchasing": "Comprando",
+      "nights": "noches",
       "actions": {
         "approve": "Aprobar",
         "reject": "Rechazar"

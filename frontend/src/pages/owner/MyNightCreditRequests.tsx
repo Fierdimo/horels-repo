@@ -24,42 +24,42 @@ export default function MyNightCreditRequests() {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <Clock className="w-3 h-3 mr-1" />
-            Pending Review
+            {t('owner.nightCredits.status.pending')}
           </span>
         );
       case 'approved':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             <AlertCircle className="w-3 h-3 mr-1" />
-            Approved - Payment Required
+            {t('owner.nightCredits.status.approved')}
           </span>
         );
       case 'paid':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
             <CheckCircle className="w-3 h-3 mr-1" />
-            Paid - Processing
+            {t('owner.nightCredits.status.paid')}
           </span>
         );
       case 'completed':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle className="w-3 h-3 mr-1" />
-            Completed
+            {t('owner.nightCredits.status.completed')}
           </span>
         );
       case 'rejected':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
             <XCircle className="w-3 h-3 mr-1" />
-            Rejected
+            {t('owner.nightCredits.status.rejected')}
           </span>
         );
       case 'cancelled':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
             <XCircle className="w-3 h-3 mr-1" />
-            Cancelled
+            {t('owner.nightCredits.status.cancelled')}
           </span>
         );
       default:
@@ -68,7 +68,7 @@ export default function MyNightCreditRequests() {
   };
 
   const handleCancelRequest = async (requestId: number) => {
-    if (confirm('Are you sure you want to cancel this request?')) {
+    if (confirm(t('owner.nightCredits.cancelConfirm'))) {
       await cancelRequest.mutateAsync(requestId);
     }
   };
@@ -88,10 +88,10 @@ export default function MyNightCreditRequests() {
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              My Night Credit Requests
+              {t('owner.nightCredits.myRequests')}
             </h1>
             <p className="text-gray-600">
-              View and manage your night credit booking requests
+              {t('owner.nightCredits.viewManageRequests')}
             </p>
           </div>
           <Link
@@ -99,7 +99,7 @@ export default function MyNightCreditRequests() {
             className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus className="h-5 w-5 mr-2" />
-            New Request
+            {t('owner.nightCredits.newRequest')}
           </Link>
         </div>
 
@@ -108,17 +108,17 @@ export default function MyNightCreditRequests() {
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Calendar className="mx-auto h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No requests yet
+              {t('owner.nightCredits.noRequests')}
             </h3>
             <p className="text-gray-600 mb-6">
-              Create your first night credit request to book a stay
+              {t('owner.nightCredits.noRequestsDesc')}
             </p>
             <button
               onClick={() => navigate('/owner/night-credit-requests/new')}
               className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="h-5 w-5 mr-2" />
-              Create Request
+              {t('owner.nightCredits.createRequest')}
             </button>
           </div>
         ) : (
@@ -129,10 +129,10 @@ export default function MyNightCreditRequests() {
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        Request #{request.id}
+                        {t('owner.nightCredits.requestId')}{request.id}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {request.Property?.name || `Property #${request.property_id}`}
+                        {request.Property?.name || `${t('owner.nightCredits.property')} #${request.property_id}`}
                       </p>
                     </div>
                     {getStatusBadge(request.status)}
@@ -142,7 +142,7 @@ export default function MyNightCreditRequests() {
                     <div className="flex items-center text-sm">
                       <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                       <div>
-                        <p className="text-gray-500">Check-in</p>
+                        <p className="text-gray-500">{t('owner.nightCredits.checkInDate')}</p>
                         <p className="font-medium text-gray-900">
                           {format(parseISO(request.check_in), 'MMM d, yyyy')}
                         </p>
@@ -151,7 +151,7 @@ export default function MyNightCreditRequests() {
                     <div className="flex items-center text-sm">
                       <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                       <div>
-                        <p className="text-gray-500">Check-out</p>
+                        <p className="text-gray-500">{t('owner.nightCredits.checkOutDate')}</p>
                         <p className="font-medium text-gray-900">
                           {format(parseISO(request.check_out), 'MMM d, yyyy')}
                         </p>
@@ -160,7 +160,7 @@ export default function MyNightCreditRequests() {
                     <div className="flex items-center text-sm">
                       <Euro className="h-4 w-4 text-gray-400 mr-2" />
                       <div>
-                        <p className="text-gray-500">Total Cost</p>
+                        <p className="text-gray-500">{t('owner.nightCredits.totalCost')}</p>
                         <p className="font-medium text-gray-900">
                           €{((request.total_amount || 0) / 100).toFixed(2)}
                         </p>
@@ -171,16 +171,16 @@ export default function MyNightCreditRequests() {
                   <div className="flex items-center justify-between text-sm bg-gray-50 rounded-lg p-3 mb-4">
                     <div className="flex items-center space-x-4">
                       <div>
-                        <span className="text-gray-500">Using Credits:</span>
+                        <span className="text-gray-500">{t('owner.nightCredits.usingCredits')}:</span>
                         <span className="font-medium text-green-600 ml-2">
-                          {request.nights_requested} nights (FREE)
+                          {request.nights_requested} {t('owner.nightCredits.nights')} ({t('owner.nightCredits.free')})
                         </span>
                       </div>
                       {request.additional_nights > 0 && (
                         <div>
-                          <span className="text-gray-500">Buying:</span>
+                          <span className="text-gray-500">{t('owner.nightCredits.buying')}:</span>
                           <span className="font-medium text-blue-600 ml-2">
-                            {request.additional_nights} nights
+                            {request.additional_nights} {t('owner.nightCredits.nights')}
                           </span>
                         </div>
                       )}
@@ -195,7 +195,7 @@ export default function MyNightCreditRequests() {
                         disabled={cancelRequest.isPending}
                         className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
                       >
-                        Cancel Request
+                        {t('owner.nightCredits.actions.cancel')}
                       </button>
                     )}
 
@@ -204,13 +204,13 @@ export default function MyNightCreditRequests() {
                         onClick={() => setSelectedRequestForPayment(request.id)}
                         className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        Pay Now (€{((request.additional_price + request.additional_commission) / 100).toFixed(2)})
+                        {t('owner.nightCredits.actions.payNow')} (€{((request.additional_price + request.additional_commission) / 100).toFixed(2)})
                       </button>
                     )}
 
                     {request.status === 'rejected' && request.rejection_reason && (
                       <div className="text-sm text-red-600 bg-red-50 rounded-lg p-3 flex-1">
-                        <span className="font-medium">Rejection Reason:</span> {request.rejection_reason}
+                        <span className="font-medium">{t('owner.nightCredits.rejectionReason')}:</span> {request.rejection_reason}
                       </div>
                     )}
 
@@ -219,20 +219,20 @@ export default function MyNightCreditRequests() {
                         to={`/owner/bookings/${request.booking_id}`}
                         className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                       >
-                        View Booking
+                        {t('owner.nightCredits.actions.viewBooking')}
                       </Link>
                     )}
                   </div>
 
                   {request.staff_notes && (
                     <div className="mt-4 text-sm text-gray-600 bg-blue-50 rounded-lg p-3">
-                      <span className="font-medium">Staff Notes:</span> {request.staff_notes}
+                      <span className="font-medium">{t('owner.nightCredits.staffNotes')}:</span> {request.staff_notes}
                     </div>
                   )}
                 </div>
 
                 <div className="bg-gray-50 px-6 py-3 text-xs text-gray-500">
-                  Created: {format(parseISO(request.created_at), 'MMM d, yyyy h:mm a')}
+                  {t('owner.nightCredits.created')}: {format(parseISO(request.created_at), 'MMM d, yyyy h:mm a')}
                 </div>
               </div>
             ))}

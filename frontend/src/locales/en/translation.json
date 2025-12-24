@@ -508,8 +508,15 @@
       "actions": {
         "cancel": "Cancel Request",
         "payNow": "Pay Now",
-        "viewBooking": "View Booking"
+        "viewBooking": "View Booking",
+        "goToCredits": "Go to Credits"
       },
+      "propertyIdPlaceholder": "Enter Property ID",
+      "propertyIdNote": "Temporary: Enter property ID directly (will be dropdown in production)",
+      "insufficientNights": "You only have {{nights}} nights available in this credit",
+      "nightsMismatch": "Total nights requested must match the stay duration",
+      "viewManageRequests": "View and manage your night credit booking requests",
+      "totalCost": "Total Cost",
       "noRequests": "No requests yet",
       "noRequestsDesc": "Create your first night credit request to book a stay",
       "createSuccess": "Request created successfully",
@@ -538,6 +545,7 @@
       "notSpecified": "Not specified",
       "usingCredits": "Using Credits",
       "purchasing": "Purchasing",
+      "nights": "nights",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"

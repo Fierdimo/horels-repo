@@ -129,8 +129,8 @@ export default function Credits() {
         {allCredits.length === 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 mb-8 text-center">
             <Calendar className="h-12 w-12 text-blue-400 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Night Credits Yet</h3>
-            <p className="text-gray-600 mb-4">You don't have any night credits assigned. They will appear here once you receive them.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('owner.credits.noCredits')}</h3>
+            <p className="text-gray-600 mb-4">{t('owner.credits.noCreditsDesc')}</p>
           </div>
         )}
         {allCredits.length > 0 && (
@@ -260,7 +260,7 @@ export default function Credits() {
                           ? 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                           : 'bg-gray-100 text-gray-400'
                       }`}
-                      title={hasCredits ? `${creditsByDate[dateStr].length} credits expire` : ''}
+                      title={hasCredits ? `${creditsByDate[dateStr].length} ${t('owner.credits.credits')} ${t('owner.credits.expiresAt').toLowerCase()}` : ''}
                     >
                       {day.getDate()}
                     </div>
@@ -370,7 +370,7 @@ export default function Credits() {
                       {usedUpCredits.map((credit) => (
                         <tr key={credit.id} className="opacity-60">
                           <td className="px-6 py-4 text-sm font-medium text-gray-900">#{credit.id}</td>
-                          <td className="px-6 py-4 text-sm text-gray-500">{credit.nights_available} (used: {credit.nights_used})</td>
+                          <td className="px-6 py-4 text-sm text-gray-500">{credit.nights_available} ({t('owner.credits.used').toLowerCase()}: {credit.nights_used})</td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             {format(parseISO(credit.expires_at), 'MMM d, yyyy')}
                           </td>

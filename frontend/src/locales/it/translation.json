@@ -536,8 +536,15 @@
       "actions": {
         "cancel": "Annulla Richiesta",
         "payNow": "Paga Ora",
-        "viewBooking": "Visualizza Prenotazione"
+        "viewBooking": "Visualizza Prenotazione",
+        "goToCredits": "Vai ai Crediti"
       },
+      "propertyIdPlaceholder": "Inserisci ID proprietà",
+      "propertyIdNote": "Temporaneo: Inserisci l'ID della proprietà direttamente (sarà un menu a tendina in produzione)",
+      "insufficientNights": "Hai solo {{nights}} notti disponibili in questo credito",
+      "nightsMismatch": "Il totale delle notti richieste deve corrispondere alla durata del soggiorno",
+      "viewManageRequests": "Visualizza e gestisci le tue richieste di prenotazione con crediti notte",
+      "totalCost": "Costo Totale",
       "noRequests": "Nessuna richiesta ancora",
       "noRequestsDesc": "Crea la tua prima richiesta di crediti notte per prenotare un soggiorno",
       "createSuccess": "Richiesta creata con successo",
@@ -566,6 +573,9 @@
       "notSpecified": "Non specificato",
       "usingCredits": "Usando Crediti",
       "purchasing": "Acquistando",
+      "nights": "notti",
+      "owner": "Proprietario",
+      "noRequestsDesc": "Non ci sono richieste al momento",
       "actions": {
         "approve": "Approva",
         "reject": "Rifiuta"
@@ -582,7 +592,10 @@
         "subtitle": "Fornisci un motivo per il rifiuto:",
         "reasonPlaceholder": "Motivo del rifiuto (obbligatorio)...",
         "confirm": "Conferma Rifiuto",
-        "rejecting": "Rifiuto...",
+        "rejecting": "Rifiuto.,
+      "status": {
+        "pending": "In sospeso"
+      }..",
         "required": "Il motivo è obbligatorio"
       },
       "requested": "Richiesto"
