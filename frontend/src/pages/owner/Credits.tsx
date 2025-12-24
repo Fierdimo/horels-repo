@@ -91,14 +91,20 @@ export default function Credits() {
   const totalNights = allCredits.reduce((sum, credit) => sum + (credit && credit.nights_available ? credit.nights_available : 0), 0);
 
   // Filter weeks that can be converted to credits
-  // ONLY timeshare weeks with status='available' and exactly 7 nights
+  // ONLY timeshare weeks with status='available' (any duration >= 1 night)
   const convertibleWeeks = Array.isArray(weeks) ? weeks.filter(w => {
     if (!w || w.status !== 'available') return false;
     
-    // Verify it's exactly 7 nights
+    // Verify it has at least 1 night
     try {
-      const nights = differenceInDays(parseISO(w.end_date), parseISO(w.start_date));
-      return nights === 7;
+      // Handle floating periods (nights field) vs fixed periods (dates)
+      if (w.nights) {
+        return w.nights >= 1;
+      } else if (w.start_date && w.end_date) {
+        const nights = differenceInDays(parseISO(w.end_date), parseISO(w.start_date));
+        return nights >= 1;
+      }
+      return false;
     } catch (e) {
       return false;
     }
@@ -486,18 +492,33 @@ export default function Credits() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {convertibleWeeks.map((week) => {
-                    const nights = differenceInDays(
-                      parseISO(week.end_date),
-                      parseISO(week.start_date)
-                    );
+                    // Handle floating periods (nights field) vs fixed periods (dates)
+                    const nights = week.nights 
+                      ? week.nights 
+                      : differenceInDays(parseISO(week.end_date), parseISO(week.start_date));
+                    
+                    const isFloating = !!week.nights && !week.start_date;
                     
                     return (
                       <tr key={week.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {week.Property?.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {format(parseISO(week.start_date), 'MMM d')} - {format(parseISO(week.end_date), 'MMM d, yyyy')}
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {isFloating ? (
+                            <div>
+                              <span className="font-medium text-blue-600">{t('owner.credits.floatingPeriod')}</span>
+                              {week.valid_until && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {t('owner.credits.validUntil')}: {format(parseISO(week.valid_until), 'MMM d, yyyy')}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="whitespace-nowrap">
+                              {format(parseISO(week.start_date), 'MMM d')} - {format(parseISO(week.end_date), 'MMM d, yyyy')}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {nights} {t('common.nights')}

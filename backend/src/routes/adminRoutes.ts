@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Op } from 'sequelize';
-import { ActionLog, User, Role, Property } from '../models';
+import { ActionLog, User, Role, Property, Week } from '../models';
 import PlatformSetting from '../models/PlatformSetting';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/authorizationMiddleware';
@@ -640,6 +640,136 @@ router.patch('/settings/commission', authenticateToken, authorize(['manage_permi
     res.status(500).json({ 
       success: false,
       error: 'Failed to update commission settings' 
+    });
+  }
+});
+
+// Get owners list (staff/admin) - simplified endpoint for dropdowns
+router.get('/owners', authenticateToken, authorize(['manage_users', 'manage_bookings']), logAction('view_owners_list'), async (req: Request, res: Response) => {
+  try {
+    const ownerRole = await Role.findOne({ where: { name: 'owner' } });
+    
+    if (!ownerRole) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Owner role not found' 
+      });
+    }
+
+    const owners = await User.findAll({
+      where: { 
+        role_id: ownerRole.id,
+        status: 'active'
+      },
+      attributes: ['id', 'firstName', 'lastName', 'email'],
+      order: [['firstName', 'ASC'], ['lastName', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: owners
+    });
+  } catch (error) {
+    console.error('Error fetching owners:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch owners' 
+    });
+  }
+});
+
+// Assign period to owner (staff/admin)
+router.post('/assign-period', authenticateToken, authorize(['manage_users', 'manage_bookings']), logAction('assign_period_to_owner'), async (req: Request, res: Response) => {
+  try {
+    const { owner_id, property_id, start_date, end_date, accommodation_type } = req.body;
+
+    // Validate required fields
+    if (!owner_id || !property_id || !start_date || !end_date || !accommodation_type) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required fields: owner_id, property_id, start_date, end_date, accommodation_type' 
+      });
+    }
+
+    // Validate owner exists and is an owner role
+    const owner = await User.findOne({
+      where: { id: owner_id },
+      include: [{ model: Role, where: { name: 'owner' } }]
+    });
+
+    if (!owner) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Owner not found or user is not an owner' 
+      });
+    }
+
+    // Validate property exists
+    const property = await Property.findByPk(property_id);
+    if (!property) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Property not found' 
+      });
+    }
+
+    // Validate dates
+    const startDate = new Date(start_date);
+    const endDate = new Date(end_date);
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid date format' 
+      });
+    }
+
+    if (startDate >= endDate) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'End date must be after start date' 
+      });
+    }
+
+    const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (nights < 1) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Period must have at least 1 night' 
+      });
+    }
+
+    // Create the week/period
+    const week = await Week.create({
+      owner_id,
+      property_id,
+      start_date: startDate,
+      end_date: endDate,
+      accommodation_type,
+      status: 'available'
+    });
+
+    // Load relations
+    await week.reload({
+      include: [{ model: Property, attributes: ['name', 'location'] }]
+    });
+
+    res.json({
+      success: true,
+      message: `Period of ${nights} night(s) assigned successfully`,
+      data: {
+        week,
+        nights,
+        owner_name: `${owner.firstName} ${owner.lastName}`,
+        owner_email: owner.email
+      }
+    });
+  } catch (error) {
+    console.error('Error assigning period:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to assign period' 
     });
   }
 });

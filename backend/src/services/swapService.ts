@@ -100,6 +100,11 @@ export class SwapService {
         throw new Error("Requester week is not available for swap");
       }
 
+      // Floating periods (without fixed dates) cannot be swapped
+      if (!requesterWeek.start_date || !requesterWeek.end_date) {
+        throw new Error("Floating periods cannot be swapped. Convert to credits to use them.");
+      }
+
       // Check if requester week overlaps peak dates
       if (
         this.weekOverlapsPeak(requesterWeek.start_date, requesterWeek.end_date)
@@ -139,9 +144,14 @@ export class SwapService {
         order: [["start_date", "ASC"]],
       });
 
+      // Filter out floating periods (only fixed-date periods can be swapped)
+      const fixedDateWeeks = compatibleWeeks.filter(
+        (week) => week.start_date && week.end_date
+      );
+
       // Filter out weeks that overlap peak dates
-      const validWeeks = compatibleWeeks.filter(
-        (week) => !this.weekOverlapsPeak(week.start_date, week.end_date)
+      const validWeeks = fixedDateWeeks.filter(
+        (week) => !this.weekOverlapsPeak(week.start_date!, week.end_date!)
       );
 
       // Check for conflicts with existing bookings/swaps for each week
@@ -178,6 +188,11 @@ export class SwapService {
       const week = await Week.findByPk(weekId);
       if (!week) {
         return { available: false, conflicts: { bookings: 0, activeSwaps: 0 } };
+      }
+
+      // Floating periods don't have conflicts (no fixed dates)
+      if (!week.start_date || !week.end_date) {
+        return { available: true, conflicts: { bookings: 0, activeSwaps: 0 } };
       }
 
       const conflictingBookings = await Booking.count({
@@ -323,6 +338,11 @@ export class SwapService {
 
         if (responderWeek.status !== "available") {
           throw new Error("Responder week is not available");
+        }
+
+        // Floating periods cannot be swapped
+        if (!responderWeek.start_date || !responderWeek.end_date) {
+          throw new Error("Floating periods cannot be swapped");
         }
 
         if (
@@ -1672,12 +1692,14 @@ export class SwapService {
         ...new Set([...weekAccommodationTypes, ...bookingAccommodationTypes]),
       ];
 
-      const weekDurations = availableUserWeeks.map((w) => {
-        const start = new Date(w.start_date);
-        const end = new Date(w.end_date);
-        return Math.ceil(
-          (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-        );
+      const weekDurations = availableUserWeeks
+        .filter((w) => w.start_date && w.end_date) // Only fixed-date periods
+        .map((w) => {
+          const start = new Date(w.start_date!);
+          const end = new Date(w.end_date!);
+          return Math.ceil(
+            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+          );
       });
 
       const bookingDurations = availableUserBookings.map((b) => {

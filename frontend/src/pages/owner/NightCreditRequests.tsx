@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { timeshareApi } from '@/api/timeshare';
 import { useOwnerNightCredits } from '@/hooks/useNightCredits';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { ArrowLeft, Calendar, Hotel, CreditCard, Info } from 'lucide-react';
+import { ArrowLeft, Calendar, Hotel, CreditCard, Info, Search } from 'lucide-react';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
 import toast from 'react-hot-toast';
+import apiClient from '@/api/client';
 
 export default function CreateNightCreditRequest() {
   const { t } = useTranslation();
@@ -22,6 +23,8 @@ export default function CreateNightCreditRequest() {
   const [nightsRequested, setNightsRequested] = useState(0);
   const [additionalNights, setAdditionalNights] = useState(0);
   const [roomType, setRoomType] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  const [searchingRooms, setSearchingRooms] = useState(false);
 
   // Get available credits
   const { data: credits, isLoading: creditsLoading } = useQuery({
@@ -29,14 +32,49 @@ export default function CreateNightCreditRequest() {
     queryFn: timeshareApi.getCredits
   });
 
-  // Get properties (we'll need to create this endpoint or use existing)
+  // Get marketplace properties
   const { data: properties, isLoading: propertiesLoading } = useQuery({
-    queryKey: ['properties'],
+    queryKey: ['marketplace-properties'],
     queryFn: async () => {
-      // This would call a properties API - for now return empty array
-      return [];
+      const { data } = await apiClient.get('/public/properties');
+      return Array.isArray(data) ? data : data?.data || [];
+    },
+    enabled: true
+  });
+
+  // Get available rooms when property and dates are selected
+  const { data: availableRooms, isLoading: roomsLoading, refetch: refetchRooms } = useQuery({
+    queryKey: ['available-rooms', propertyId, checkIn, checkOut],
+    queryFn: async () => {
+      if (!propertyId || !checkIn || !checkOut) return [];
+      
+      const { data } = await apiClient.get('/pms/availability', {
+        params: {
+          propertyId,
+          checkIn,
+          checkOut
+        }
+      });
+      return data?.data?.rooms || [];
+    },
+    enabled: false
+  });
+
+  // Get commission settings
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/settings');
+      return data;
     }
   });
+
+  // Trigger room search when dates and property are set
+  useEffect(() => {
+    if (propertyId && checkIn && checkOut) {
+      refetchRooms();
+    }
+  }, [propertyId, checkIn, checkOut, refetchRooms]);
 
   const availableCredits = credits?.filter(c => c.nights_available > c.nights_used) || [];
 
@@ -54,10 +92,10 @@ export default function CreateNightCreditRequest() {
   const extraNightsToBuy = Math.max(0, totalNights - nightsToUseFromCredit);
 
   const PRICE_PER_NIGHT = 100; // €100 per night
-  const COMMISSION_RATE = 0.12; // 12%
+  const commissionRate = settings?.creditConversionFee ? Number(settings.creditConversionFee) / 100 : 0.05;
   
   const additionalPrice = extraNightsToBuy * PRICE_PER_NIGHT;
-  const commission = additionalPrice * COMMISSION_RATE;
+  const commission = additionalPrice * commissionRate;
   const totalCost = additionalPrice + commission;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,19 +224,24 @@ export default function CreateNightCreditRequest() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Hotel className="inline h-4 w-4 mr-2" />
-                {t('owner.nightCredits.property')}
+                {t('common.property')}
               </label>
-              <input
-                type="number"
+              <select
                 value={propertyId || ''}
-                onChange={(e) => setPropertyId(Number(e.target.value))}
-                placeholder={t('owner.nightCredits.propertyIdPlaceholder')}
+                onChange={(e) => {
+                  setPropertyId(Number(e.target.value));
+                  setSelectedRoomId(null); // Reset room selection
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                {t('owner.nightCredits.propertyIdNote')}
-              </p>
+              >
+                <option value="">{t('common.select')}...</option>
+                {Array.isArray(properties) && properties.map((property: any) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name} - {property.city}, {property.country}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Check-in Date */}

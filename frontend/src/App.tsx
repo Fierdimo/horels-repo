@@ -41,6 +41,7 @@ const StaffAvailability = lazy(() => import('@/pages/staff/Availability'));
 const StaffProfile = lazy(() => import('@/pages/staff/Profile'));
 const StaffMarketplaceSettings = lazy(() => import('@/pages/staff/MarketplaceSettings'));
 const StaffSwapApprovals = lazy(() => import('@/pages/staff/SwapApprovals'));
+const StaffAssignPeriod = lazy(() => import('@/pages/staff/AssignPeriod'));
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
 const AdminPendingApprovals = lazy(() => import('@/pages/admin/PendingApprovals'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
@@ -303,6 +304,7 @@ function AppRoutes() {
           <Route path="profile" element={<StaffProfile />} />
           <Route path="marketplace-settings" element={<StaffMarketplaceSettings />} />
           <Route path="swaps" element={<StaffSwapApprovals />} />
+          <Route path="assign-period" element={<StaffAssignPeriod />} />
           <Route path="marketplace" element={<MarketplaceHome />} />
           <Route path="marketplace/properties/:id" element={<PropertyDetails />} />
           <Route path="marketplace/properties/:propertyId/rooms/:roomId/book" element={<BookingForm />} />

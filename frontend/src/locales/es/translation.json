@@ -478,6 +478,9 @@
       "newRequest": "Nueva Solicitud",
       "credits": "Créditos",
       "convertible": "Semanas Convertibles",
+      "floatingPeriod": "Período Flotante",
+      "validUntil": "Válido hasta",
+      "periodType": "Tipo de Período",
       "remaining": "Noches Restantes",
       "progress": "Progreso",
       "usedUp": "Créditos Agotados",
@@ -873,6 +876,26 @@
       "enterAmenity": "Ingresa el nombre de la comodidad",
       "updateSuccess": "Configuración actualizada correctamente",
       "updateError": "Error al actualizar la configuración"
+    },
+    "assignPeriod": {
+      "title": "Asignar Período Flotante",
+      "subtitle": "Asigna un período flotante de noches a un propietario sin fechas específicas",
+      "selectOwner": "Seleccionar Propietario",
+      "nights": "Número de Noches",
+      "nightsHelp": "Cantidad de noches que incluye el período (ej: 7)",
+      "validUntil": "Válido Hasta",
+      "validUntilHelp": "Fecha límite para usar o convertir el período",
+      "periodSummary": "Resumen del Período",
+      "afterConversion": "después de la conversión",
+      "important": "Importante",
+      "floatingInfo1": "El período es flotante: sin fechas específicas de hospedaje",
+      "floatingInfo2": "El propietario puede convertirlo a créditos cuando lo desee",
+      "floatingInfo3": "La conversión es: 1 noche = 1 crédito nocturno",
+      "assignPeriod": "Asignar Período",
+      "assigning": "Asignando...",
+      "success": "Período flotante asignado exitosamente",
+      "invalidNights": "Debe asignar al menos 1 noche",
+      "invalidValidUntil": "La fecha de validez debe ser futura"
     }
   },
   "admin": {

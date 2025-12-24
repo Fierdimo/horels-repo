@@ -486,12 +486,15 @@ router.get('/weeks/available', authenticateToken, async (req: any, res: Response
     const { property_id, start_date, end_date } = req.query;
 
     const where: any = {
-      status: 'available'
+      status: 'available',
+      // Exclude floating periods from marketplace (only fixed-date periods can be swapped)
+      start_date: { [Op.ne]: null },
+      end_date: { [Op.ne]: null }
     };
 
     if (property_id) where.property_id = property_id;
-    if (start_date) where.start_date = { [Op.gte]: new Date(start_date as string) };
-    if (end_date) where.end_date = { [Op.lte]: new Date(end_date as string) };
+    if (start_date) where.start_date = { [Op.and]: [{ [Op.ne]: null }, { [Op.gte]: new Date(start_date as string) }] };
+    if (end_date) where.end_date = { [Op.and]: [{ [Op.ne]: null }, { [Op.lte]: new Date(end_date as string) }] };
 
     const weeks = await Week.findAll({
       where,

@@ -454,6 +454,9 @@
       "newRequest": "Nuova Richiesta",
       "credits": "Crediti",
       "convertible": "Settimane Convertibili",
+      "floatingPeriod": "Periodo Flessibile",
+      "validUntil": "Valido fino al",
+      "periodType": "Tipo di Periodo",
       "remaining": "Notti Rimanenti",
       "progress": "Progresso",
       "activeCredits": "Crediti Attivi",
@@ -866,6 +869,26 @@
       "enterAmenity": "Inserisci nome servizio",
       "updateSuccess": "Impostazioni aggiornate con successo",
       "updateError": "Impossibile aggiornare le impostazioni"
+    },
+    "assignPeriod": {
+      "title": "Assegna Periodo Flessibile",
+      "subtitle": "Assegna un periodo flessibile di notti a un proprietario senza date specifiche",
+      "selectOwner": "Seleziona Proprietario",
+      "nights": "Numero di Notti",
+      "nightsHelp": "Numero di notti incluse nel periodo (es: 7)",
+      "validUntil": "Valido Fino al",
+      "validUntilHelp": "Data limite per utilizzare o convertire il periodo",
+      "periodSummary": "Riepilogo Periodo",
+      "afterConversion": "dopo la conversione",
+      "important": "Importante",
+      "floatingInfo1": "Il periodo è flessibile: nessuna data di alloggio specifica",
+      "floatingInfo2": "Il proprietario potrà convertirlo in crediti quando desidera",
+      "floatingInfo3": "La conversione è: 1 notte = 1 credito notte",
+      "assignPeriod": "Assegna Periodo",
+      "assigning": "Assegnazione in corso...",
+      "success": "Periodo flessibile assegnato con successo",
+      "invalidNights": "Deve assegnare almeno 1 notte",
+      "invalidValidUntil": "La data di validità deve essere futura"
     }
   },
   "admin": {

@@ -244,4 +244,182 @@ router.get(
   }
 );
 
+/**
+ * @route GET /hotels/staff/owners
+ * @desc Get owners list for staff's property (for period assignment)
+ * @access Staff only
+ */
+router.get(
+  '/owners',
+  authenticateToken,
+  authorize(['view_bookings']),
+  logAction('view_owners_list_staff'),
+  async (req: any, res: Response) => {
+    try {
+      const propertyId = req.user.property_id;
+
+      if (!propertyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Staff must be assigned to a property'
+        });
+      }
+
+      const { Role, User } = require('../models');
+      
+      // Get owner role
+      const ownerRole = await Role.findOne({ where: { name: 'owner' } });
+      
+      if (!ownerRole) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Owner role not found' 
+        });
+      }
+
+      // Get all active owners (staff can assign periods to any owner for their property)
+      const owners = await User.findAll({
+        where: { 
+          role_id: ownerRole.id
+          // Temporalmente sin filtro de status para ver todos los owners
+        },
+        attributes: ['id', 'firstName', 'lastName', 'email', 'status'],
+        order: [['firstName', 'ASC'], ['lastName', 'ASC']]
+      });
+
+      console.log('Found owners:', owners.length);
+      if (owners.length > 0) {
+        console.log('First owner sample:', JSON.stringify(owners[0], null, 2));
+      }
+
+      res.json({
+        success: true,
+        data: owners
+      });
+    } catch (error) {
+      console.error('Error fetching owners for staff:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch owners'
+      });
+    }
+  }
+);
+
+/**
+ * @route POST /hotels/staff/assign-period
+ * @desc Assign a floating period to an owner (staff can only assign to their property)
+ * @access Staff only
+ */
+router.post(
+  '/assign-period',
+  authenticateToken,
+  authorize(['view_bookings', 'create_booking']),
+  logAction('assign_period_to_owner_staff'),
+  async (req: any, res: Response) => {
+    try {
+      const staffPropertyId = req.user.property_id;
+      const { owner_id, nights, valid_until, accommodation_type } = req.body;
+
+      if (!staffPropertyId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Staff must be assigned to a property'
+        });
+      }
+
+      // Use staff's property automatically
+      const property_id = staffPropertyId;
+
+      // Validate required fields
+      if (!owner_id || !nights || !valid_until || !accommodation_type) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Missing required fields: owner_id, nights, valid_until, accommodation_type' 
+        });
+      }
+
+      const { Role, User, Week } = require('../models');
+
+      // Validate owner exists and is an owner role
+      const owner = await User.findOne({
+        where: { id: owner_id },
+        include: [{ 
+          model: Role, 
+          where: { name: 'owner' },
+          attributes: ['name']
+        }]
+      });
+
+      if (!owner) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Owner not found or user is not an owner' 
+        });
+      }
+
+      // Validate property exists
+      const property = await Property.findByPk(property_id);
+      if (!property) {
+        return res.status(404).json({ 
+          success: false,
+          error: 'Property not found' 
+        });
+      }
+
+      // Validate nights value
+      const nightsNum = parseInt(nights);
+      if (isNaN(nightsNum) || nightsNum < 1) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Nights must be at least 1' 
+        });
+      }
+
+      // Validate valid_until date
+      const validUntilDate = new Date(valid_until);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (validUntilDate <= today) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Valid until date must be in the future' 
+        });
+      }
+
+      // Create the floating period (without specific dates)
+      const week = await Week.create({
+        owner_id,
+        property_id,
+        nights: nightsNum,
+        valid_until: validUntilDate,
+        accommodation_type,
+        status: 'available'
+      });
+
+      await week.reload({
+        include: [{ model: Property, as: 'Property', attributes: ['name', 'location'] }]
+      });
+
+      res.json({
+        success: true,
+        message: `Floating period of ${nightsNum} night(s) assigned successfully (valid until ${validUntilDate.toLocaleDateString()})`,
+        data: {
+          week,
+          nights: nightsNum,
+          owner_name: `${owner.firstName} ${owner.lastName}`,
+          owner_email: owner.email
+        }
+      });
+    } catch (error) {
+      console.error('Error assigning period:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'Failed to assign period' 
+      });
+    }
+  }
+);
+
 export default router;

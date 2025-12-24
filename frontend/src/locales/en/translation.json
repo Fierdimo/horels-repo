@@ -441,6 +441,9 @@
       "newRequest": "New Request",
       "credits": "Credits",
       "convertible": "Convertible Weeks",
+      "floatingPeriod": "Floating Period",
+      "validUntil": "Valid until",
+      "periodType": "Period Type",
       "remaining": "Remaining Nights",
       "progress": "Progress",
       "activeCredits": "Active Credits",
@@ -833,6 +836,26 @@
       "enterAmenity": "Enter amenity name",
       "updateSuccess": "Settings updated successfully",
       "updateError": "Failed to update settings"
+    },
+    "assignPeriod": {
+      "title": "Assign Floating Period",
+      "subtitle": "Assign a floating period of nights to an owner without specific dates",
+      "selectOwner": "Select Owner",
+      "nights": "Number of Nights",
+      "nightsHelp": "Number of nights included in the period (e.g. 7)",
+      "validUntil": "Valid Until",
+      "validUntilHelp": "Deadline to use or convert the period",
+      "periodSummary": "Period Summary",
+      "afterConversion": "after conversion",
+      "important": "Important",
+      "floatingInfo1": "The period is floating: no specific accommodation dates",
+      "floatingInfo2": "The owner can convert it to credits whenever they want",
+      "floatingInfo3": "The conversion is: 1 night = 1 night credit",
+      "assignPeriod": "Assign Period",
+      "assigning": "Assigning...",
+      "success": "Floating period assigned successfully",
+      "invalidNights": "Must assign at least 1 night",
+      "invalidValidUntil": "Valid until date must be in the future"
     }
   },
   "admin": {

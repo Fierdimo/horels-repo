@@ -84,7 +84,10 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
 
     // Combinar weeks y bookings
     const allWeeks = [...weeks, ...weeksFromBookings].sort((a: any, b: any) => {
-      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+      // Handle floating periods (put them at the end or use created_at)
+      const aDate = a.start_date ? new Date(a.start_date).getTime() : new Date(a.created_at).getTime() + 999999999999;
+      const bDate = b.start_date ? new Date(b.start_date).getTime() : new Date(b.created_at).getTime() + 999999999999;
+      return aDate - bDate;
     });
 
     res.json({
@@ -95,6 +98,40 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
   } catch (error) {
     console.error('Error fetching weeks:', error);
     res.status(500).json({ error: 'Failed to fetch weeks' });
+  }
+});
+
+// Get single week details
+router.get('/weeks/:weekId', authenticateToken, requireOwnerRole, authorize(['view_own_weeks']), logAction('view_week_details'), async (req: any, res: Response) => {
+  try {
+    const { weekId } = req.params;
+    const userId = req.user.id;
+
+    const week = await Week.findOne({
+      where: { id: weekId, owner_id: userId },
+      include: [{
+        association: 'Property',
+        attributes: ['name', 'location']
+      }]
+    });
+
+    if (!week) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Week not found or you do not have permission to view it' 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: week
+    });
+  } catch (error) {
+    console.error('Error fetching week details:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch week details' 
+    });
   }
 });
 
@@ -335,12 +372,37 @@ router.post('/weeks/:weekId/convert', authenticateToken, requireOwnerRole, autho
       return res.status(404).json({ error: 'Week not found or not available for conversion' });
     }
 
-    // Convert week to 7 night credits (standard week)
-    const creditValue = 7;
+    // Calculate nights: use 'nights' field for floating periods, or calculate from dates
+    let nights: number;
+    
+    if (week.nights) {
+      // Floating period: use the nights field directly
+      nights = week.nights;
+    } else if (week.start_date && week.end_date) {
+      // Fixed period: calculate from dates
+      const startDate = new Date(week.start_date);
+      const endDate = new Date(week.end_date);
+      nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    } else {
+      return res.status(400).json({ error: 'Invalid period: missing nights or dates' });
+    }
 
-    // Create night credit
-    const expiryDate = new Date();
-    expiryDate.setMonth(expiryDate.getMonth() + 24); // 24 months expiry
+    // Validate period has at least 1 night
+    if (nights < 1) {
+      return res.status(400).json({ error: 'Period must have at least 1 night' });
+    }
+
+    // Convert period to night credits (1 night = 1 credit)
+    const creditValue = nights;
+
+    // Create night credit with expiry: use valid_until if available, otherwise 18 months from now
+    let expiryDate: Date;
+    if (week.valid_until) {
+      expiryDate = new Date(week.valid_until);
+    } else {
+      expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 18); // 18 months expiry
+    }
 
     const nightCredit = await NightCredit.create({
       owner_id: userId,
@@ -356,15 +418,17 @@ router.post('/weeks/:weekId/convert', authenticateToken, requireOwnerRole, autho
 
     res.json({
       success: true,
-      message: `Week converted to ${creditValue} night credits`,
+      message: `Period of ${nights} night(s) converted to ${creditValue} night credits`,
       data: {
         week: week,
-        nightCredit: nightCredit
+        nightCredit: nightCredit,
+        nights: nights,
+        credits: creditValue
       }
     });
   } catch (error) {
-    console.error('Error converting week:', error);
-    res.status(500).json({ error: 'Failed to convert week' });
+    console.error('Error converting period:', error);
+    res.status(500).json({ error: 'Failed to convert period' });
   }
 });
 
@@ -382,14 +446,22 @@ router.get('/night-credits', authenticateToken, requireOwnerRole, authorize(['vi
       order: [['expiry_date', 'ASC']]
     });
 
-    const totalNights = credits.reduce((sum, credit) => sum + credit.remaining_nights, 0);
+    // Map to format expected by frontend
+    const formattedCredits = credits.map(credit => ({
+      id: credit.id,
+      nights_available: credit.total_nights,
+      nights_used: credit.total_nights - credit.remaining_nights,
+      expires_at: credit.expiry_date,
+      created_at: credit.created_at,
+      // Include original fields for compatibility
+      total_nights: credit.total_nights,
+      remaining_nights: credit.remaining_nights,
+      expiry_date: credit.expiry_date
+    }));
 
     res.json({
       success: true,
-      data: {
-        credits: credits,
-        totalRemainingNights: totalNights
-      }
+      data: formattedCredits
     });
   } catch (error) {
     console.error('Error fetching night credits:', error);

@@ -158,7 +158,9 @@ router.get('/weeks', logAction('view_dashboard_weeks'), async (req: any, res: Re
     const weeks = await Week.findAll({
       where,
       limit,
-      order: [['start_date', 'ASC']],
+      order: [
+        [sequelize.fn('COALESCE', sequelize.col('start_date'), sequelize.col('created_at')), 'ASC']
+      ],
       include: [
         {
           association: 'Property',

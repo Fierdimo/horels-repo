@@ -645,6 +645,9 @@
       "newRequest": "Neue Anfrage",
       "credits": "Gutschriften",
       "convertible": "Convertible Weeks",
+      "floatingPeriod": "Flexibler Zeitraum",
+      "validUntil": "Gültig bis",
+      "periodType": "Zeitraumart",
       "remaining": "Verbleibende Nächte",
       "progress": "Fortschritt",
       "usedUp": "Aufgebrauchte Gutschriften",
@@ -1023,6 +1026,26 @@
       "enterAmenity": "Ausstattungsname eingeben",
       "updateSuccess": "Einstellungen erfolgreich aktualisiert",
       "updateError": "Fehler beim Aktualisieren der Einstellungen"
+    },
+    "assignPeriod": {
+      "title": "Flexiblen Zeitraum zuweisen",
+      "subtitle": "Weisen Sie einem Eigentümer einen flexiblen Zeitraum von Nächten ohne spezifische Daten zu",
+      "selectOwner": "Eigentümer auswählen",
+      "nights": "Anzahl der Nächte",
+      "nightsHelp": "Anzahl der Nächte im Zeitraum (z.B. 7)",
+      "validUntil": "Gültig bis",
+      "validUntilHelp": "Frist zur Nutzung oder Umwandlung des Zeitraums",
+      "periodSummary": "Zeitraum-Zusammenfassung",
+      "afterConversion": "nach der Umwandlung",
+      "important": "Wichtig",
+      "floatingInfo1": "Der Zeitraum ist flexibel: keine spezifischen Unterkunftsdaten",
+      "floatingInfo2": "Der Eigentümer kann ihn jederzeit in Guthaben umwandeln",
+      "floatingInfo3": "Die Umwandlung ist: 1 Nacht = 1 Nachtguthaben",
+      "assignPeriod": "Zeitraum zuweisen",
+      "assigning": "Wird zugewiesen...",
+      "success": "Flexibler Zeitraum erfolgreich zugewiesen",
+      "invalidNights": "Mindestens 1 Nacht muss zugewiesen werden",
+      "invalidValidUntil": "Das Gültigkeitsdatum muss in der Zukunft liegen"
     }
   },
   "payment": {

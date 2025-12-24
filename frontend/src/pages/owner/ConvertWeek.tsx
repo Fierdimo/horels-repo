@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Clock, AlertCircle, ArrowRight, CheckCircle } from 'lucide-react';
 import { format, parseISO, differenceInDays, addMonths } from 'date-fns';
 import toast from 'react-hot-toast';
-import { timeshareApi } from '@/services/timeshareApi';
+import apiClient from '@/api/client';
 
 export default function ConvertWeek() {
   const { weekId } = useParams<{ weekId: string }>();
@@ -17,13 +17,18 @@ export default function ConvertWeek() {
   // Fetch week details
   const { data: week, isLoading } = useQuery({
     queryKey: ['week', weekId],
-    queryFn: () => timeshareApi.get(`/weeks/${weekId}`).then(res => res.data),
+    queryFn: async () => {
+      const response = await apiClient.get(`/timeshare/weeks/${weekId}`);
+      return response.data.data;
+    },
   });
 
   // Convert mutation
   const convertMutation = useMutation({
-    mutationFn: (weekId: string) =>
-      timeshareApi.post(`/weeks/${weekId}/convert`).then(res => res.data),
+    mutationFn: async (weekId: string) => {
+      const response = await apiClient.post(`/timeshare/weeks/${weekId}/convert`);
+      return response.data;
+    },
     onSuccess: () => {
       toast.success(t('owner.credits.convertSuccess'));
       queryClient.invalidateQueries({ queryKey: ['night-credits'] });
@@ -61,11 +66,19 @@ export default function ConvertWeek() {
     );
   }
 
-  const nights = differenceInDays(parseISO(week.end_date), parseISO(week.start_date));
+  // Handle floating periods (nights field) vs fixed periods (dates)
+  const isFloating = !!week.nights && !week.start_date;
+  const nights = isFloating 
+    ? week.nights 
+    : differenceInDays(parseISO(week.end_date), parseISO(week.start_date));
   
-  // All weeks convert to 7 night credits (standard week)
-  const creditsToReceive = 7;
-  const expiresAt = format(addMonths(new Date(), 18), 'MMM d, yyyy');
+  // Dynamic conversion: 1 night = 1 credit (any duration)
+  const creditsToReceive = nights;
+  
+  // Expiry: use valid_until for floating periods, or 18 months from now
+  const expiresAt = week.valid_until 
+    ? format(parseISO(week.valid_until), 'MMM d, yyyy')
+    : format(addMonths(new Date(), 18), 'MMM d, yyyy');
 
 
   return (
@@ -98,14 +111,25 @@ export default function ConvertWeek() {
               <p className="text-gray-900 font-medium">{week.Property?.name}</p>
             </div>
 
-            {/* Dates */}
+            {/* Dates or Floating Period */}
             <div>
               <label className="text-sm font-medium text-gray-500 block mb-1">
-                {t('owner.credits.dates')}
+                {isFloating ? t('owner.credits.periodType') : t('owner.credits.dates')}
               </label>
-              <p className="text-gray-900 font-medium">
-                {format(parseISO(week.start_date), 'MMM d')} - {format(parseISO(week.end_date), 'MMM d, yyyy')}
-              </p>
+              {isFloating ? (
+                <div>
+                  <p className="text-blue-600 font-medium">{t('owner.credits.floatingPeriod')}</p>
+                  {week.valid_until && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {t('owner.credits.validUntil')}: {format(parseISO(week.valid_until), 'MMM d, yyyy')}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-900 font-medium">
+                  {format(parseISO(week.start_date), 'MMM d')} - {format(parseISO(week.end_date), 'MMM d, yyyy')}
+                </p>
+              )}
             </div>
 
             {/* Nights */}

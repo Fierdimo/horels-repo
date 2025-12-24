@@ -5,8 +5,10 @@ class Week extends Model {
   public id!: number;
   public owner_id!: number;
   public property_id!: number;
-  public start_date!: Date;
-  public end_date!: Date;
+  public start_date!: Date | null; // Nullable for floating periods
+  public end_date!: Date | null; // Nullable for floating periods
+  public nights!: number | null; // Duration for floating periods
+  public valid_until!: Date | null; // Expiration date for floating periods
   public accommodation_type!: string; // e.g., 'sencilla', 'duplex', 'suite'
   public status!: 'available' | 'confirmed' | 'converted' | 'used' | 'pending_swap';
   public readonly created_at!: Date;
@@ -33,11 +35,21 @@ Week.init({
   },
   start_date: {
     type: DataTypes.DATE,
-    allowNull: false,
+    allowNull: true, // Nullable for floating periods
   },
   end_date: {
     type: DataTypes.DATE,
-    allowNull: false,
+    allowNull: true, // Nullable for floating periods
+  },
+  nights: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Number of nights for floating periods (when start_date is null)'
+  },
+  valid_until: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Expiration date for floating periods'
   },
   accommodation_type: {
     type: DataTypes.STRING,
