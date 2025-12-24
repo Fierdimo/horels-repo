@@ -4,6 +4,8 @@ export interface PlatformSettings {
   commissionRate: string;
   swapFee: string;
   creditConversionFee: string;
+  chargeSwapFeeToRequester?: string;
+  chargeSwapFeeToResponder?: string;
   autoApproveGuests: string;
   autoApproveStaff: string;
   requireEmailVerification: string;

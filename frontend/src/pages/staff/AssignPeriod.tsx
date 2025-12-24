@@ -254,9 +254,8 @@ export default function AssignPeriod() {
               type="button"
               onClick={() => setFormData({
                 owner_id: '',
-                property_id: '',
-                start_date: '',
-                end_date: '',
+                nights: '',
+                valid_until: '',
                 accommodation_type: 'Standard'
               })}
               className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"

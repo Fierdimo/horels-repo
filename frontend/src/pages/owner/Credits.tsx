@@ -21,7 +21,7 @@ export default function Credits() {
   // Get weeks for conversion
   const { data: weeks, isLoading: weeksLoading, error: weeksError } = useQuery({
     queryKey: ['weeks'],
-    queryFn: timeshareApi.getWeeks
+    queryFn: () => timeshareApi.getWeeks()
   });
 
   if (creditsLoading || weeksLoading) {

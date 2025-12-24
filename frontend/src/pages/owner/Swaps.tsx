@@ -356,8 +356,8 @@ export default function Swaps() {
                 {/* Status */}
                 <div>
                   <p className="text-xs text-gray-600 mb-1">{t('common.status')}</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedSwap.status)}`}>
-                    {getStatusIcon(selectedSwap.status)} {t(`common.${selectedSwap.status}`)}
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedSwap.status || 'pending')}`}>
+                    {getStatusIcon(selectedSwap.status || 'pending')} {t(`common.${selectedSwap.status || 'pending'}`)}
                   </span>
                 </div>
 
@@ -397,7 +397,7 @@ export default function Swaps() {
                 {/* Fee */}
                 <div>
                   <p className="text-xs text-gray-600 mb-2">💰 {t('owner.swaps.platformFeeLabel')}:</p>
-                  <p className="text-2xl font-bold text-yellow-700">€{settings.swapFee ? Number(settings.swapFee).toFixed(2) : '—'}</p>
+                  <p className="text-2xl font-bold text-yellow-700">€{settings?.swapFee ? Number(settings.swapFee).toFixed(2) : '—'}</p>
                   <p className="text-xs text-gray-600 mt-1">{t('owner.swaps.chargedWhenCompleted')}</p>
                 </div>
 

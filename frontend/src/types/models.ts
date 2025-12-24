@@ -18,6 +18,8 @@ export interface Property {
   id: number;
   name: string;
   location: string;
+  city?: string;
+  country?: string;
   coordinates?: {
     lat: number;
     lng: number;
@@ -26,13 +28,16 @@ export interface Property {
 
 // Week types
 export interface Week {
-  id: number;
+  id: number | string;
   owner_id: number;
   property_id: number;
   start_date: string;
   end_date: string;
   accommodation_type: string; // e.g., 'sencilla', 'duplex', 'suite'
-  status: 'available' | 'confirmed' | 'converted' | 'used';
+  status: 'available' | 'confirmed' | 'converted' | 'used' | 'checked_out';
+  source?: 'timeshare' | 'booking';
+  nights?: number;
+  valid_until?: string;
   Property?: Property;
 }
 
@@ -43,6 +48,7 @@ export interface SwapRequest {
   requester_week_id?: number;
   responder_week_id?: number;
   responder_id?: number;
+  accommodation_type?: string;
   status?: 'pending' | 'matched' | 'awaiting_payment' | 'completed' | 'cancelled';
   staff_approval_status?: 'pending_review' | 'approved' | 'rejected';
   responder_acceptance?: 'pending' | 'accepted' | 'rejected';
@@ -55,6 +61,9 @@ export interface SwapRequest {
   created_at?: string;
   RequesterWeek?: Week;
   ResponderWeek?: Week;
+  RequesterBookings?: Booking[];
+  responder_source_type?: 'week' | 'booking';
+  responder_source_id?: number;
   Requester?: User;
   Responder?: User;
 }

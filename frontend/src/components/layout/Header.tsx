@@ -12,14 +12,14 @@ export function Header() {
   const { user } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
   const { logout } = useAuth();
-  const { properties } = useProperties();
+  const { data: propertiesData } = useProperties();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Get the property name for staff
   const staffPropertyName = user?.property?.name || 
-    (user?.property_id && properties?.length > 0
-      ? properties.find(p => p.id === user.property_id)?.name
+    (user?.property_id && propertiesData?.properties && propertiesData.properties.length > 0
+      ? propertiesData.properties.find((p: any) => p.id === user.property_id)?.name
       : null);
 
   const handleLogout = () => {

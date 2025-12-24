@@ -140,10 +140,10 @@ export function SwapsMyRequestsTab({
                     )}
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(
-                        swap.status
+                        swap.status || 'pending'
                       )}`}
                     >
-                      {getStatusIcon(swap.status)} {swap.status === 'pending' ? t('common.pending') : swap.status === 'matched' ? t('owner.swaps.withResponse') : swap.status === 'completed' ? t('common.completed') : t('common.cancelled')}
+                      {getStatusIcon(swap.status || 'pending')} {swap.status === 'pending' ? t('common.pending') : swap.status === 'matched' ? t('owner.swaps.withResponse') : swap.status === 'completed' ? t('common.completed') : t('common.cancelled')}
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-gray-900">
@@ -157,7 +157,7 @@ export function SwapsMyRequestsTab({
                 <div className="bg-blue-50 p-3 rounded">
                   <p className="text-xs text-blue-700 font-semibold mb-1">{t('owner.swaps.offering')}:</p>
                   <p className="text-sm font-medium text-gray-900">
-                    {swap.accommodation_type}
+                    {swap.accommodation_type || 'N/A'}
                   </p>
                   {swap.RequesterWeek && (
                     <p className="text-xs text-gray-600 mt-1">
@@ -220,12 +220,12 @@ export function SwapsMyRequestsTab({
 
               <div className="flex items-center justify-between pt-4 border-t">
                 <p className="text-xs text-gray-500">
-                  {t('common.created')}: {new Date(swap.created_at).toLocaleDateString('es-ES')}
+                  {t('common.created')}: {new Date(swap.created_at || new Date()).toLocaleDateString('es-ES')}
                 </p>
                 <div className="flex gap-2">
                   {(swap.status === 'pending' || swap.status === 'matched') && (
                     <button
-                      onClick={() => handleCancelSwap(swap.id)}
+                      onClick={() => handleCancelSwap(swap.id!)}
                       disabled={cancellingId === swap.id}
                       className="text-red-600 hover:text-red-800 disabled:text-gray-400 transition flex items-center gap-1"
                     >

@@ -69,7 +69,7 @@ export function SwapsCreateTab({
               ) : (
                 weeks.map((week) => {
                   // Handle both numeric IDs and string IDs like "booking_4"
-                  const weekId = typeof week.id === 'string' && week.id.startsWith('booking_') 
+                  const weekId = typeof week.id === 'string' && String(week.id).startsWith('booking_') 
                     ? week.id 
                     : week.id;
                   

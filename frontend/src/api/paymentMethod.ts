@@ -21,6 +21,7 @@ export const paymentMethodApi = {
   // Create setup intent for adding payment method
   createSetupIntent: async (): Promise<SetupIntentResponse> => {
     const { data } = await apiClient.post<ApiResponse<SetupIntentResponse>>('/payment-methods/setup-intent');
+    if (!data.data) throw new Error('No setup intent data received');
     return data.data;
   },
 
@@ -32,7 +33,7 @@ export const paymentMethodApi = {
   // Get user's payment methods
   getPaymentMethods: async (): Promise<PaymentMethod[]> => {
     const { data } = await apiClient.get<ApiResponse<PaymentMethod[]>>('/payment-methods/methods');
-    return data.data;
+    return data.data || [];
   },
 
   // Remove payment method
@@ -43,6 +44,6 @@ export const paymentMethodApi = {
   // Check if user has payment method
   hasPaymentMethod: async (): Promise<boolean> => {
     const { data } = await apiClient.get<ApiResponse<{ hasPaymentMethod: boolean }>>('/payment-methods/has-method');
-    return data.data.hasPaymentMethod;
+    return data.data?.hasPaymentMethod || false;
   },
 };
