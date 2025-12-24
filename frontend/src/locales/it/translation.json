@@ -295,6 +295,8 @@
       "searchPlaceholder": "Cerca per proprietà o località...",
       "confirmSuccess": "Settimana confermata con successo",
       "convertSuccess": "Settimana convertita in crediti",
+      "weekDetails": "Dettagli della Settimana",
+      "notFound": "Settimana non trovata",
       "red": "Rosso (6 notti)",
       "blue": "Blu (5 notti)",
       "white": "Bianco (4 notti)"
@@ -465,7 +467,24 @@
       "convert": "Converti",
       "createRequest": "Crea Richiesta",
       "myRequests": "Le Mie Richieste",
-      "viewRequests": "Visualizza Le Mie Richieste"
+      "viewRequests": "Visualizza Le Mie Richieste",
+      "convertToCredits": "Converti in Crediti",
+      "creditsYouWillReceive": "Crediti che Riceverai",
+      "nightCredits": "Crediti Notte",
+      "flexibility": "Flessibilità Totale",
+      "useAnyProperty": "Usa in qualsiasi proprietà del gruppo nelle date disponibili",
+      "validity": "Validità",
+      "validUntil": "Valido fino al",
+      "importantInfo": "Informazioni Importanti",
+      "conversionPermanent": "Questa conversione è permanente e non può essere annullata",
+      "creditsNonTransferable": "I crediti non sono trasferibili ad altri proprietari",
+      "creditsExpire": "I crediti scadono dopo {{months}} mesi",
+      "peakPeriodsRestriction": "I crediti non possono essere utilizzati durante i periodi di alta domanda",
+      "confirmConversion": "Capisco che questa conversione è permanente e accetto i termini",
+      "confirmRequired": "Devi confermare di aver compreso i termini di conversione",
+      "convertSuccess": "Settimana convertita con successo in crediti notte!",
+      "converting": "Conversione...",
+      "confirmConvert": "Conferma Conversione"
     },
     "profile": {
       "title": "Il Mio Profilo",
@@ -592,13 +611,13 @@
         "subtitle": "Fornisci un motivo per il rifiuto:",
         "reasonPlaceholder": "Motivo del rifiuto (obbligatorio)...",
         "confirm": "Conferma Rifiuto",
-        "rejecting": "Rifiuto.,
-      "status": {
-        "pending": "In sospeso"
-      }..",
+        "rejecting": "Rifiuto",
         "required": "Il motivo è obbligatorio"
       },
-      "requested": "Richiesto"
+      "requested": "Richiesto",
+      "status": {
+        "pending": "In sospeso"
+      }
     }
   },
   "guest": {

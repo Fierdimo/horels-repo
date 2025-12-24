@@ -19,6 +19,7 @@ const PendingApproval = lazy(() => import('@/pages/auth/PendingApproval'));
 const AccountSuspended = lazy(() => import('@/pages/auth/AccountSuspended'));
 const OwnerDashboard = lazy(() => import('@/pages/owner/Dashboard'));
 const Weeks = lazy(() => import('@/pages/owner/Weeks'));
+const ConvertWeek = lazy(() => import('@/pages/owner/ConvertWeek'));
 const BookingDetails = lazy(() => import('@/pages/owner/BookingDetails'));
 const Swaps = lazy(() => import('@/pages/owner/Swaps'));
 const Credits = lazy(() => import('@/pages/owner/Credits'));
@@ -157,6 +158,16 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['owner']}>
               <MainLayout>
                 <Weeks />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/weeks/:weekId/convert"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <ConvertWeek />
               </MainLayout>
             </ProtectedRoute>
           }
