@@ -182,7 +182,7 @@ export function SwapsCreateTab({
             disabled={isCreating || !formData.requester_week_id}
             className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold transition"
           >
-            {isCreating ? t('common.saving') : '✓ Create & Go Live'}
+            {isCreating ? t('common.saving') : `✓ ${t('owner.swaps.createAndGoLive')}`}
           </button>
           <button
             type="button"

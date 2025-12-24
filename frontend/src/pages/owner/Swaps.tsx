@@ -363,7 +363,7 @@ export default function Swaps() {
 
                 {/* What They Offer */}
                 <div>
-                  <p className="text-xs text-gray-600 mb-2">🏨 What they offer:</p>
+                  <p className="text-xs text-gray-600 mb-2">🏨 {t('owner.swaps.whatTheyOffer')}:</p>
                   <div className="bg-blue-50 p-3 rounded-lg">
                     {/* Get data from either RequesterWeek or RequesterBookings */}
                     {selectedSwap.RequesterWeek ? (
@@ -389,26 +389,26 @@ export default function Swaps() {
                         </p>
                       </>
                     ) : (
-                      <p className="text-gray-600">No booking information available</p>
+                      <p className="text-gray-600">{t('owner.swaps.noBookingInfo')}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Fee */}
                 <div>
-                  <p className="text-xs text-gray-600 mb-2">💰 Platform Fee:</p>
+                  <p className="text-xs text-gray-600 mb-2">💰 {t('owner.swaps.platformFeeLabel')}:</p>
                   <p className="text-2xl font-bold text-yellow-700">€{settings.swapFee ? Number(settings.swapFee).toFixed(2) : '—'}</p>
-                  <p className="text-xs text-gray-600 mt-1">Charged when swap is completed</p>
+                  <p className="text-xs text-gray-600 mt-1">{t('owner.swaps.chargedWhenCompleted')}</p>
                 </div>
 
                 {/* Accept Swap - Only show if user is NOT the requester */}
                 {selectedSwap.status === 'pending' && selectedSwap.requester_id !== user?.id && (
                   <div className="border-t pt-4">
                     <p className="text-sm font-semibold text-gray-900 mb-3">
-                      ✓ Select your week to offer in exchange:
+                      ✓ {t('owner.swaps.selectYourWeekToOffer')}:
                     </p>
                     <p className="text-xs text-gray-600 mb-3">
-                      💡 You can exchange weeks of different lengths. Both parties must agree to the terms.
+                      💡 {t('owner.swaps.exchangeDifferentLengths')}
                     </p>
                     {(() => {
                       const offeredDetails = getSwapOfferedDetails(selectedSwap);
@@ -484,7 +484,7 @@ export default function Swaps() {
                         return (
                           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
                             <p className="text-sm text-yellow-800">
-                              ⚠️ You don't have any {offeredDetails.type} weeks of {offeredDetails.duration} nights to offer.
+                              ⚠️ {t('owner.swaps.noWeeksOfTypeAndDuration', { type: offeredDetails.type || 'standard', duration: offeredDetails.duration || 7 })}
                             </p>
                           </div>
                         );

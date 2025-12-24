@@ -69,7 +69,7 @@ export function SwapsMyRequestsTab({
         <div className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Estado
+              {t('common.status')}
             </label>
             <select
               value={requestFilters.status}
@@ -80,11 +80,11 @@ export function SwapsMyRequestsTab({
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">Todas las solicitudes</option>
-              <option value="pending">⏳ Pendiente</option>
-              <option value="matched">✓ Con respuesta</option>
-              <option value="completed">✓✓ Completado</option>
-              <option value="cancelled">✗ Cancelado</option>
+              <option value="all">{t('owner.swaps.allRequests')}</option>
+              <option value="pending">⏳ {t('common.pending')}</option>
+              <option value="matched">✓ {t('owner.swaps.withResponse')}</option>
+              <option value="completed">✓✓ {t('common.completed')}</option>
+              <option value="cancelled">✗ {t('common.cancelled')}</option>
             </select>
           </div>
 
@@ -92,7 +92,7 @@ export function SwapsMyRequestsTab({
             onClick={() => setRequestFilters({ status: 'all' })}
             className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-semibold transition"
           >
-            Limpiar filtros
+            {t('common.clearFilters')}
           </button>
         </div>
       </div>
@@ -100,13 +100,13 @@ export function SwapsMyRequestsTab({
       {/* My Requests */}
       {filteredSwaps.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-600 mb-4 text-lg">📭 Sin solicitudes de intercambio</p>
-          <p className="text-sm text-gray-500 mb-6">Aún no has creado ninguna solicitud de intercambio.</p>
+          <p className="text-gray-600 mb-4 text-lg">📭 {t('owner.swaps.noSwapRequests')}</p>
+          <p className="text-sm text-gray-500 mb-6">{t('owner.swaps.notCreatedAny')}</p>
           <button
             onClick={onCreateRequest}
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition"
           >
-            ➕ Crear nueva solicitud
+            ➕ {t('owner.swaps.createNew')}
           </button>
         </div>
       ) : (
@@ -131,11 +131,11 @@ export function SwapsMyRequestsTab({
                   <div className="flex items-center gap-3 mb-2">
                     {isRequester(swap) ? (
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">
-                        📤 Mi solicitud
+                        📤 {t('owner.swaps.myRequest')}
                       </span>
                     ) : (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold">
-                        📥 He aceptado
+                        📥 {t('owner.swaps.iAccepted')}
                       </span>
                     )}
                     <span
@@ -143,7 +143,7 @@ export function SwapsMyRequestsTab({
                         swap.status
                       )}`}
                     >
-                      {getStatusIcon(swap.status)} {swap.status === 'pending' ? 'Pendiente' : swap.status === 'matched' ? 'Con respuesta' : swap.status === 'completed' ? 'Completado' : 'Cancelado'}
+                      {getStatusIcon(swap.status)} {swap.status === 'pending' ? t('common.pending') : swap.status === 'matched' ? t('owner.swaps.withResponse') : swap.status === 'completed' ? t('common.completed') : t('common.cancelled')}
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-gray-900">
@@ -155,7 +155,7 @@ export function SwapsMyRequestsTab({
               <div className="grid grid-cols-2 gap-4 mb-4">
                 {/* What I'm offering */}
                 <div className="bg-blue-50 p-3 rounded">
-                  <p className="text-xs text-blue-700 font-semibold mb-1">Ofrezco:</p>
+                  <p className="text-xs text-blue-700 font-semibold mb-1">{t('owner.swaps.offering')}:</p>
                   <p className="text-sm font-medium text-gray-900">
                     {swap.accommodation_type}
                   </p>
@@ -179,14 +179,14 @@ export function SwapsMyRequestsTab({
 
                 {/* Fee */}
                 <div className="bg-yellow-50 p-3 rounded">
-                  <p className="text-xs text-yellow-700 font-semibold mb-1">Comisión:</p>
+                  <p className="text-xs text-yellow-700 font-semibold mb-1">{t('owner.swaps.commission')}:</p>
                   <p className="text-lg font-bold text-yellow-700">€{swap.swap_fee}</p>
                   <p className="text-xs text-gray-600 mt-2">
                     {swap.status === 'pending'
-                      ? 'Se cobra si alguien acepta'
+                      ? t('owner.swaps.chargedIfAccepted')
                       : swap.status === 'matched'
-                        ? 'Pendiente de pago'
-                        : 'Pagado'}
+                        ? t('owner.swaps.pendingPayment')
+                        : t('owner.swaps.paid')}
                   </p>
                 </div>
               </div>
@@ -194,7 +194,7 @@ export function SwapsMyRequestsTab({
               {/* What they're looking for */}
               {swap.ResponderWeek && (
                 <div className="bg-green-50 p-3 rounded mb-4">
-                  <p className="text-xs text-green-700 font-semibold mb-1">Respuesta recibida:</p>
+                  <p className="text-xs text-green-700 font-semibold mb-1">{t('owner.swaps.received')}:</p>
                   <p className="text-sm font-medium text-gray-900">
                     {swap.ResponderWeek?.Property?.name}
                   </p>
@@ -208,11 +208,11 @@ export function SwapsMyRequestsTab({
               {/* Staff Rejection Notice */}
               {swap.status === 'cancelled' && swap.staff_notes && (
                 <div className="bg-red-50 border border-red-200 p-3 rounded mb-4">
-                  <p className="text-xs text-red-700 font-semibold mb-1">🚫 Cancelado por el hotel:</p>
+                  <p className="text-xs text-red-700 font-semibold mb-1">🚫 {t('owner.swaps.cancelledByHotel')}:</p>
                   <p className="text-sm text-red-900">{swap.staff_notes}</p>
                   {swap.staff_review_date && (
                     <p className="text-xs text-red-600 mt-2">
-                      Fecha: {new Date(swap.staff_review_date).toLocaleDateString('es-ES')}
+                      {t('owner.swaps.date')}: {new Date(swap.staff_review_date).toLocaleDateString('es-ES')}
                     </p>
                   )}
                 </div>
@@ -220,7 +220,7 @@ export function SwapsMyRequestsTab({
 
               <div className="flex items-center justify-between pt-4 border-t">
                 <p className="text-xs text-gray-500">
-                  Creado: {new Date(swap.created_at).toLocaleDateString('es-ES')}
+                  {t('common.created')}: {new Date(swap.created_at).toLocaleDateString('es-ES')}
                 </p>
                 <div className="flex gap-2">
                   {(swap.status === 'pending' || swap.status === 'matched') && (
@@ -230,7 +230,7 @@ export function SwapsMyRequestsTab({
                       className="text-red-600 hover:text-red-800 disabled:text-gray-400 transition flex items-center gap-1"
                     >
                       <Trash2 className="h-4 w-4" />
-                      <span className="text-sm">Cancelar</span>
+                      <span className="text-sm">{t('owner.swaps.cancelRequest')}</span>
                     </button>
                   )}
                 </div>
