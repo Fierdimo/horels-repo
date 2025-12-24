@@ -90,7 +90,19 @@ export default function Credits() {
   const totalUsedNights = allCredits.reduce((sum, credit) => sum + (credit && credit.nights_used ? credit.nights_used : 0), 0);
   const totalNights = allCredits.reduce((sum, credit) => sum + (credit && credit.nights_available ? credit.nights_available : 0), 0);
 
-  const convertibleWeeks = Array.isArray(weeks) ? weeks.filter(w => w && w.status === 'available') : [];
+  // Filter weeks that can be converted to credits
+  // ONLY timeshare weeks with status='available' and exactly 7 nights
+  const convertibleWeeks = Array.isArray(weeks) ? weeks.filter(w => {
+    if (!w || w.status !== 'available') return false;
+    
+    // Verify it's exactly 7 nights
+    try {
+      const nights = differenceInDays(parseISO(w.end_date), parseISO(w.start_date));
+      return nights === 7;
+    } catch (e) {
+      return false;
+    }
+  }) : [];
 
   // Calendar logic
   const monthStart = startOfMonth(currentMonth);
@@ -420,17 +432,37 @@ export default function Credits() {
         )}
 
         {/* Convertible Weeks */}
-        {convertibleWeeks.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('owner.credits.convertibleWeeks')}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {t('owner.credits.convertDescription')}
-              </p>
-            </div>
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('owner.credits.convertibleWeeks')}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {t('owner.credits.convertDescription')}
+            </p>
+          </div>
 
+          {convertibleWeeks.length === 0 ? (
+            <div className="p-8 text-center">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {t('owner.credits.noWeeksAvailable')}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {t('owner.credits.noWeeksAvailableDesc')}
+              </p>
+              <div className="max-w-md mx-auto text-left bg-blue-50 rounded-lg p-4 mt-4">
+                <p className="text-sm text-gray-700 font-medium mb-2">
+                  {t('owner.credits.requirementsTitle')}:
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• {t('owner.credits.requirement1')}</li>
+                  <li>• {t('owner.credits.requirement2')}</li>
+                  <li>• {t('owner.credits.requirement3')}</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -445,7 +477,7 @@ export default function Credits() {
                       {t('owner.credits.nights')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      {t('owner.weeks.color')}
+                      {t('owner.weeks.accommodationType')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       {t('common.actions')}
@@ -471,12 +503,8 @@ export default function Credits() {
                           {nights} {t('common.nights')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${week.color === 'red' ? 'bg-red-100 text-red-800' : ''}
-                            ${week.color === 'blue' ? 'bg-blue-100 text-blue-800' : ''}
-                            ${week.color === 'white' ? 'bg-gray-100 text-gray-800' : ''}
-                          `}>
-                            {week.color.charAt(0).toUpperCase() + week.color.slice(1)}
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            {week.accommodation_type}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -493,8 +521,8 @@ export default function Credits() {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -63,28 +63,10 @@ export default function ConvertWeek() {
 
   const nights = differenceInDays(parseISO(week.end_date), parseISO(week.start_date));
   
-  // Conversion rates based on color
-  const conversionRates = {
-    red: 6,
-    blue: 5,
-    white: 4,
-  };
-
-  const creditsToReceive = conversionRates[week.color as keyof typeof conversionRates] || nights;
+  // All weeks convert to 7 night credits (standard week)
+  const creditsToReceive = 7;
   const expiresAt = format(addMonths(new Date(), 18), 'MMM d, yyyy');
 
-  const getColorClasses = (color: string) => {
-    switch (color) {
-      case 'red':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'blue':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'white':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -134,13 +116,13 @@ export default function ConvertWeek() {
               <p className="text-gray-900 font-medium">{nights} {t('common.nights')}</p>
             </div>
 
-            {/* Color */}
+            {/* Accommodation Type */}
             <div>
               <label className="text-sm font-medium text-gray-500 block mb-1">
-                {t('owner.weeks.color')}
+                {t('owner.weeks.accommodationType')}
               </label>
-              <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getColorClasses(week.color)}`}>
-                {week.color.charAt(0).toUpperCase() + week.color.slice(1)} Week
+              <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                {week.accommodation_type}
               </span>
             </div>
           </div>

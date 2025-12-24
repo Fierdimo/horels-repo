@@ -41,17 +41,23 @@ OPCIÓN B: Créditos de Noches Flexibles
 
 ---
 
-## 2. Tablas de Conversión (Fija)
+## 2. Conversión de Semanas a Créditos Nocturnos
 
-| Tipo de Semana | Noches Base | Conversión | Notas |
-|---|---|---|---|
-| 🔴 **Red Week** | 7 días | 6 noches | 1 día para viaje/transporte |
-| 🔵 **Blue Week** | 7 días | 5 noches | Semana media, menos demanda |
-| ⚪ **White Week** | 7 días | 4 noches | Baja demanda, flexibilidad |
+**Regla Universal:**
+- Toda semana de timeshare (exactamente 7 noches) se convierte en **7 créditos nocturnos**
+- El tipo de alojamiento (sencilla, duplex, suite, etc.) determina la calidad de la semana
+- No hay diferencia en la cantidad de créditos según el tipo de habitación
 
-**¿Por qué menos noches?**
-- La diferencia es por días de viaje/transporte
-- Es una conversión conservadora para mantener valor
+| Requisito | Conversión |
+|-----------|------------|
+| **Duración de Semana** | Exactamente 7 noches |
+| **Créditos Otorgados** | 7 night credits |
+| **Tipo de Alojamiento** | Cualquiera (sencilla, duplex, suite, etc.) |
+
+**Importante:**
+- Solo semanas completas de 7 noches califican para conversión
+- La conversión es permanente y no puede revertirse
+- El tipo de alojamiento original no afecta la cantidad de créditos
 
 ---
 
@@ -166,18 +172,18 @@ ACCIÓN: Intercambio
 
 ```
 Soy Marcos (Italia)
-Tengo: Azul + Roja + Blanca Week
+Tengo: 3 Semanas de 7 noches cada una
 Situación: Tengo 3 semanas pero incierto cuándo podré usarlas
 Quiero: Flexibilidad máxima
 
 ACCIÓN: Conversión
-├─ Azul (5 noches) + Roja (6) + Blanca (4) = 15 noches
+├─ 3 semanas × 7 noches = 21 créditos nocturnos
 ├─ Pierdo las 3 semanas
-├─ Recibo 15 créditos válidos 18 meses
+├─ Recibo 21 créditos válidos 18 meses
 ├─ Puedo usar:
 │  ├─ 7 noches en Agosto
-│  ├─ 5 noches en Diciembre
-│  └─ 3 noches en Marzo
+│  ├─ 7 noches en Diciembre
+│  └─ 7 noches en Marzo
 └─ RESULTADO: Máxima flexibilidad
 
 ¿Por qué NO intercambio?
@@ -190,15 +196,15 @@ ACCIÓN: Conversión
 
 ```
 Soy Lisa (Alemania)
-Tengo: 2 Red Weeks (Junio cada año)
+Tengo: 2 Semanas (Junio cada año)
 
 ESTRATEGIA:
-├─ Semana 1 (Red/Junio): Confirmar → Usaré junio
-├─ Semana 2 (Red/Junio): Convertir → 6 créditos flexibles
+├─ Semana 1 (Junio): Confirmar → Usaré junio
+├─ Semana 2 (Junio): Convertir → 7 créditos flexibles
 │
 RESULTADO:
 ├─ Disfruto mi semana confirmada en junio
-└─ Tengo 6 noches para cuando lo necesite
+└─ Tengo 7 noches para cuando lo necesite
 
 VENTAJA: Lo mejor de ambos mundos
 ```
@@ -210,31 +216,31 @@ VENTAJA: Lo mejor de ambos mundos
 ### 6.1 Crear Créditos (Conversión)
 
 ```
-┌─ Mi Semana (Azul) ─────────────────┐
-│ Maldivas, Aug 1-7, 2025            │
+┌─ Mi Semana (Suite) ────────────────┐
+│ Maldivas, Aug 1-8, 2025 (7 noches) │
 │ Status: Available                   │
 └────────────────────────────────────┘
                  ↓ [Convertir a Créditos]
                  
 ┌─ Confirmación ────────────────────┐
 │ "Perderás esta semana"             │
-│ "Recibirás 5 créditos"             │
-│ "Válidos hasta: Aug 2026"           │
+│ "Recibirás 7 créditos"             │
+│ "Válidos hasta: Feb 2027"           │
 │ [CANCELAR] [CONFIRMAR]             │
 └───────────────────────────────────┘
                  ↓ CONFIRMAR
                  
 ✅ CONVERTIDO
 ├─ Semana → ELIMINA
-└─ Créditos → CREA (5 noches)
+└─ Créditos → CREA (7 noches)
 ```
 
 ### 6.2 Usar Créditos
 
 ```
 ┌─ Mis Créditos ────────────────────┐
-│ 5 Noches disponibles               │
-│ Vencimiento: Aug 2026              │
+│ 7 Noches disponibles               │
+│ Vencimiento: Feb 2027              │
 │ [USAR CRÉDITOS]                    │
 └───────────────────────────────────┘
                  ↓
