@@ -74,6 +74,8 @@ Frontend runs on: http://localhost:5173
 - **[Backend Documentation](./backend/README-BACKEND.md)** - API, database, Stripe integration
 - **[Frontend Documentation](./frontend/README.md)** - Components, routing, state management
 - **[API Documentation](./backend/API_DOCUMENTATION.md)** - Complete API reference
+- **[Credit System Analysis](./CREDIT_SYSTEM_ANALYSIS.md)** - Detailed credit system documentation
+- **[PMS Architecture](./ROOMS_PMS_ARCHITECTURE.md)** - PMS integration patterns
 
 ---
 
@@ -90,8 +92,10 @@ Frontend runs on: http://localhost:5173
 ### Timeshare Management
 - ✅ Week ownership and management
 - ✅ P2P exchanges between owners
-- ✅ Night credit conversion system
-- ✅ Flexible booking with credits
+- ✅ **Variable Credit System** - RCI/Interval-style valuation
+- ✅ Credit deposits with 6-month expiration
+- ✅ Hybrid payments (credits + cash top-up)
+- ✅ Flexible booking with dynamic pricing
 
 ### Guest Features
 - ✅ Token-based quick access
@@ -105,6 +109,69 @@ Frontend runs on: http://localhost:5173
 - ✅ Activity logs and monitoring
 - ✅ Platform settings configuration
 - ✅ Room and property management
+- ✅ Property tier management (DIAMOND, GOLD, SILVER+, STANDARD)
+- ✅ Seasonal calendar configuration (RED/WHITE/BLUE periods)
+- ✅ Credit pricing and rate management
+
+---
+
+## 💳 Credit System
+
+The platform implements a sophisticated credit-based booking system inspired by RCI/Interval International:
+
+### Credit Calculation Formula
+```
+Credits = [Base Season Value] × [Location Multiplier] × [Room Type Multiplier]
+```
+
+### Season Base Values
+- **RED** (High Season): 1000 credits
+- **WHITE** (Mid Season): 600 credits
+- **BLUE** (Low Season): 300 credits
+
+### Property Tiers & Multipliers
+- **DIAMOND**: 1.5× (Premium properties)
+- **GOLD HIGH**: 1.3×
+- **GOLD**: 1.2×
+- **SILVER PLUS**: 1.1×
+- **STANDARD**: 1.0× (Base properties)
+
+### Room Type Multipliers
+- **Standard**: 1.0× (Base rooms)
+- **Superior**: 1.2×
+- **Deluxe**: 1.5×
+- **Suite**: 2.0×
+- **Presidential**: 3.0×
+
+### Key Features
+- ⏱️ **6-month expiration** from deposit date
+- 💱 **1:1 Credit-to-Euro ratio** (admin configurable)
+- 🔄 **Hybrid payments** - Use credits + cash for upgrades
+- 📊 **Week claim system** - Users can claim ownership of legacy weeks
+- ⚖️ **Inter-property settlements** - Automated financial reconciliation
+- 📝 **Full audit trail** - All credit movements tracked
+
+### Database Tables
+The system includes 11 new optimized tables:
+- `platform_settings` - Dynamic system configuration
+- `property_tiers` - Property classification and multipliers
+- `room_type_multipliers` - Room upgrade pricing
+- `seasonal_calendar` - Date-based season definitions
+- `user_credit_wallets` - User balance tracking
+- `credit_transactions` - All credit movements (high-volume optimized)
+- `credit_booking_costs` - Dynamic pricing per property/season
+- `ancillary_services` - Add-on services (spa, dining, etc.)
+- `booking_ancillary_services` - Service-booking relationships
+- `week_claim_requests` - Week ownership verification
+- `inter_property_settlements` - Cross-property payment tracking
+- `setting_change_log` - Configuration audit trail
+
+### Performance Optimizations
+- 🚀 **7 strategic indexes** on `credit_transactions` for sub-second queries
+- 📈 **Composite indexes** for complex multi-column searches
+- 🔒 **Row-level locking** for concurrent wallet updates
+- 💾 **Denormalized balances** to avoid expensive SUM() operations
+- 📊 **Query-optimized data types** (ENUM, DECIMAL, TINYINT)
 
 ---
 
@@ -199,11 +266,14 @@ npm test
 - User profile management and saved payment methods
 - Public marketplace with room browsing and booking
 - Timeshare week management and P2P exchanges
-- Night credit system with approval workflow
+- **Variable credit system with dynamic valuation** (December 2025)
 - Multi-language support (EN, ES)
 - User authentication and authorization
 - Admin dashboard with user management
 - PMS integration framework (Mews, Cloudbeds, ResNexus)
+- Property tier management and seasonal calendars
+- Week claim workflow with admin approval
+- Inter-property financial settlements
 
 ### 🚧 In Progress
 - Enhanced reporting and analytics
@@ -240,10 +310,28 @@ This project is proprietary software. All rights reserved.
 For support and questions, please contact the development team.
 
 ---
+Variable Credit System Implementation (December 25, 2025)
+**Major architectural upgrade from simple night credits to RCI/Interval-style variable valuation:**
 
-## 🔄 Recent Updates (December 2025)
+- ✅ **Credit Calculation Engine** - Dynamic formula: Base × Location × Room Type
+- ✅ **5 Property Tiers** - From DIAMOND (1.5×) to STANDARD (1.0×)
+- ✅ **Seasonal Calendar** - RED/WHITE/BLUE periods per property
+- ✅ **Room Type Multipliers** - Standard to Presidential Suite pricing
+- ✅ **6-Month Expiration** - Automatic credit expiration tracking
+- ✅ **Hybrid Payments** - Credits + cash top-up for upgrades
+- ✅ **Week Claim System** - Users can claim legacy week ownership
+- ✅ **Inter-Property Settlements** - Automated financial reconciliation
+- ✅ **Full Audit Trail** - All configuration changes logged
+- ✅ **Performance Optimized** - 7 strategic indexes on high-volume tables
 
-### Stripe Payment Integration
+### Database Migrations (15 new migrations)
+- Dropped legacy `night_credits`, `fees`, `night_credit_requests` tables
+- Created 11 new optimized credit system tables
+- Modified `properties` (tier_id, credit flags)
+- Modified `weeks` (deposit tracking, season snapshots)
+- Modified `bookings` (payment_method: CREDITS/EUROS/HYBRID/P2P_SWAP)
+
+### Stripe Payment Integration (Earlier December 2025)
 - Implemented complete payment flow with Payment Intents API
 - Added support for saved payment methods (Stripe Customers)
 - Integrated 3D Secure authentication
@@ -254,14 +342,12 @@ For support and questions, please contact the development team.
 - Implemented profile auto-fill in booking forms
 - Added option to save information for future bookings
 
-### Database Schema
-- Added `stripe_customer_id` to users table
-- Added `payment_intent_id`, `payment_status`, `guest_phone` to bookings table
-- Created migrations for all new fields
-
 ### Developer Experience
 - Updated READMEs with complete documentation
 - Added test mode pricing (€10/night) for development
+- Improved TypeScript types and error handling
+- Optimized build configuration
+- **Clean migration system** - Production-ready, no correction migrationslopment
 - Improved TypeScript types and error handling
 - Optimized build configuration
 - Reorganized repository as monorepo structure
