@@ -32,8 +32,8 @@ module.exports = {
         allowNull: false,
       });
 
-      // Remove the old type column
-      await queryInterface.removeColumn('rooms', 'type');
+      // Remove the old type column using raw SQL (avoid Sequelize bug with MariaDB)
+      await queryInterface.sequelize.query('ALTER TABLE rooms DROP COLUMN type');
 
       console.log('✅ Successfully migrated rooms.type to room_type_id FK');
     } catch (error) {

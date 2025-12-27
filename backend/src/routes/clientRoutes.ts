@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/authMiddleware';
-import { User, ActionLog } from '../models';
+import { User, ActionLog, Booking } from '../models';
 import { logAction } from '../middleware/loggingMiddleware';
+import { Op } from 'sequelize';
 
 const router = Router();
 
@@ -102,6 +103,60 @@ router.put('/settings', authenticateToken, logAction('update_settings'), async (
   } catch (error) {
     console.error('Settings update error:', error);
     res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// Get user payment history
+router.get('/payments', authenticateToken, logAction('view_payments'), async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user info
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all bookings with payment information for this user
+    const bookings = await Booking.findAll({
+      where: {
+        guest_email: user.email,
+        payment_intent_id: { [Op.ne]: null } // Only bookings with payment
+      },
+      include: [{
+        association: 'Property',
+        attributes: ['id', 'name', 'location']
+      }],
+      order: [['created_at', 'DESC']]
+    });
+
+    // Transform bookings into payment records
+    const payments = bookings.map(booking => ({
+      id: booking.id,
+      booking_id: booking.id,
+      amount: booking.total_amount || 0,
+      currency: booking.currency || 'EUR',
+      status: booking.payment_status === 'paid' ? 'completed' : 
+              booking.payment_status === 'failed' ? 'failed' :
+              booking.payment_status === 'refunded' ? 'refunded' : 'pending',
+      payment_method: 'card',
+      transaction_id: booking.payment_intent_id,
+      created_at: booking.created_at,
+      Booking: {
+        id: booking.id,
+        Property: booking.Property ? {
+          name: booking.Property.name
+        } : null
+      }
+    }));
+
+    res.json({
+      success: true,
+      payments
+    });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ error: 'Failed to fetch payment history' });
   }
 });
 

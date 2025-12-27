@@ -280,8 +280,10 @@ class StaffRoomController {
   }
 
   /**
-   * Sincronizar habitaciones desde el PMS
+   * Sincronizar habitaciones y productos desde el PMS
    * REFERENCE ONLY architecture: Solo guarda mapeos, obtiene datos del PMS en tiempo real
+   * Optimizado: Responde rápido y devuelve solo el resultado de sincronización sin enrichment
+   * Ahora también sincroniza productos/servicios en paralelo
    */
   async syncRooms(req: AuthRequest, res: Response) {
     try {
@@ -313,29 +315,44 @@ class StaffRoomController {
         });
       }
 
-      // Usar roomSyncService para sincronizar
-      const result = await roomSyncService.syncRoomsFromPMS(propertyId);
+      // Sincronizar habitaciones y productos EN PARALELO para mejor rendimiento
+      const productSyncService = require('../services/productSyncService').default;
+      
+      const [roomsResult, productsResult] = await Promise.all([
+        roomSyncService.syncRoomsFromPMS(propertyId),
+        productSyncService.syncProductsFromPMS(propertyId).catch((error: any) => {
+          console.warn('[SyncRooms] Product sync failed, continuing:', error.message);
+          return { success: false, created: 0, updated: 0, deactivated: 0, errors: [error.message] };
+        })
+      ]);
 
-      if (!result.success) {
+      if (!roomsResult.success) {
         return res.status(400).json({
           success: false,
-          error: 'Sync failed',
-          details: result.errors
+          error: 'Rooms sync failed',
+          details: roomsResult.errors
         });
       }
 
-      // Obtener habitaciones sincronizadas enriquecidas
-      const roomsLocal = await Room.findAll({ where: { propertyId } });
-      const enrichedRooms = await RoomEnrichmentService.enrichRooms(roomsLocal);
-
+      // Responder INMEDIATAMENTE sin enrichment (más rápido)
+      // El frontend hará refetch que traerá los datos enriquecidos
       res.json({
         success: true,
         data: {
-          created: result.created,
-          updated: result.updated,
-          rooms: enrichedRooms
+          rooms: {
+            created: roomsResult.created,
+            updated: roomsResult.updated,
+            total: roomsResult.created + roomsResult.updated
+          },
+          products: {
+            created: productsResult.created,
+            updated: productsResult.updated,
+            deactivated: productsResult.deactivated,
+            total: productsResult.created + productsResult.updated,
+            success: productsResult.success
+          }
         },
-        message: result.summary
+        message: `Rooms: ${roomsResult.summary || 'synced'}${productsResult.success ? `, Products: ${productsResult.summary || 'synced'}` : ''}`
       });
     } catch (error: any) {
       console.error('Error syncing rooms:', error);
@@ -429,6 +446,57 @@ class StaffRoomController {
       res.status(500).json({
         success: false,
         error: 'Failed to toggle marketplace status',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Habilitar o deshabilitar TODAS las habitaciones en marketplace (batch operation)
+   * POST /api/hotel-staff/rooms/marketplace/batch
+   */
+  async toggleMarketplaceBatch(req: AuthRequest, res: Response) {
+    try {
+      const user = req.user!;
+      const propertyId = user.property_id;
+      const { enabled } = req.body;
+
+      if (!propertyId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Staff user must be assigned to a property'
+        });
+      }
+
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          error: 'enabled field is required and must be boolean'
+        });
+      }
+
+      // Operación batch: actualizar todas las habitaciones de la propiedad
+      const [updatedCount] = await Room.update(
+        { isMarketplaceEnabled: enabled },
+        { 
+          where: { propertyId },
+          returning: false // Más eficiente, no necesitamos los datos
+        }
+      );
+
+      res.json({
+        success: true,
+        data: {
+          count: updatedCount,
+          enabled: enabled
+        },
+        message: `${updatedCount} rooms ${enabled ? 'enabled' : 'disabled'} in marketplace`
+      });
+    } catch (error: any) {
+      console.error('Error batch toggling marketplace:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to batch toggle marketplace status',
         message: error.message
       });
     }

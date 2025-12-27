@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/api/client';
 import CheckoutForm from './CheckoutForm';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -34,6 +34,7 @@ export default function MarketplaceCheckout() {
   const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, setAuth } = useAuthStore();
   const location = useLocation();
   const state = location.state as {
@@ -358,6 +359,9 @@ export default function MarketplaceCheckout() {
                           const response = await apiClient.post('/public/bookings/confirm-payment', {
                             payment_intent_id: paymentIntent.id
                           });
+
+                          // Invalidar cache de bookings para que se recarguen
+                          queryClient.invalidateQueries({ queryKey: ['myBookings'] });
                           
                           // El token ahora viene en response.data.token (raíz)
                           const token = response.data.token;
@@ -384,6 +388,9 @@ export default function MarketplaceCheckout() {
                         }
                       } else if (data.success) {
                         // Pago exitoso sin autenticación adicional
+                        // Invalidar cache de bookings para que se recarguen
+                        queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+
                         // El token ahora viene en data.token (raíz)
                         const token = data.token;
                         

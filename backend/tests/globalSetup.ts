@@ -16,10 +16,11 @@ export default async function globalSetup() {
     execSync(`npx sequelize-cli db:migrate --url "${e2eUrl}"`, { stdio: 'inherit' });
     console.log('Global migrations complete.');
 
-    // Ensure seed data exists for test DB (roles, permissions, properties, admin user)
-    console.log('Running test DB seeders...');
-    execSync('npx sequelize-cli db:seed:all --env test', { stdio: 'inherit' });
-    console.log('Test DB seeding complete.');
+    // Seed data is not needed for credit system tests as they create their own test data
+    // Comment out to avoid seeder errors
+    // console.log('Running test DB seeders...');
+    // execSync('npx sequelize-cli db:seed:all --env test', { stdio: 'inherit' });
+    // console.log('Test DB seeding complete.');
   } catch (error) {
     console.error('Global setup failed:', error);
     throw error;

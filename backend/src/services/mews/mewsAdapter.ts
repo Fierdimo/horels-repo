@@ -111,6 +111,47 @@ export class MockMewsAdapter implements IMewsAdapter {
     };
   }
 
+  async productsGetAll(params?: { ServiceIds?: string[] }) {
+    // Mock products para desarrollo/testing
+    return {
+      Products: [
+        {
+          Id: 'prod-1',
+          ServiceId: 'service-1',
+          Names: { 'en-US': 'Breakfast' },
+          Descriptions: { 'en-US': 'Continental breakfast buffet' },
+          Price: { GrossValue: 15, Currency: 'EUR' },
+          Classifications: { Food: true },
+          IsActive: true,
+          ChargingMode: 'PerPerson',
+          ExternalIdentifier: 'BFAST'
+        },
+        {
+          Id: 'prod-2',
+          ServiceId: 'service-1',
+          Names: { 'en-US': 'Airport Transfer' },
+          Descriptions: { 'en-US': 'Private transfer to/from airport' },
+          Price: { GrossValue: 50, Currency: 'EUR' },
+          Classifications: {},
+          IsActive: true,
+          ChargingMode: 'Once',
+          ExternalIdentifier: 'TRANSFER'
+        },
+        {
+          Id: 'prod-3',
+          ServiceId: 'service-1',
+          Names: { 'en-US': 'Spa Massage' },
+          Descriptions: { 'en-US': '60min relaxing massage' },
+          Price: { GrossValue: 80, Currency: 'EUR' },
+          Classifications: { Wellness: true },
+          IsActive: true,
+          ChargingMode: 'Once',
+          ExternalIdentifier: 'SPA-MASSAGE'
+        }
+      ]
+    };
+  }
+
   async imagesGetUrls(imageIds: string[]) {
     return {
       ImageUrls: []
@@ -316,6 +357,23 @@ export class MewsAdapter implements IMewsAdapter {
 
   async resourcesGetAll() {
     return this.fetchWithAuth('/api/connector/v1/resources/getAll', { method: 'POST', body: JSON.stringify({ Client: 'SW2-Connector', Limitation: { Count: 500 } }) });
+  }
+
+  async productsGetAll(params?: { ServiceIds?: string[] }) {
+    const payload: any = { 
+      Client: 'SW2-Connector', 
+      Limitation: { Count: 500 } 
+    };
+    
+    // Si se especifican ServiceIds, incluirlos en el payload
+    if (params?.ServiceIds && params.ServiceIds.length > 0) {
+      payload.ServiceIds = params.ServiceIds;
+    }
+    
+    return this.fetchWithAuth('/api/connector/v1/products/getAll', { 
+      method: 'POST', 
+      body: JSON.stringify(payload) 
+    });
   }
 
   async resourceCategoryImageAssignmentsGetAll() {

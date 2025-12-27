@@ -103,16 +103,22 @@ router.get('/stats', logAction('view_dashboard_stats'), async (req: any, res: Re
 /**
  * @route   GET /api/dashboard/bookings
  * @desc    Get recent bookings
- * @access  Private (hotel-staff sees their property, admin sees all)
+ * @access  Private (guests see their bookings by email, hotel-staff sees their property, admin sees all)
  */
 router.get('/bookings', logAction('view_dashboard_bookings'), async (req: any, res: Response) => {
   try {
     const propertyFilter = req.propertyFilter || {};
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 100; // Increased limit for guests
     const status = req.query.status as string;
+    const user = req.user;
 
     const where: any = { ...propertyFilter };
     if (status) where.status = status;
+
+    // If user is a guest, filter by their email
+    if (user && user.role === 'guest') {
+      where.guest_email = user.email;
+    }
 
     const bookings = await Booking.findAll({
       where,
@@ -121,14 +127,14 @@ router.get('/bookings', logAction('view_dashboard_bookings'), async (req: any, r
       include: [
         {
           association: 'Property',
-          attributes: ['id', 'name', 'location']
+          attributes: ['id', 'name', 'location', 'city', 'country']
         }
       ]
     });
 
     res.json({
       success: true,
-      data: bookings,
+      bookings: bookings, // Changed from 'data' to 'bookings' to match frontend API expectation
       count: bookings.length
     });
   } catch (error: any) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Bed, Plus, Edit, Trash2, Search, Filter, X, RefreshCw } from 'lucide-react';
+import { Bed, Edit, Trash2, Search, Filter, X, RefreshCw } from 'lucide-react';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
 
@@ -13,7 +13,6 @@ export default function StaffRooms() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [floorFilter, setFloorFilter] = useState<string>('all');
   const [capacityFilter, setCapacityFilter] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [hasAutoSynced, setHasAutoSynced] = useState(false);
@@ -33,16 +32,23 @@ export default function StaffRooms() {
       const { data } = await apiClient.post('/hotel-staff/rooms/sync');
       return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+    onSuccess: async (data) => {
+      // Invalidar y refetch para actualizar habitaciones Y productos
+      await queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.refetchQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.invalidateQueries({ queryKey: ['staff-products'] });
+      await queryClient.refetchQueries({ queryKey: ['staff-products'] });
+      
       if (!hasAutoSynced) {
         // No mostrar toast en sincronización automática
         setHasAutoSynced(true);
       } else {
-        // Mostrar toast en sincronización manual
-        toast.success(
-          `${t('staff.rooms.syncSuccess')}: ${data.data.created} ${t('staff.rooms.created')}, ${data.data.updated} ${t('staff.rooms.updated')}`
-        );
+        // Mostrar toast con resultado de habitaciones y productos
+        const roomsMsg = `${data.data.rooms.created} ${t('staff.rooms.created')}, ${data.data.rooms.updated} ${t('staff.rooms.updated')}`;
+        const productsMsg = data.data.products?.success 
+          ? ` | Products: ${data.data.products.created} created, ${data.data.products.updated} updated`
+          : '';
+        toast.success(`${t('staff.rooms.syncSuccess')}: ${roomsMsg}${productsMsg}`);
       }
     },
     onError: (error: any) => {
@@ -64,28 +70,6 @@ export default function StaffRooms() {
       }
     }
   }, [roomsData, hasAutoSynced]);
-
-  // Create room mutation
-  const createRoomMutation = useMutation({
-    mutationFn: async (roomData: any) => {
-      const { data } = await apiClient.post('/hotel-staff/rooms', roomData);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
-      toast.success(t('staff.rooms.createSuccess'));
-      setShowCreateModal(false);
-    },
-    onError: (error: any) => {
-      // Check if it's a duplicate name error
-      if (error?.response?.data?.error?.includes('name must be unique') || 
-          error?.response?.data?.error?.includes('Duplicate entry')) {
-        toast.error(t('staff.rooms.duplicateError'));
-      } else {
-        toast.error(t('staff.rooms.createError'));
-      }
-    }
-  });
 
   // Update room mutation
   const updateRoomMutation = useMutation({
@@ -133,47 +117,73 @@ export default function StaffRooms() {
       });
       return data;
     },
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
-      // Invalidar también las queries del marketplace para que se actualice inmediatamente
-      queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
-      queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
+    onSuccess: async (data, variables) => {
+      // Invalidar y refetch inmediato
+      await queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.refetchQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      await queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
+      
       const message = variables.enabled 
         ? t('staff.rooms.marketplaceEnabled') 
         : t('staff.rooms.marketplaceDisabled');
       toast.success(message);
     },
-    onError: () => {
-      toast.error(t('staff.rooms.marketplaceToggleError'));
+    onError: (error: any) => {
+      const errorMsg = error?.response?.data?.error || error.message;
+      toast.error(`${t('staff.rooms.marketplaceToggleError')}: ${errorMsg}`);
     }
   });
 
-  // Enable all rooms in marketplace mutation
+  // Enable all rooms in marketplace mutation - Optimized with batch endpoint
   const enableAllMarketplaceMutation = useMutation({
     mutationFn: async () => {
-      // Get all room IDs that are not already enabled
-      const roomsToEnable = rooms.filter((room: any) => !room.isMarketplaceEnabled);
-      
-      // Enable all rooms in parallel
-      await Promise.all(
-        roomsToEnable.map((room: any) =>
-          apiClient.patch(`/hotel-staff/rooms/${room.id}/marketplace`, {
-            enabled: true
-          })
-        )
-      );
-      
-      return { count: roomsToEnable.length };
+      // Usar endpoint batch optimizado
+      const { data } = await apiClient.post('/hotel-staff/rooms/marketplace/batch', {
+        enabled: true
+      });
+      return data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
-      // Invalidar también las queries del marketplace para que se actualice inmediatamente
-      queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
-      queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
-      toast.success(t('staff.rooms.allMarketplaceEnabled', { count: data.count }));
+    onSuccess: async (data) => {
+      // Invalidar y refetch inmediato
+      await queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.refetchQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      await queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
+      
+      if (data.data.count > 0) {
+        toast.success(t('staff.rooms.allMarketplaceEnabled', { count: data.data.count }));
+      }
     },
-    onError: () => {
-      toast.error(t('staff.rooms.marketplaceToggleError'));
+    onError: (error: any) => {
+      const errorMsg = error?.response?.data?.error || error.message;
+      toast.error(`${t('staff.rooms.marketplaceToggleError')}: ${errorMsg}`);
+    }
+  });
+
+  // Disable all rooms in marketplace mutation - Optimized with batch endpoint
+  const disableAllMarketplaceMutation = useMutation({
+    mutationFn: async () => {
+      // Usar endpoint batch optimizado
+      const { data } = await apiClient.post('/hotel-staff/rooms/marketplace/batch', {
+        enabled: false
+      });
+      return data;
+    },
+    onSuccess: async (data) => {
+      // Invalidar y refetch inmediato
+      await queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.refetchQueries({ queryKey: ['staff-rooms'] });
+      await queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      await queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
+      
+      if (data.data.count > 0) {
+        toast.success(t('staff.rooms.allMarketplaceDisabled', { count: data.data.count }));
+      }
+    },
+    onError: (error: any) => {
+      const errorMsg = error?.response?.data?.error || error.message;
+      toast.error(`${t('staff.rooms.marketplaceToggleError')}: ${errorMsg}`);
     }
   });
 
@@ -232,21 +242,6 @@ export default function StaffRooms() {
     );
   };
 
-  const handleCreateRoom = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const roomData = {
-      name: formData.get('name'),
-      type: formData.get('type'),
-      capacity: Number(formData.get('capacity')),
-      floor: formData.get('floor'),
-      basePrice: Number(formData.get('basePrice')),
-      status: formData.get('status'),
-      description: formData.get('description'),
-    };
-    createRoomMutation.mutate(roomData);
-  };
-
   const handleEditRoom = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -279,10 +274,23 @@ export default function StaffRooms() {
         <div className="flex gap-3">
           <button
             onClick={() => enableAllMarketplaceMutation.mutate()}
-            disabled={enableAllMarketplaceMutation.isPending || rooms.every((r: any) => r.isMarketplaceEnabled)}
+            disabled={enableAllMarketplaceMutation.isPending || rooms.length === 0 || rooms.every((r: any) => r.isMarketplaceEnabled)}
             className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            {enableAllMarketplaceMutation.isPending && (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            )}
             <span>{enableAllMarketplaceMutation.isPending ? t('common.processing') : t('staff.rooms.enableAllMarketplace')}</span>
+          </button>
+          <button
+            onClick={() => disableAllMarketplaceMutation.mutate()}
+            disabled={disableAllMarketplaceMutation.isPending || rooms.length === 0 || rooms.every((r: any) => !r.isMarketplaceEnabled)}
+            className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {disableAllMarketplaceMutation.isPending && (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            )}
+            <span>{disableAllMarketplaceMutation.isPending ? t('common.processing') : t('staff.rooms.disableAllMarketplace')}</span>
           </button>
           <button
             onClick={() => syncRoomsMutation.mutate()}
@@ -291,13 +299,6 @@ export default function StaffRooms() {
           >
             <RefreshCw className={`h-5 w-5 ${syncRoomsMutation.isPending ? 'animate-spin' : ''}`} />
             <span>{syncRoomsMutation.isPending ? t('staff.rooms.syncing') : t('staff.rooms.syncFromPMS')}</span>
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-5 w-5" />
-            <span>{t('staff.rooms.createRoom')}</span>
           </button>
         </div>
       </div>
@@ -404,9 +405,22 @@ export default function StaffRooms() {
         </div>
       </div>
 
+      {/* Loading/Syncing indicator */}
+      {syncRoomsMutation.isPending && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center space-x-3">
+            <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">{t('staff.rooms.syncing')}</p>
+              <p className="text-xs text-blue-700">{t('staff.rooms.syncingDescription')}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Rooms Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        {isLoading ? (
+        {isLoading || syncRoomsMutation.isPending ? (
           <div className="p-6">
             <div className="animate-pulse space-y-4">
               <div className="h-20 bg-gray-200 rounded"></div>
@@ -579,72 +593,6 @@ export default function StaffRooms() {
           </div>
         </div>
       </div>
-
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">{t('staff.rooms.createRoom')}</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateRoom} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.roomName')}</label>
-                <input type="text" name="name" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.type')}</label>
-                  <select name="type" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="standard">{t('admin.rooms.types.standard')}</option>
-                    <option value="deluxe">{t('admin.rooms.types.deluxe')}</option>
-                    <option value="suite">{t('admin.rooms.types.suite')}</option>
-                    <option value="single">{t('admin.rooms.types.single')}</option>
-                    <option value="double">{t('admin.rooms.types.double')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.capacity')}</label>
-                  <input type="number" name="capacity" required min="1" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.floor')}</label>
-                  <input type="text" name="floor" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.price')}</label>
-                  <input type="number" name="basePrice" required min="0" step="0.01" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.status')}</label>
-                <select name="status" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="available">{t('admin.rooms.statuses.available')}</option>
-                  <option value="maintenance">{t('admin.rooms.statuses.maintenance')}</option>
-                  <option value="unavailable">{t('admin.rooms.statuses.unavailable')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.description')}</label>
-                <textarea name="description" rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                  {t('common.cancel')}
-                </button>
-                <button type="submit" disabled={createRoomMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {createRoomMutation.isPending ? t('common.saving') : t('common.save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Edit Modal */}
       {showEditModal && selectedRoom && (

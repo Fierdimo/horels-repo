@@ -12,6 +12,10 @@
     "test:ui": "vitest --ui",
     "test:sequential": "bash -lc 'mkdir -p tmp && ./scripts/run_tests_sequential.sh 2>&1 | tee tmp/sequential_test_results.txt; exit ${PIPESTATUS[0]}'",
     "test:sequential:manual": "bash ./scripts/manual_sequential.sh",
+    "test:credits": "vitest run tests/integration/credits/*.test.ts tests/e2e/creditSystem.e2e.test.ts",
+    "test:credits:watch": "vitest watch tests/integration/credits/*.test.ts",
+    "test:credits:e2e": "vitest run tests/e2e/creditSystem.e2e.test.ts",
+    "test:credits:coverage": "vitest run --coverage tests/integration/credits/*.test.ts tests/e2e/creditSystem.e2e.test.ts",
     "migrate": "npx sequelize-cli db:migrate",
     "seed": "npx sequelize-cli db:seed:all",
     "start:worker": "ts-node src/bin/start-worker.ts",
@@ -20,6 +24,7 @@
     "clean-resync": "ts-node scripts/clean-and-resync.ts"
   },
   "dependencies": {
+    "@types/node-cron": "^3.0.11",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.65.0",
@@ -33,6 +38,7 @@
     "jsonwebtoken": "^9.0.2",
     "mariadb": "^3.4.5",
     "mysql2": "^3.6.5",
+    "node-cron": "^4.2.1",
     "sequelize": "^6.35.0",
     "stripe": "^20.0.0"
   },

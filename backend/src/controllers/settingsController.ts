@@ -26,7 +26,7 @@ export const getAllSettings = async (req: Request, res: Response): Promise<void>
     // Convert array to object
     const settingsObject: Record<string, string> = { ...DEFAULT_SETTINGS };
     settings.forEach((setting: any) => {
-      settingsObject[setting.key] = setting.value;
+      settingsObject[setting.setting_key] = setting.setting_value;
     });
 
     res.json({
@@ -50,7 +50,7 @@ export const getSetting = async (req: Request, res: Response): Promise<void> => 
     const { key } = req.params;
 
     const setting = await PlatformSetting.findOne({
-      where: { key },
+      where: { setting_key: key },
     });
 
     if (!setting) {
@@ -64,8 +64,8 @@ export const getSetting = async (req: Request, res: Response): Promise<void> => 
     res.json({
       success: true,
       setting: {
-        key: (setting as any).key,
-        value: (setting as any).value,
+        key: (setting as any).setting_key,
+        value: (setting as any).setting_value,
       },
     });
   } catch (error: any) {
@@ -95,15 +95,16 @@ export const updateSettings = async (req: Request, res: Response): Promise<void>
     // Update or create each setting
     const promises = Object.entries(settings).map(async ([key, value]) => {
       const [setting, created] = await PlatformSetting.findOrCreate({
-        where: { key },
+        where: { setting_key: key },
         defaults: {
-          key,
-          value: String(value),
+          setting_key: key,
+          setting_value: String(value),
+          setting_type: 'STRING',
         },
       });
 
       if (!created) {
-        await setting.update({ value: String(value) });
+        await setting.update({ setting_value: String(value) });
       }
 
       return setting;
@@ -115,7 +116,7 @@ export const updateSettings = async (req: Request, res: Response): Promise<void>
     const updatedSettings = await PlatformSetting.findAll();
     const settingsObject: Record<string, string> = { ...DEFAULT_SETTINGS };
     updatedSettings.forEach((setting: any) => {
-      settingsObject[setting.key] = setting.value;
+      settingsObject[setting.setting_key] = setting.setting_value;
     });
 
     res.json({
@@ -149,23 +150,24 @@ export const updateSetting = async (req: Request, res: Response): Promise<void> 
     }
 
     const [setting, created] = await PlatformSetting.findOrCreate({
-      where: { key },
+      where: { setting_key: key },
       defaults: {
-        key,
-        value: String(value),
+        setting_key: key,
+        setting_value: String(value),
+        setting_type: 'STRING',
       },
     });
 
     if (!created) {
-      await setting.update({ value: String(value) });
+      await setting.update({ setting_value: String(value) });
     }
 
     res.json({
       success: true,
       message: 'Setting updated successfully',
       setting: {
-        key: (setting as any).key,
-        value: (setting as any).value,
+        key: (setting as any).setting_key,
+        value: (setting as any).setting_value,
       },
     });
   } catch (error: any) {
@@ -185,7 +187,7 @@ export const deleteSetting = async (req: Request, res: Response): Promise<void> 
     const { key } = req.params;
 
     const deleted = await PlatformSetting.destroy({
-      where: { key },
+      where: { setting_key: key },
     });
 
     if (!deleted) {
@@ -240,10 +242,10 @@ export const resetSettings = async (req: Request, res: Response): Promise<void> 
 export const getSwapFee = async (req: Request, res: Response): Promise<void> => {
   try {
     const setting = await PlatformSetting.findOne({
-      where: { key: 'swapFee' },
+      where: { setting_key: 'swapFee' },
     });
 
-    const swapFee = setting ? (setting as any).value : DEFAULT_SETTINGS.swapFee;
+    const swapFee = setting ? (setting as any).setting_value : DEFAULT_SETTINGS.swapFee;
 
     res.json({
       success: true,

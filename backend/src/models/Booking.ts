@@ -18,6 +18,12 @@ class Booking extends Model {
   public currency?: string;
   public payment_intent_id?: string; // Stripe Payment Intent ID
   public payment_status?: string; // 'pending' | 'processing' | 'paid' | 'failed' | 'refunded'
+  public platform_fee_amount?: number; // Platform commission charged
+  public platform_fee_percentage?: number; // Platform commission percentage applied
+  public pms_transfer_amount?: number; // Amount to transfer to PMS (total - fee)
+  public pms_transfer_status?: 'pending' | 'transferred' | 'failed';
+  public pms_transfer_id?: string; // Stripe transfer ID
+  public pms_transfer_date?: Date;
   public acquired_via_swap_id?: number; // ID of swap through which this booking was acquired
   // Association: when included, Sequelize will add the related Property instance
   public readonly Property?: Property | null;
@@ -98,6 +104,31 @@ Booking.init({
   },
   payment_status: {
     type: DataTypes.STRING,
+    allowNull: true,
+  },
+  platform_fee_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  platform_fee_percentage: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true,
+  },
+  pms_transfer_amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  pms_transfer_status: {
+    type: DataTypes.ENUM('pending', 'transferred', 'failed'),
+    allowNull: true,
+    defaultValue: 'pending',
+  },
+  pms_transfer_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  pms_transfer_date: {
+    type: DataTypes.DATE,
     allowNull: true,
   },
   payment_reference: {

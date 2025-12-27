@@ -26,6 +26,17 @@ export default function BookingSuccess() {
     }
   };
 
+  const getBookingsPath = () => {
+    if (!user?.role) return '/guest/bookings';
+    switch (user.role) {
+      case 'owner': return '/owner/bookings';
+      case 'staff': return '/staff/bookings';
+      case 'admin': return '/admin/bookings';
+      case 'guest': return '/guest/bookings';
+      default: return '/guest/bookings';
+    }
+  };
+
   // Si no hay paymentIntentId, mostrar error
   if (!state?.paymentIntentId) {
     return (
@@ -97,8 +108,15 @@ export default function BookingSuccess() {
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 mt-8">
             <button
-              onClick={() => navigate(getMarketplaceBasePath())}
+              onClick={() => navigate(getBookingsPath())}
               className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center"
+            >
+              <Calendar className="w-5 h-5 mr-2" />
+              {t('marketplace.viewMyBookings') || 'View My Bookings'}
+            </button>
+            <button
+              onClick={() => navigate(getMarketplaceBasePath())}
+              className="flex-1 bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 flex items-center justify-center"
             >
               <Home className="w-5 h-5 mr-2" />
               {t('marketplace.backToMarketplace')}

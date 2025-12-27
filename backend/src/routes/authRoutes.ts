@@ -87,10 +87,10 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       // Obtener configuración de auto-aprobación
       const { default: PlatformSetting } = await import('../models/PlatformSetting');
       const autoApprovalSetting = await PlatformSetting.findOne({ 
-        where: { key: 'staff_auto_approval_mode' } 
+        where: { setting_key: 'staff_auto_approval_mode' } 
       });
-      const autoApprovalMode = (autoApprovalSetting && (autoApprovalSetting as any).value) 
-        ? (autoApprovalSetting as any).value 
+      const autoApprovalMode = (autoApprovalSetting && (autoApprovalSetting as any).setting_value) 
+        ? (autoApprovalSetting as any).setting_value 
         : 'none'; // 'none', 'first', 'all'
 
       // Verificar si el hotel ya está registrado
@@ -228,6 +228,8 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
   try {
     const { email, password } = req.body;
 
+    console.log('[LOGIN] Attempting login for:', email);
+
     const user = await User.findOne({ 
       where: { email }, 
       include: [
@@ -243,18 +245,28 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
         }
       ]
     });
+    
     if (!user) {
+      console.log('[LOGIN] User not found:', email);
       // Log failed login attempt
       await LoggingService.logFailedLogin(email, req);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('[LOGIN] User found, checking password...');
+    console.log('[LOGIN] User role:', (user as any).Role?.name);
+    console.log('[LOGIN] User status:', user.status);
+
     const isValidPassword = await bcrypt.compare(password, user.password);
+    
     if (!isValidPassword) {
+      console.log('[LOGIN] Invalid password for:', email);
       // Log failed login attempt
       await LoggingService.logFailedLogin(email, req);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    console.log('[LOGIN] Password valid, generating token...');
 
     // Only reject accounts that are explicitly rejected
     if (user.status === 'rejected') {
@@ -273,6 +285,8 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
       process.env.JWT_SECRET!,
       { expiresIn: '24h' }
     );
+
+    console.log('[LOGIN] Token generated successfully');
 
     // Log successful login
     await LoggingService.logLogin(user.id, req);

@@ -11,11 +11,11 @@ class PricingService {
   async getPlatformCommissionRate(): Promise<number> {
     try {
       const setting = await PlatformSetting.findOne({
-        where: { key: 'marketplace_commission_rate' }
+        where: { setting_key: 'marketplace_commission_rate' }
       });
 
       if (setting) {
-        const rate = parseFloat((setting as any).value);
+        const rate = parseFloat((setting as any).setting_value);
         return isNaN(rate) ? 10.0 : rate;
       }
 

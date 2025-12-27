@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Property, Week, User, Room, Booking, Role } from '../models';
+import PlatformSetting from '../models/PlatformSetting';
 import { Op } from 'sequelize';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { PMSFactory } from '../services/pms/PMSFactory';
@@ -466,6 +467,49 @@ router.get('/properties/:propertyId/rooms/:roomId', async (req: Request, res: Re
 });
 
 /**
+ * @route   GET /api/public/properties/:propertyId/products
+ * @desc    Get available products/services for a property
+ * @access  Public
+ */
+router.get('/properties/:propertyId/products', async (req: Request, res: Response) => {
+  try {
+    const { propertyId } = req.params;
+
+    // Verificar que la propiedad existe y está habilitada en marketplace
+    const property = await Property.findOne({
+      where: {
+        id: propertyId,
+        is_marketplace_enabled: true,
+        status: 'active'
+      }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found or not available'
+      });
+    }
+
+    const productSyncService = require('../services/productSyncService').default;
+    const services = await productSyncService.getActiveServices(parseInt(propertyId));
+
+    res.json({
+      success: true,
+      data: services,
+      count: services.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch products',
+      message: error.message
+    });
+  }
+});
+
+/**
  * @route   GET /api/public/weeks/available
  * @desc    Get available weeks for timeshare exchange (for owners)
  * @access  Authenticated (owner role)
@@ -794,7 +838,24 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
       });
     }
 
-    const totalAmount = pricePerNight * nights;
+    const subtotal = pricePerNight * nights;
+
+    // Obtener platform fee percentage de la base de datos
+    let platformFeePercentage = 10; // Default 10%
+    try {
+      const setting = await PlatformSetting.findOne({
+        where: { setting_key: 'commissionRate' }
+      });
+      if (setting) {
+        platformFeePercentage = parseFloat((setting as any).setting_value);
+      }
+    } catch (error) {
+      console.warn('Could not fetch commission rate, using default 10%');
+    }
+
+    // Calcular platform fee y total
+    const platformFeeAmount = Math.round((subtotal * platformFeePercentage) / 100 * 100) / 100;
+    const totalAmount = Math.round((subtotal + platformFeeAmount) * 100) / 100;
 
     // Validar que el monto cumple con el mínimo de Stripe (0.50 EUR = 50 centavos)
     if (totalAmount < 0.50) {
@@ -814,7 +875,7 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
       enrichedRoom = { name: `Room ${room.id}` } as any;
     }
 
-    // Crear Payment Intent
+    // Crear Payment Intent con metadata de fees
     const paymentIntent = await stripeService.createMarketplacePaymentIntent({
       propertyId: parseInt(propertyId),
       roomId: parseInt(roomId),
@@ -826,7 +887,10 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
       checkOut: checkOutDate,
       totalAmount,
       nights,
-      pricePerNight
+      pricePerNight,
+      platformFeePercentage,
+      platformFeeAmount,
+      subtotal
     });
 
     res.json({
@@ -835,6 +899,9 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
         amount: totalAmount,
+        subtotal: subtotal,
+        platformFeeAmount: platformFeeAmount,
+        platformFeePercentage: platformFeePercentage,
         isTestPrice // Informar al frontend si es precio de prueba
       }
     });

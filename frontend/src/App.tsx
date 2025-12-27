@@ -30,10 +30,16 @@ const GuestBooking = lazy(() => import('@/pages/guest/BookingAccess'));
 const GuestDetails = lazy(() => import('@/pages/guest/BookingDetails'));
 const GuestServices = lazy(() => import('@/pages/guest/Services'));
 const GuestDashboard = lazy(() => import('@/pages/guest/GuestDashboard'));
+const GuestBookings = lazy(() => import('@/pages/guest/GuestBookings'));
+const GuestServiceRequest = lazy(() => import('@/pages/guest/GuestServiceRequest'));
+const GuestPayments = lazy(() => import('@/pages/guest/GuestPayments'));
+const GuestProfile = lazy(() => import('@/pages/guest/GuestProfile'));
+const GuestDestinations = lazy(() => import('@/pages/guest/GuestDestinations'));
 const GuestInfo = lazy(() => import('@/pages/guest/GuestInfo'));
 const StaffDashboard = lazy(() => import('@/pages/staff/Dashboard'));
 const StaffServices = lazy(() => import('@/pages/staff/Services'));
 const StaffRooms = lazy(() => import('@/pages/staff/Rooms'));
+const StaffProducts = lazy(() => import('@/pages/staff/Products'));
 const StaffNightCreditRequests = lazy(() => import('@/pages/staff/NightCreditRequests'));
 const StaffPendingBookings = lazy(() => import('@/pages/staff/PendingBookings'));
 const StaffHistory = lazy(() => import('@/pages/staff/History'));
@@ -87,6 +93,56 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['guest']}>
               <MainLayout>
                 <GuestDashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/bookings"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <GuestBookings />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/bookings/:bookingId/services"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <GuestServiceRequest />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/payments"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <GuestPayments />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/profile"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <GuestProfile />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/destinations"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <GuestDestinations />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -297,6 +353,7 @@ function AppRoutes() {
           <Route path="dashboard" element={<StaffDashboard />} />
           <Route path="services" element={<StaffServices />} />
           <Route path="rooms" element={<StaffRooms />} />
+          <Route path="products" element={<StaffProducts />} />
           <Route path="night-credits" element={<StaffNightCreditRequests />} />
           <Route path="bookings" element={<StaffPendingBookings />} />
           <Route path="history" element={<StaffHistory />} />

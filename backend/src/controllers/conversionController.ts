@@ -189,9 +189,9 @@ export class ConversionController {
       // the service if the DB setting is not present.
       let fee: number | null = null;
       try {
-        const row = await PlatformSetting.findOne({ where: { key: 'swap_fee' } });
+        const row = await PlatformSetting.findOne({ where: { setting_key: 'swap_fee' } });
         if (row) {
-          const value = row.get('value') as string;
+          const value = row.get('setting_value') as string;
           if (value) {
             const parsed = Number(value);
             if (!Number.isNaN(parsed)) fee = parsed;
@@ -250,16 +250,20 @@ export class ConversionController {
 
       // Upsert into platform_settings
       try {
-        const existing = await PlatformSetting.findOne({ where: { key: 'swap_fee' } });
+        const existing = await PlatformSetting.findOne({ where: { setting_key: 'swap_fee' } });
         let savedVal = numeric;
         if (existing) {
-          await existing.update({ value: String(numeric) });
-          const updated = await PlatformSetting.findOne({ where: { key: 'swap_fee' } });
-          savedVal = Number(updated?.get('value') || numeric);
+          await existing.update({ setting_value: String(numeric) });
+          const updated = await PlatformSetting.findOne({ where: { setting_key: 'swap_fee' } });
+          savedVal = Number(updated?.get('setting_value') || numeric);
         } else {
-          await PlatformSetting.create({ key: 'swap_fee', value: String(numeric) });
-          const created = await PlatformSetting.findOne({ where: { key: 'swap_fee' } });
-          savedVal = Number(created?.get('value') || numeric);
+          await PlatformSetting.create({ 
+            setting_key: 'swap_fee', 
+            setting_value: String(numeric),
+            setting_type: 'NUMBER'
+          });
+          const created = await PlatformSetting.findOne({ where: { setting_key: 'swap_fee' } });
+          savedVal = Number(created?.get('setting_value') || numeric);
         }
 
         await LoggingService.logAction({

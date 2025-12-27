@@ -4,16 +4,14 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import axios from 'axios';
 
-const AVAILABLE_SERVICES = [
-  { id: 'room-service', name: 'Room Service', icon: '🍽️', description: 'Food and beverage delivered to your room' },
-  { id: 'housekeeping', name: 'Housekeeping', icon: '🧹', description: 'Room cleaning and tidying' },
-  { id: 'concierge', name: 'Concierge', icon: '🎫', description: 'Arrange activities and reservations' },
-  { id: 'laundry', name: 'Laundry Service', icon: '👔', description: 'Clothing and garment care' },
-  { id: 'maintenance', name: 'Maintenance', icon: '🔧', description: 'Report and fix room issues' },
-  { id: 'spa', name: 'Spa Service', icon: '💆', description: 'Massage and wellness treatments' },
-  { id: 'transportation', name: 'Transportation', icon: '🚕', description: 'Car rental or shuttle service' },
-  { id: 'dining', name: 'Restaurant Reservation', icon: '🍽️', description: 'Reserve dining at partners' },
-];
+interface Product {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+}
 
 interface ServiceRequest {
   id: number;
@@ -36,6 +34,8 @@ export default function Services() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [services, setServices] = useState<ServiceRequest[]>([]);
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [propertyId, setPropertyId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [selectedService, setSelectedService] = useState<string>('');
   const [description, setDescription] = useState('');
@@ -43,9 +43,9 @@ export default function Services() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Fetch existing service requests
+  // Fetch booking info and available products
   useEffect(() => {
-    const fetchServices = async () => {
+    const fetchData = async () => {
       if (!bookingToken) {
         setError('Booking token not found');
         setLoading(false);
@@ -54,16 +54,30 @@ export default function Services() {
 
       try {
         setLoading(true);
-        const response = await axios.get(`/api/hotels/guest/services/${bookingToken}`);
-        setServices(response.data.services || []);
+        
+        // Fetch existing service requests
+        const servicesResponse = await axios.get(`/api/hotels/guest/services/${bookingToken}`);
+        setServices(servicesResponse.data.services || []);
+        
+        // Get property ID from booking
+        const bookingResponse = await axios.get(`/api/hotels/guest/booking/${bookingToken}`);
+        const bookingPropertyId = bookingResponse.data.booking?.property_id;
+        
+        if (bookingPropertyId) {
+          setPropertyId(bookingPropertyId);
+          
+          // Fetch available products for this property
+          const productsResponse = await axios.get(`/api/public/properties/${bookingPropertyId}/products`);
+          setAvailableProducts(productsResponse.data.data || []);
+        }
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to load services');
+        setError(err.response?.data?.error || 'Failed to load data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchServices();
+    fetchData();
   }, [bookingToken]);
 
   const handleSubmitService = async (e: React.FormEvent) => {
@@ -105,7 +119,22 @@ export default function Services() {
   };
 
   const getServiceName = (serviceId: string) => {
-    return AVAILABLE_SERVICES.find(s => s.id === serviceId)?.name || serviceId;
+    const product = availableProducts.find(p => p.code === serviceId);
+    return product?.name || serviceId;
+  };
+
+  const getCategoryIcon = (category: string) => {
+    const icons: Record<string, string> = {
+      BREAKFAST: '🍳',
+      CLEANING: '🧹',
+      MINIBAR: '🍾',
+      PARKING: '🅿️',
+      SPA: '💆',
+      EXCURSION: '🎫',
+      TRANSPORT: '🚕',
+      OTHER: '📦'
+    };
+    return icons[category] || '📦';
   };
 
   const getStatusColor = (status: string) => {
@@ -155,13 +184,15 @@ export default function Services() {
             <h1 className="text-2xl font-bold text-gray-900">{t('guest.services.title')}</h1>
             <p className="text-gray-600 mt-1">{t('guest.services.request')}</p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
-          >
-            <Plus className="h-5 w-5" />
-            Request Service
-          </button>
+          {availableProducts.length > 0 && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+            >
+              <Plus className="h-5 w-5" />
+              Request Service
+            </button>
+          )}
         </div>
       </header>
 
@@ -181,28 +212,36 @@ export default function Services() {
         )}
 
         {/* Request Form */}
-        {showForm && (
+        {showForm && availableProducts.length > 0 && (
           <div className="mb-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Request a Service</h2>
+            <h2 className="text-lg font-semibold mb-4">{t('guest.services.requestAService') || 'Request a Service'}</h2>
             <form onSubmit={handleSubmitService} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Service Type
+                  {t('guest.services.serviceType') || 'Service Type'}
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {AVAILABLE_SERVICES.map(service => (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {availableProducts.map(product => (
                     <button
-                      key={service.id}
+                      key={product.code}
                       type="button"
-                      onClick={() => setSelectedService(service.id)}
-                      className={`p-3 rounded-lg border-2 text-center transition ${
-                        selectedService === service.id
+                      onClick={() => {
+                        setSelectedService(product.code);
+                        setAmount(product.price.toString());
+                      }}
+                      className={`p-4 rounded-lg border-2 text-left transition ${
+                        selectedService === product.code
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="text-2xl mb-1">{service.icon}</div>
-                      <div className="text-sm font-medium">{service.name}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-2xl">{getCategoryIcon(product.category)}</div>
+                        <div className="text-sm font-medium">{product.name}</div>
+                      </div>
+                      <div className="text-lg font-bold text-gray-900">
+                        €{Number(product.price).toFixed(2)}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -210,13 +249,13 @@ export default function Services() {
 
               {selectedService && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-                  {AVAILABLE_SERVICES.find(s => s.id === selectedService)?.description}
+                  {availableProducts.find(p => p.code === selectedService)?.description || t('guest.services.selectService') || 'Select this service to request it'}
                 </div>
               )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description (optional)
+                  {t('guest.services.descriptionOptional') || 'Description (optional)'}
                 </label>
                 <textarea
                   value={description}
@@ -250,7 +289,7 @@ export default function Services() {
                   className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white py-2 rounded-lg transition font-medium flex items-center justify-center gap-2"
                 >
                   {submitting && <Loader className="h-4 w-4 animate-spin" />}
-                  Submit Request
+                  {t('guest.services.submitRequest') || 'Submit Request'}
                 </button>
                 <button
                   type="button"
@@ -262,21 +301,32 @@ export default function Services() {
                   }}
                   className="flex-1 border border-gray-300 hover:bg-gray-50 text-gray-700 py-2 rounded-lg transition font-medium"
                 >
-                  Cancel
+                  {t('guest.services.cancel') || 'Cancel'}
                 </button>
               </div>
             </form>
           </div>
         )}
 
+        {/* No Products Available Message */}
+        {!loading && availableProducts.length === 0 && (
+          <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('guest.services.noServicesAvailable') || 'No Services Available'}</h3>
+            <p className="text-gray-600">
+              {t('guest.services.noServicesConfigured') || 'This property currently has no additional services configured. Please contact the property directly if you need assistance.'}
+            </p>
+          </div>
+        )}
+
         {/* Service Requests List */}
         <div>
-          <h2 className="text-lg font-semibold mb-4">Your Service Requests</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('guest.services.yourRequests') || 'Your Service Requests'}</h2>
           
           {services.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-600">No service requests yet</p>
-              <p className="text-sm text-gray-500 mt-1">Request a service to get started</p>
+              <p className="text-gray-600">{t('guest.services.noRequestsYet') || 'No service requests yet'}</p>
+              <p className="text-sm text-gray-500 mt-1">{t('guest.services.requestToStart') || 'Request a service to get started'}</p>
             </div>
           ) : (
             <div className="space-y-3">

@@ -23,6 +23,8 @@ import mewsWebhooks from './routes/mewsWebhookRoute';
 import webhookRoutes from './routes/webhookRoutes';
 import healthRoutes from './routes/healthRoutes';
 import settingsRoutes from './routes/settingsRoutes';
+import creditRoutes from './routes/creditRoutes';
+import creditAdminRoutes from './routes/creditAdminRoutes';
 import { authenticateToken } from './middleware/authMiddleware';
 import { authorize } from './middleware/authorizationMiddleware';
 import { logAction } from './middleware/loggingMiddleware';
@@ -75,6 +77,7 @@ app.use('/hotels/pms', validateApiKey, pmsRoutes); // API key validation for PMS
 app.use('/hotels/payments', stripeRoutes);
 app.use('/hotels/conversion', conversionRoutes);
 app.use('/hotels/api', clientRoutes);
+app.use('/hotels/client', clientRoutes); // Client routes (profile, payments, etc.)
 app.use('/hotels/timeshare', authenticateToken, timeshareRoutes); // Timeshare routes for owners
 app.use('/hotels/owner/swaps', authenticateToken, swapRoutes); // Owner swap management
 app.use('/hotels/staff/swaps', authenticateToken, staffSwapRoutes); // Staff swap approval
@@ -84,6 +87,8 @@ app.use('/hotels/staff', authenticateToken, staffNightCreditRoutes); // Staff ni
 app.use('/hotels/hotel', hotelGuestRoutes); // Hotel guest routes (light access)
 app.use('/hotels/hotel-staff', authenticateToken, hotelStaffRoutes); // Hotel staff routes
 app.use('/hotels/settings', settingsRoutes); // Platform settings (admin only)
+app.use('/api/credits', authenticateToken, creditRoutes); // Variable credit system (user)
+app.use('/api/credits/admin', authenticateToken, creditAdminRoutes); // Credit admin configuration
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);
 app.use('/hotels', healthRoutes);

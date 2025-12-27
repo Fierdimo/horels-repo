@@ -310,7 +310,29 @@ This project is proprietary software. All rights reserved.
 For support and questions, please contact the development team.
 
 ---
-Variable Credit System Implementation (December 25, 2025)
+
+## 🎯 Recent Updates
+
+### Dynamic PMS Product Integration (December 27, 2025)
+**Complete refactoring of guest services to use real-time PMS products:**
+
+- ✅ **ProductSyncService** - Automatic sync from Mews Products API
+- ✅ **Parallel Sync** - Rooms and products sync simultaneously for optimal UX
+- ✅ **Dynamic Service Display** - Guest services based on property's PMS configuration
+- ✅ **Availability Checks** - Hide service buttons when no products configured
+- ✅ **8 Product Categories** - Breakfast, Cleaning, Minibar, Parking, Spa, Excursion, Transport, Other
+- ✅ **Multi-language Support** - Complete translations in 5 languages (ES, EN, FR, DE, IT)
+- ✅ **Database Schema Fix** - Corrected AncillaryService columns (price_credits, price_euros)
+- ✅ **Staff Product Management** - View and sync products from /staff/products
+- ✅ **Public API Endpoint** - GET /api/public/properties/:propertyId/products
+
+### Key Features:
+- **PMS-Only Architecture**: No hardcoded services, everything from PMS catalog
+- **Property-Specific**: Each property shows only its configured products
+- **Real-time Sync**: Staff can trigger manual sync anytime
+- **Guest Experience**: Seamless service requests with live product availability
+
+### Variable Credit System Implementation (December 25, 2025)
 **Major architectural upgrade from simple night credits to RCI/Interval-style variable valuation:**
 
 - ✅ **Credit Calculation Engine** - Dynamic formula: Base × Location × Room Type
@@ -336,6 +358,7 @@ Variable Credit System Implementation (December 25, 2025)
 - Added support for saved payment methods (Stripe Customers)
 - Integrated 3D Secure authentication
 - Setup webhook handlers for real-time payment status updates
+- Added platform fees (10% commission from PlatformSetting)
 
 ### User Profiles
 - Added user profile management (firstName, lastName, phone, address)
@@ -347,9 +370,7 @@ Variable Credit System Implementation (December 25, 2025)
 - Added test mode pricing (€10/night) for development
 - Improved TypeScript types and error handling
 - Optimized build configuration
-- **Clean migration system** - Production-ready, no correction migrationslopment
-- Improved TypeScript types and error handling
-- Optimized build configuration
+- **Clean migration system** - Production-ready, no correction migrations
 - Reorganized repository as monorepo structure
 
 ---

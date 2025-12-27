@@ -68,48 +68,48 @@ export class RoomSyncService {
         return result;
       }
 
-      // 4. Sincronizar mapeos
+      // 4. Sincronizar mapeos en lotes (optimizado para rendimiento)
       // Solo guardamos: pms_resource_id, property_id, y metadata local
-      for (const resource of resources) {
-        try {
-          // Saltar recursos inactivos
-          if (resource.IsActive === false) {
-            continue;
-          }
+      const BATCH_SIZE = 10; // Procesar de 10 en 10 para evitar sobrecarga
+      const activeResources = resources.filter(r => r.IsActive !== false);
+      
+      // Obtener todos los rooms existentes de una vez (más eficiente)
+      const existingRooms = await Room.findAll({
+        where: { propertyId },
+        attributes: ['id', 'pmsResourceId']
+      });
+      const existingPmsIds = new Set(existingRooms.map(r => r.pmsResourceId));
 
-          // Buscar si ya existe el mapeo en BD
-          const existingRoom = await Room.findOne({
-            where: {
+      // Procesar en lotes
+      for (let i = 0; i < activeResources.length; i += BATCH_SIZE) {
+        const batch = activeResources.slice(i, i + BATCH_SIZE);
+        
+        // Procesar lote en paralelo (limitado a BATCH_SIZE)
+        await Promise.all(batch.map(async (resource) => {
+          try {
+            const roomData = {
               propertyId,
-              pmsResourceId: resource.Id
+              pmsResourceId: resource.Id,
+              pmsLastSync: new Date(),
+              isMarketplaceEnabled: false,
+            };
+
+            if (existingPmsIds.has(resource.Id)) {
+              // Actualizar existente
+              await Room.update(
+                { pmsLastSync: new Date() },
+                { where: { propertyId, pmsResourceId: resource.Id } }
+              );
+              result.updated++;
+            } else {
+              // Crear nuevo mapeo
+              await Room.create(roomData);
+              result.created++;
             }
-          });
-
-          // Solo guardar: mapeo + metadata local
-          const roomData = {
-            propertyId,
-            pmsResourceId: resource.Id,
-            pmsLastSync: new Date(),
-            // Defaults para datos locales
-            isMarketplaceEnabled: false, // Staff debe activar explícitamente
-            // No guardar: name, capacity, floor, type, status, basePrice, amenities
-            // Esos datos vienen del PMS en tiempo real
-          };
-
-          if (existingRoom) {
-            // Solo actualizar pmsLastSync
-            await existingRoom.update({
-              pmsLastSync: new Date()
-            });
-            result.updated++;
-          } else {
-            // Crear nuevo mapeo
-            await Room.create(roomData);
-            result.created++;
+          } catch (error: any) {
+            result.errors.push(`Error syncing resource ${resource.Id}: ${error.message}`);
           }
-        } catch (error: any) {
-          result.errors.push(`Error syncing resource ${resource.Id}: ${error.message}`);
-        }
+        }));
       }
 
       result.success = result.errors.length === 0 || (result.created + result.updated) > 0;

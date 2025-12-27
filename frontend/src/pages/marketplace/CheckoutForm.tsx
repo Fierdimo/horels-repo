@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -19,6 +20,7 @@ export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }
   const elements = useElements();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, setAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string>('');
@@ -68,6 +70,9 @@ export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }
           const response = await apiClient.post('/public/bookings/confirm-payment', {
             payment_intent_id: paymentIntent.id
           });
+
+          // Invalidar cache de bookings para que se recarguen
+          queryClient.invalidateQueries({ queryKey: ['myBookings'] });
 
           // El token ahora viene en response.data.token (raíz de la respuesta)
           const token = response.data.token;

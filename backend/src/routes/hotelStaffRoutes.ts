@@ -200,6 +200,75 @@ router.patch('/rooms/:id/marketplace', authenticateToken, authorizeRole(['staff'
   staffRoomController.toggleMarketplace(req, res)
 );
 
+// Batch toggle all rooms marketplace status
+router.post('/rooms/marketplace/batch', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_toggle_marketplace_batch'), (req: AuthRequest, res: Response) => 
+  staffRoomController.toggleMarketplaceBatch(req, res)
+);
+
+// ==================== PRODUCTS/SERVICES ROUTES ====================
+
+/**
+ * Sincronizar productos/servicios desde PMS
+ */
+router.post('/products/sync', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_sync_products'), async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyId = req.user?.property_id;
+    
+    if (!propertyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'No property associated with user'
+      });
+    }
+
+    const productSyncService = require('../services/productSyncService').default;
+    const result = await productSyncService.syncProductsFromPMS(propertyId);
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.summary || 'Sync completed'
+    });
+  } catch (error: any) {
+    console.error('[StaffRoutes] Error syncing products:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to sync products'
+    });
+  }
+});
+
+/**
+ * Obtener todos los servicios/productos activos
+ */
+router.get('/products', authenticateToken, authorizeRole(['staff', 'admin']), async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyId = req.user?.property_id;
+    
+    if (!propertyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'No property associated with user'
+      });
+    }
+
+    const productSyncService = require('../services/productSyncService').default;
+    const services = await productSyncService.getActiveServices(propertyId);
+
+    res.json({
+      success: true,
+      data: services,
+      count: services.length
+    });
+  } catch (error: any) {
+    console.error('[StaffRoutes] Error fetching products:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch products'
+    });
+  }
+});
+
 // ==================== MARKETPLACE CONFIGURATION ROUTES ====================
 
 /**

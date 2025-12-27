@@ -388,12 +388,12 @@ class ConversionService {
         const PlatformSettingLocal = require('../models/PlatformSetting').default;
         if (PlatformSettingLocal) {
           // Try both 'swap_fee' and 'swapFee' keys
-          let row = await PlatformSettingLocal.findOne({ where: { key: 'swap_fee' } });
+          let row = await PlatformSettingLocal.findOne({ where: { setting_key: 'swap_fee' } });
           if (!row) {
-            row = await PlatformSettingLocal.findOne({ where: { key: 'swapFee' } });
+            row = await PlatformSettingLocal.findOne({ where: { setting_key: 'swapFee' } });
           }
-          if (row && row.value) {
-            const parsed = Number(row.value);
+          if (row && (row as any).setting_value) {
+            const parsed = Number((row as any).setting_value);
             if (!Number.isNaN(parsed)) return parsed;
           }
         }

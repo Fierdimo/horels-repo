@@ -19,6 +19,9 @@ interface CreatePaymentIntentParams {
   totalAmount: number;
   nights: number;
   pricePerNight: number;
+  platformFeePercentage?: number;
+  platformFeeAmount?: number;
+  subtotal?: number;
 }
 
 export class StripeService {
@@ -86,6 +89,9 @@ export class StripeService {
       totalAmount,
       nights,
       pricePerNight,
+      platformFeePercentage,
+      platformFeeAmount,
+      subtotal,
       userId,
       savePaymentMethod
     } = params;
@@ -127,7 +133,10 @@ export class StripeService {
         check_in: checkIn.toISOString(),
         check_out: checkOut.toISOString(),
         nights: nights.toString(),
-        price_per_night: pricePerNight.toString()
+        price_per_night: pricePerNight.toString(),
+        platform_fee_percentage: platformFeePercentage?.toString() || '0',
+        platform_fee_amount: platformFeeAmount?.toString() || '0',
+        subtotal: subtotal?.toString() || totalAmount.toString()
       },
       description: `Marketplace Booking - ${property.name} - ${roomName || `Room ${roomId}`} (${nights} nights)`,
       receipt_email: guestEmail,
@@ -151,8 +160,8 @@ export class StripeService {
 
   /**
    * Confirmar booking después de pago exitoso
-   * Nota: Automáticamente convierte el usuario guest a owner después de la compra
-   * Retorna: { booking, user } para que se pueda generar un nuevo token JWT
+   * Nota: Guest permanece como guest. Solo se convierte a owner mediante compra de propiedad/timeshare.
+   * Retorna: { booking, user } - user puede ser null si no está registrado
    */
   async confirmBookingPayment(paymentIntentId: string) {
     // Obtener Payment Intent de Stripe
@@ -175,18 +184,20 @@ export class StripeService {
       guest_phone: metadata.guest_phone || null,
       check_in: new Date(metadata.check_in),
       check_out: new Date(metadata.check_out),
-      room_type: 'Standard', // Podemos mejorar esto obteniendo el tipo real
-      status: 'confirmed', // Estado confirmado porque el pago ya se procesó
+      room_type: 'Standard',
+      status: 'confirmed',
       guest_token: guestToken,
       total_amount: paymentIntent.amount / 100, // Convertir de centavos a euros
       currency: paymentIntent.currency.toUpperCase(),
       payment_intent_id: paymentIntentId,
-      payment_status: 'paid'
+      payment_status: 'paid',
+      platform_fee_percentage: parseFloat(metadata.platform_fee_percentage || '0'),
+      platform_fee_amount: parseFloat(metadata.platform_fee_amount || '0')
     });
 
-    let updatedUser = null;
+    let userRecord = null;
 
-    // Convertir guest a owner después de la compra exitosa
+    // Buscar o crear usuario guest (NO convertir a owner)
     try {
       console.log(`[StripeService] Looking for user with email: ${metadata.guest_email}`);
       
@@ -195,78 +206,40 @@ export class StripeService {
         include: [{ model: Role }]
       });
 
-      console.log(`[StripeService] User found:`, guestUser ? { id: guestUser.id, email: guestUser.email, roleId: guestUser.role_id } : 'NOT FOUND');
-
       if (!guestUser) {
         // Si el usuario no existe, crear un usuario guest
         console.log(`[StripeService] Creating new guest user for email: ${metadata.guest_email}`);
         
-        try {
-          const guestRole = await Role.findOne({ where: { name: 'guest' } });
-          console.log(`[StripeService] Guest role:`, guestRole ? { id: guestRole.id, name: guestRole.name } : 'NOT FOUND');
+        const guestRole = await Role.findOne({ where: { name: 'guest' } });
           
-          if (!guestRole) {
-            throw new Error('Guest role not found in database');
-          }
-
-          guestUser = await User.create({
-            email: metadata.guest_email,
-            password: `temp_${Date.now()}`, // Contraseña temporal
-            role_id: guestRole.id,
-            status: 'approved', // Aprobar automáticamente los usuarios creados por compra
-            firstName: metadata.guest_name?.split(' ')[0] || 'Guest',
-            lastName: metadata.guest_name?.split(' ').slice(1).join(' ') || ''
-          });
-
-          console.log(`[StripeService] New user created:`, { id: guestUser.id, email: guestUser.email, roleId: guestUser.role_id });
-
-          // Recargar para obtener el Role
-          await guestUser.reload({
-            include: [{ model: Role }]
-          });
-
-          console.log(`[StripeService] New guest user ${guestUser.id} (${guestUser.email}) created from booking`);
-        } catch (createError) {
-          console.error('[StripeService] Error creating guest user:', createError);
-          // Si no podemos crear el usuario, al menos retornar null pero no fallar el booking
-          guestUser = null;
+        if (!guestRole) {
+          throw new Error('Guest role not found in database');
         }
+
+        guestUser = await User.create({
+          email: metadata.guest_email,
+          password: `temp_${Date.now()}`, // Contraseña temporal
+          role_id: guestRole.id,
+          status: 'approved',
+          firstName: metadata.guest_name?.split(' ')[0] || 'Guest',
+          lastName: metadata.guest_name?.split(' ').slice(1).join(' ') || ''
+        });
+
+        await guestUser.reload({ include: [{ model: Role }] });
+        console.log(`[StripeService] New guest user ${guestUser.id} (${guestUser.email}) created from booking`);
+      } else {
+        console.log(`[StripeService] User ${guestUser.id} found with role: ${(guestUser as any).Role?.name}`);
       }
 
-      if (guestUser) {
-        // Obtener el rol 'owner'
-        const ownerRole = await Role.findOne({ where: { name: 'owner' } });
-        console.log(`[StripeService] Owner role:`, ownerRole ? { id: ownerRole.id, name: ownerRole.name } : 'NOT FOUND');
-
-        const currentRole = (guestUser as any).Role?.name;
-        console.log(`[StripeService] Current user role: ${currentRole}`);
-
-        if (ownerRole && currentRole === 'guest') {
-          // Solo convertir si es guest
-          console.log(`[StripeService] Converting user ${guestUser.id} from guest to owner`);
-          await guestUser.update({ role_id: ownerRole.id });
-          
-          // Recargar el usuario para obtener el Role actualizado
-          await guestUser.reload({
-            include: [{ model: Role }]
-          });
-          
-          updatedUser = guestUser;
-          console.log(`[StripeService] User ${guestUser.id} (${guestUser.email}) converted from guest to owner after booking payment`);
-        } else if (ownerRole) {
-          // Si ya es owner o tiene otro rol, retornar de todas formas
-          updatedUser = guestUser;
-          console.log(`[StripeService] User ${guestUser.id} (${guestUser.email}) already has role: ${currentRole}`);
-        }
-      }
+      userRecord = guestUser;
     } catch (error) {
-      console.error('[StripeService] Error in guest to owner conversion:', error);
+      console.error('[StripeService] Error managing user record:', error);
       // No fallar la operación de booking por este error
     }
 
-    console.log(`[StripeService] Returning updatedUser:`, updatedUser ? { id: updatedUser.id, email: updatedUser.email, role: (updatedUser as any).Role?.name } : 'NULL');
+    console.log(`[StripeService] Booking created. User:`, userRecord ? { id: userRecord.id, email: userRecord.email, role: (userRecord as any).Role?.name } : 'NULL');
 
-    return { booking, user: updatedUser };
+    return { booking, user: userRecord };
   }
 
   /**
@@ -280,6 +253,23 @@ export class StripeService {
    * Confirmar Payment Intent con método de pago guardado
    */
   async confirmPaymentWithSavedMethod(paymentIntentId: string, paymentMethodId: string) {
+    // 1. Obtener el payment method para extraer el customer
+    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+    
+    if (!paymentMethod.customer) {
+      throw new Error('Payment method does not have an associated customer');
+    }
+
+    const customerId = typeof paymentMethod.customer === 'string' 
+      ? paymentMethod.customer 
+      : paymentMethod.customer.id;
+
+    // 2. Actualizar el PaymentIntent para incluir el customer
+    await stripe.paymentIntents.update(paymentIntentId, {
+      customer: customerId
+    });
+
+    // 3. Confirmar el PaymentIntent con el payment method
     const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
       payment_method: paymentMethodId,
       return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/marketplace/booking-success`
