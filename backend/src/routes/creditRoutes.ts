@@ -8,10 +8,16 @@ const router = express.Router();
  * Note: All routes are protected by authenticateToken middleware in app.ts
  */
 
-// Get user wallet summary
+// Get current user's wallet summary (uses token)
+router.get('/wallet', CreditWalletController.getWallet);
+
+// Get current user's transaction history (uses token)
+router.get('/transactions', CreditWalletController.getTransactions);
+
+// Get specific user wallet summary (admin/staff)
 router.get('/wallet/:userId', CreditWalletController.getWallet);
 
-// Get user transaction history
+// Get specific user transaction history (admin/staff)
 router.get('/transactions/:userId', CreditWalletController.getTransactions);
 
 // Deposit week for credits

@@ -25,7 +25,9 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       address,
       // Datos del hotel seleccionado del PMS
       pms_property_id,
-      property_data // Datos del hotel obtenidos del PMS
+      property_data, // Datos del hotel obtenidos del PMS
+      // Token de invitación para owners
+      invitationToken
     } = req.body;
 
     const existingUser = await User.findOne({ where: { email } });
@@ -33,15 +35,14 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Validar rol: solo guest y staff pueden registrarse públicamente
+    // Validar rol: guest, staff y owner pueden registrarse
     // Admin solo puede ser creado por otro admin
-    // Owner se convierte automáticamente cuando recibe su primera semana
-    const allowedInitialRoles = ['guest', 'staff'];
+    // Owner puede registrarse directamente desde invitaciones
+    const allowedInitialRoles = ['guest', 'staff', 'owner'];
     const requestedRole = roleName || 'guest';
     
     if (!allowedInitialRoles.includes(requestedRole)) {
       const errorMessages: Record<string, string> = {
-        'owner': 'Cannot register as owner. Users are automatically upgraded to owner when they receive their first timeshare week.',
         'admin': 'Cannot register as admin publicly. Admin accounts can only be created by existing administrators.'
       };
       
@@ -152,7 +153,10 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
           marketplace_images: property_data.images || null,
           marketplace_amenities: property_data.amenities || null,
           // Keep marketplace disabled by default - staff must activate manually
-          is_marketplace_enabled: false
+          is_marketplace_enabled: false,
+          // Credit valuation defaults
+          tier: 'STANDARD',
+          location_multiplier: 1.00
         });
 
         propertyId = property.id;
@@ -183,6 +187,73 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
 
     // Log successful registration
     await LoggingService.logRegistration(user.id, req);
+
+    // If owner is registering with an invitation token, accept it automatically
+    if (invitationToken && role.name === 'owner') {
+      try {
+        const { OwnerInvitation } = await import('../models');
+        const { Booking } = await import('../models');
+        const { Op } = await import('sequelize');
+        
+        // Find the invitation
+        const invitation = await OwnerInvitation.findOne({
+          where: {
+            token: invitationToken,
+            status: 'pending',
+            expires_at: { [Op.gt]: new Date() }
+          }
+        });
+
+        if (invitation && (invitation as any).email === email) {
+          // Parse rooms_data
+          const roomsData = typeof (invitation as any).rooms_data === 'string' 
+            ? JSON.parse((invitation as any).rooms_data) 
+            : (invitation as any).rooms_data;
+
+          // Create bookings for each room
+          for (const roomData of roomsData) {
+            const booking = await Booking.create({
+              property_id: (invitation as any).property_id,
+              room_id: roomData.room_id,
+              guest_name: `${firstName || ''} ${lastName || ''}`.trim(),
+              guest_email: email,
+              guest_phone: phone || null,
+              check_in: new Date(roomData.start_date),
+              check_out: new Date(roomData.end_date),
+              room_type: roomData.room_type,
+              status: 'pending',
+              guest_token: `owner-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+              total_amount: 0,
+              currency: 'EUR',
+              payment_status: 'completed',
+              pms_transfer_status: 'pending',
+              raw: {
+                source: 'staff_invitation',
+                booking_type: 'owner_invitation',
+                user_id: user.id,
+                invitation_id: (invitation as any).id,
+                estimated_credits: roomData.estimated_credits,
+                season_type: roomData.season_type
+              }
+            });
+            
+            console.log('📦 Created booking with status:', booking.status, 'for room:', roomData.room_id);
+          }
+
+          // Mark invitation as accepted
+          await invitation.update({
+            status: 'accepted',
+            created_user_id: user.id,
+            accepted_at: new Date()
+          });
+
+          console.log('✅ Invitation accepted automatically during registration');
+        }
+      } catch (invError) {
+        console.error('⚠️ Failed to auto-accept invitation during registration:', invError);
+        // Don't fail the registration if invitation acceptance fails
+      }
+    }
 
     // Generate JWT token for the new user
     const token = jwt.sign(

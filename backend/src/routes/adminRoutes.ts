@@ -6,6 +6,7 @@ import { authenticateToken } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/authorizationMiddleware';
 import { logAction } from '../middleware/loggingMiddleware';
 import pricingService from '../services/pricingService';
+import { checkAndConvertToOwner } from '../utils/roleConversion';
 
 const router = Router();
 
@@ -754,6 +755,9 @@ router.post('/assign-period', authenticateToken, authorize(['manage_users', 'man
     await week.reload({
       include: [{ model: Property, attributes: ['name', 'location'] }]
     });
+
+    // Auto-convert guest to owner if this is their first week
+    await checkAndConvertToOwner(owner_id);
 
     res.json({
       success: true,

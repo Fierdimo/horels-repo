@@ -120,7 +120,11 @@ class PropertyController {
       // Set created_by
       propertyData.created_by = user.id;
 
-      const property = await Property.create(propertyData);
+      const property = await Property.create({
+        ...propertyData,
+        tier: propertyData.tier || 'STANDARD',
+        location_multiplier: propertyData.location_multiplier || 1.00
+      });
 
       // Return without credentials
       const responseData: any = property.toJSON();

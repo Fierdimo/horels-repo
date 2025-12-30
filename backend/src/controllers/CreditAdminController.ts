@@ -187,7 +187,89 @@ class CreditAdminController {
         return;
       }
 
-      const seasons = await SeasonalCalendar.getSeasonsForYear(propertyId, year);
+      let seasons = await SeasonalCalendar.getSeasonsForYear(propertyId, year);
+
+      // If no seasons configured, return default calendar
+      if (seasons.length === 0) {
+        const defaultSeasons = [
+          // RED SEASON (High Season) - Winter holidays and summer
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'RED' as const,
+            start_date: new Date(`${year}-12-15`),
+            end_date: new Date(`${year}-12-31`),
+            year,
+            isDefault: true
+          },
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'RED' as const,
+            start_date: new Date(`${year}-07-01`),
+            end_date: new Date(`${year}-08-31`),
+            year,
+            isDefault: true
+          },
+          // WHITE SEASON (Mid Season) - Spring and fall
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'WHITE' as const,
+            start_date: new Date(`${year}-03-15`),
+            end_date: new Date(`${year}-05-31`),
+            year,
+            isDefault: true
+          },
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'WHITE' as const,
+            start_date: new Date(`${year}-09-15`),
+            end_date: new Date(`${year}-11-30`),
+            year,
+            isDefault: true
+          },
+          // BLUE SEASON (Low Season) - Rest of year
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'BLUE' as const,
+            start_date: new Date(`${year}-01-01`),
+            end_date: new Date(`${year}-03-14`),
+            year,
+            isDefault: true
+          },
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'BLUE' as const,
+            start_date: new Date(`${year}-06-01`),
+            end_date: new Date(`${year}-06-30`),
+            year,
+            isDefault: true
+          },
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'BLUE' as const,
+            start_date: new Date(`${year}-09-01`),
+            end_date: new Date(`${year}-09-14`),
+            year,
+            isDefault: true
+          },
+          {
+            id: null,
+            property_id: propertyId,
+            season_type: 'BLUE' as const,
+            start_date: new Date(`${year}-12-01`),
+            end_date: new Date(`${year}-12-14`),
+            year,
+            isDefault: true
+          }
+        ];
+        seasons = defaultSeasons as any;
+      }
 
       res.json({
         success: true,
@@ -197,7 +279,8 @@ class CreditAdminController {
           seasonType: season.season_type,
           startDate: season.start_date,
           endDate: season.end_date,
-          year: season.year
+          year: season.year,
+          isDefault: (season as any).isDefault || false
         }))
       });
 
@@ -254,6 +337,40 @@ class CreditAdminController {
   }
 
   /**
+   * DELETE /api/credits/admin/seasonal-calendar/:id
+   * Delete seasonal calendar entry
+   */
+  async deleteSeasonalEntry(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const entry = await SeasonalCalendar.findByPk(id);
+      
+      if (!entry) {
+        res.status(404).json({
+          success: false,
+          error: 'Seasonal calendar entry not found'
+        });
+        return;
+      }
+
+      await entry.destroy();
+
+      res.json({
+        success: true,
+        message: 'Seasonal calendar entry deleted successfully'
+      });
+
+    } catch (error: any) {
+      console.error('Error deleting seasonal entry:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to delete seasonal entry'
+      });
+    }
+  }
+
+  /**
    * GET /api/credits/admin/booking-costs/:propertyId
    * Get booking costs for property
    */
@@ -277,8 +394,7 @@ class CreditAdminController {
           seasonType: cost.season_type,
           creditsPerNight: Number(cost.credits_per_night),
           effectiveFrom: cost.effective_from,
-          effectiveUntil: cost.effective_until,
-          isActive: cost.is_active
+          notes: cost.notes
         }))
       });
 
@@ -305,11 +421,15 @@ class CreditAdminController {
         return;
       }
 
-      await CreditBookingCost.updatePrices(
-        propertyId,
-        prices,
-        new Date(effectiveFrom)
-      );
+      const costRecords = prices.map((price: any) => ({
+        property_id: propertyId,
+        room_type: price.roomType,
+        season_type: price.seasonType,
+        credits_per_night: price.creditsPerNight,
+        effective_from: new Date(effectiveFrom)
+      }));
+
+      await CreditBookingCost.bulkCreate(costRecords);
 
       res.json({
         success: true,

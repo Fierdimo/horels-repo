@@ -62,7 +62,6 @@ export class RoomEnrichmentService {
 
     // Si hay caché local y no ha expirado, usarlo directamente (sin Redis)
     if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
-      console.log(`[RoomEnrichment] Using local cached PMS availability for property ${propertyId}`);
       return cached.data;
     }
 
@@ -70,7 +69,6 @@ export class RoomEnrichmentService {
     const availability = await DistributedLockService.executeWithLock(
       lockKey,
       async () => {
-        console.log(`[RoomEnrichment] Fetching fresh PMS availability for property ${propertyId}`);
         return await pmsService.getAvailability({});
       },
       {
@@ -173,9 +171,7 @@ export class RoomEnrichmentService {
 
       // DEBUG: Log para ver estructura de recursos
       if (resources.length > 0) {
-        console.log('[RoomEnrichment] Sample PMS resource structure:', JSON.stringify(resources[0], null, 2));
-        console.log('[RoomEnrichment] Looking for rooms with IDs:', roomsLocal.map(r => r.pmsResourceId).join(', '));
-        console.log('[RoomEnrichment] PMS resource IDs:', resources.map((r: any) => r.Id || r.id || r.resourceId).join(', '));
+
       }
 
       // Obtener imágenes si el adaptador tiene el método
@@ -250,7 +246,6 @@ export class RoomEnrichmentService {
           const pmsRoom = resources.find((r: any) => r.Id === roomLocal.pmsResourceId);
 
           if (!pmsRoom) {
-            console.log(`[RoomEnrichment] Room ${roomLocal.id} (${roomLocal.pmsResourceId}) not found in PMS availability - using local data`);
             // Retornar con datos mínimos si no está en PMS
             return {
               id: roomLocal.id,

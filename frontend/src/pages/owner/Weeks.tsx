@@ -24,20 +24,40 @@ export default function Weeks(){
     isLoading,
     error,
     confirmWeek,
-    isConfirming
+    confirmInvitationBooking,
+    convertInvitationBookingToCredits,
+    isConfirming,
+    isConfirmingInvitation,
+    isConvertingInvitation
   } = useWeeks();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<any>(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [convertModalOpen, setConvertModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   // Stats
   const stats = useMemo(() => {
     const total = weeks.length;
     const timeshareWeeks = weeks.filter(w => w.source !== 'booking').length;
-    const marketplaceBookings = weeks.filter(w => w.source === 'booking').length;
+    
+    // Count invitation bookings vs marketplace bookings
+    const invitationBookings = weeks.filter(w => {
+      if (w.source !== 'booking') return false;
+      const bookingType = (w as any).booking_type;
+      return bookingType === 'owner_invitation';
+    }).length;
+    
+    const marketplaceBookings = weeks.filter(w => {
+      if (w.source !== 'booking') return false;
+      const bookingType = (w as any).booking_type;
+      return !bookingType || bookingType !== 'owner_invitation';
+    }).length;
+    
     const used = weeks.filter(w => w.status === 'used' || w.status === 'checked_out').length;
-    return { total, timeshareWeeks, marketplaceBookings, used };
+    return { total, timeshareWeeks, invitationBookings, marketplaceBookings, used };
   }, [weeks]);
 
   // Filtered weeks
@@ -89,13 +109,13 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
           <span className="text-lg font-semibold text-purple-700">{stats.timeshareWeeks}</span>
           <span className="text-xs text-purple-700">Semanas Timeshare</span>
         </div>
+        <div className="bg-orange-50 rounded-lg shadow p-4 flex flex-col items-center">
+          <span className="text-lg font-semibold text-orange-700">{stats.invitationBookings}</span>
+          <span className="text-xs text-orange-700">De Invitaciones</span>
+        </div>
         <div className="bg-blue-50 rounded-lg shadow p-4 flex flex-col items-center">
           <span className="text-lg font-semibold text-blue-700">{stats.marketplaceBookings}</span>
-          <span className="text-xs text-blue-700">Reservas Marketplace</span>
-        </div>
-        <div className="bg-green-50 rounded-lg shadow p-4 flex flex-col items-center">
-          <span className="text-lg font-semibold text-green-700">{stats.used}</span>
-          <span className="text-xs text-green-700">Utilizadas</span>
+          <span className="text-xs text-blue-700">Marketplace</span>
         </div>
       </div>
 
@@ -176,16 +196,46 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                     <span className={`px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       week.status === 'available' ? 'bg-green-100 text-green-800' :
                       week.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
+                      week.status === 'pending_approval' ? 'bg-purple-100 text-purple-800' :
                       week.status === 'used' || week.status === 'checked_out' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {week.status === 'used' ? 'Utilizado' : 
                        week.status === 'checked_out' ? 'Finalizado' :
                        week.status === 'confirmed' ? 'Confirmado' :
+                       week.status === 'pending_approval' ? 'Pendiente de aprobación' :
+                       week.status === 'pending' ? 'Pendiente de decisión' :
                        week.status === 'available' ? 'Disponible' : week.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {/* Pending invitation booking - owner must decide */}
+                    {week.status === 'pending' && (week as any).booking_type === 'owner_invitation' && (
+                      <div className="flex gap-2">
+                        <button
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-xs"
+                          onClick={() => {
+                            setSelectedBooking(week);
+                            setConfirmModalOpen(true);
+                          }}
+                          disabled={isConfirmingInvitation || isConvertingInvitation}
+                        >
+                          ✓ Confirmar Booking
+                        </button>
+                        <button
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-xs"
+                          onClick={() => {
+                            setSelectedBooking(week);
+                            setConvertModalOpen(true);
+                          }}
+                          disabled={isConfirmingInvitation || isConvertingInvitation}
+                        >
+                          💳 Convertir a Créditos
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Regular available week */}
                     {week.status === 'available' && !((week as any).source === 'booking') && (
                       <button
                         className="text-primary hover:text-primary/80 mr-3"
@@ -197,7 +247,9 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                         Confirmar
                       </button>
                     )}
-                    {((week as any).source === 'booking') && (
+                    
+                    {/* Confirmed booking from marketplace */}
+                    {((week as any).source === 'booking') && week.status !== 'pending' && (
                       <a href={`/owner/bookings/${(week as any).booking_id}`} className="text-primary hover:text-primary/80 mr-3">
                         Ver detalles
                       </a>
@@ -216,7 +268,18 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
         {loadingDashboard ? (
           <LoadingSpinner size="md" />
         ) : (
-          <ActivityFeed activity={dashboardData?.recentActivity || []} />
+          <ActivityFeed activity={[
+            ...(dashboardData?.recentActivity?.weeks?.map((w: any) => ({
+              type: 'week_confirmed',
+              description: `${w.Property?.name || 'Week'} - ${w.accommodation_type}`,
+              timestamp: w.created_at
+            })) || []),
+            ...(dashboardData?.recentActivity?.swaps?.map((s: any) => ({
+              type: s.status === 'accepted' ? 'swap_accepted' : 'swap_created',
+              description: `Swap request ${s.status}`,
+              timestamp: s.created_at
+            })) || [])
+          ]} />
         )}
       </div>
       {/* Confirm Week Modal */}
@@ -231,6 +294,112 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
           setModalOpen(false);
         }}
       />
+
+      {/* Confirm Booking Modal */}
+      {confirmModalOpen && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirmar Booking
+            </h3>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de que deseas confirmar este booking?
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-sm font-medium text-gray-700">
+                <strong>Propiedad:</strong> {selectedBooking.Property?.name}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Fechas:</strong> {new Date(selectedBooking.start_date).toLocaleDateString()} - {new Date(selectedBooking.end_date).toLocaleDateString()}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Tipo:</strong> {selectedBooking.accommodation_type}
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                onClick={() => {
+                  setConfirmModalOpen(false);
+                  setSelectedBooking(null);
+                }}
+                disabled={isConfirmingInvitation}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                onClick={() => {
+                  confirmInvitationBooking(selectedBooking.booking_id);
+                  setConfirmModalOpen(false);
+                  setSelectedBooking(null);
+                }}
+                disabled={isConfirmingInvitation}
+              >
+                {isConfirmingInvitation ? 'Confirmando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Convert to Credits Modal */}
+      {convertModalOpen && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Convertir a Créditos
+            </h3>
+            <p className="text-gray-600 mb-4">
+              ¿Estás seguro de que deseas convertir este booking a créditos?
+            </p>
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+              <p className="text-sm text-yellow-700">
+                <strong>⚠️ Importante:</strong> Esta acción no se puede deshacer. El booking será cancelado y recibirás créditos en tu cuenta.
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-sm font-medium text-gray-700">
+                <strong>Propiedad:</strong> {selectedBooking.Property?.name}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Fechas:</strong> {new Date(selectedBooking.start_date).toLocaleDateString()} - {new Date(selectedBooking.end_date).toLocaleDateString()}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Tipo:</strong> {selectedBooking.accommodation_type}
+              </p>
+              {selectedBooking.raw?.estimated_credits && (
+                <p className="text-sm text-blue-600 font-medium mt-2">
+                  <strong>Créditos estimados:</strong> {selectedBooking.raw.estimated_credits}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                onClick={() => {
+                  setConvertModalOpen(false);
+                  setSelectedBooking(null);
+                }}
+                disabled={isConvertingInvitation}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                onClick={() => {
+                  convertInvitationBookingToCredits(selectedBooking.booking_id);
+                  setConvertModalOpen(false);
+                  setSelectedBooking(null);
+                }}
+                disabled={isConvertingInvitation}
+              >
+                {isConvertingInvitation ? 'Convirtiendo...' : 'Convertir a Créditos'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

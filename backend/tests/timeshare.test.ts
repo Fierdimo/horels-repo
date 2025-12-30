@@ -55,7 +55,9 @@ describe('Timesharing API Integration', () => {
       name: 'Test Hotel',
       location: 'Test City',
       latitude: 40.7128,
-      longitude: -74.0060
+      longitude: -74.0060,
+      tier: 'STANDARD',
+      location_multiplier: 1.00
     });
     propertyId = property.id;
 

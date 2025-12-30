@@ -8,14 +8,17 @@ import CreditCalculationService from '../services/CreditCalculationService';
 class CreditWalletController {
 
   /**
-   * GET /api/credits/wallet/:userId
+   * GET /api/credits/wallet/:userId or /api/credits/wallet
    * Get user wallet summary
    */
   async getWallet(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.params.userId);
+      // Get userId from params or from authenticated user
+      const userId = req.params.userId 
+        ? parseInt(req.params.userId) 
+        : (req as any).user?.id;
 
-      if (isNaN(userId)) {
+      if (!userId || isNaN(userId)) {
         res.status(400).json({ error: 'Invalid user ID' });
         return;
       }
@@ -60,16 +63,19 @@ class CreditWalletController {
   }
 
   /**
-   * GET /api/credits/transactions/:userId
+   * GET /api/credits/transactions/:userId or /api/credits/transactions
    * Get user transaction history
    */
   async getTransactions(req: Request, res: Response): Promise<void> {
     try {
-      const userId = parseInt(req.params.userId);
+      // Get userId from params or from authenticated user
+      const userId = req.params.userId 
+        ? parseInt(req.params.userId) 
+        : (req as any).user?.id;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
 
-      if (isNaN(userId)) {
+      if (!userId || isNaN(userId)) {
         res.status(400).json({ error: 'Invalid user ID' });
         return;
       }
@@ -164,17 +170,22 @@ class CreditWalletController {
    */
   async estimateCredits(req: Request, res: Response): Promise<void> {
     try {
-      const { propertyId, roomType, weekStartDate } = req.body;
+      const { propertyId, roomType, seasonType } = req.body;
 
-      if (!propertyId || !roomType || !weekStartDate) {
-        res.status(400).json({ error: 'propertyId, roomType, and weekStartDate are required' });
+      if (!propertyId || !roomType || !seasonType) {
+        res.status(400).json({ error: 'propertyId, roomType (accommodation_type), and seasonType are required' });
+        return;
+      }
+
+      if (!['RED', 'WHITE', 'BLUE'].includes(seasonType)) {
+        res.status(400).json({ error: 'seasonType must be RED, WHITE, or BLUE' });
         return;
       }
 
       const estimate = await CreditCalculationService.estimateCreditsForWeek(
         parseInt(propertyId),
         roomType,
-        new Date(weekStartDate)
+        seasonType as 'RED' | 'WHITE' | 'BLUE'
       );
 
       res.json({
@@ -203,18 +214,23 @@ class CreditWalletController {
    */
   async calculateBookingCost(req: Request, res: Response): Promise<void> {
     try {
-      const { propertyId, roomType, checkInDate, checkOutDate } = req.body;
+      const { propertyId, roomType, seasonType, nights } = req.body;
 
-      if (!propertyId || !roomType || !checkInDate || !checkOutDate) {
-        res.status(400).json({ error: 'propertyId, roomType, checkInDate, and checkOutDate are required' });
+      if (!propertyId || !roomType || !seasonType || !nights) {
+        res.status(400).json({ error: 'propertyId, roomType, seasonType, and nights are required' });
+        return;
+      }
+
+      if (!['RED', 'WHITE', 'BLUE'].includes(seasonType)) {
+        res.status(400).json({ error: 'seasonType must be RED, WHITE, or BLUE' });
         return;
       }
 
       const cost = await CreditCalculationService.calculateBookingCost(
         parseInt(propertyId),
         roomType,
-        new Date(checkInDate),
-        new Date(checkOutDate)
+        seasonType as 'RED' | 'WHITE' | 'BLUE',
+        parseInt(nights)
       );
 
       res.json({

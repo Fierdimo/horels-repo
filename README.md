@@ -96,6 +96,9 @@ Frontend runs on: http://localhost:5173
 - ✅ Credit deposits with 6-month expiration
 - ✅ Hybrid payments (credits + cash top-up)
 - ✅ Flexible booking with dynamic pricing
+- ✅ **Owner Invitation System** - Invite new owners via email
+- ✅ **Staff Approval Workflow** - Bookings require staff confirmation
+- ✅ Automated email notifications via Mailgun
 
 ### Guest Features
 - ✅ Token-based quick access
@@ -112,6 +115,9 @@ Frontend runs on: http://localhost:5173
 - ✅ Property tier management (DIAMOND, GOLD, SILVER+, STANDARD)
 - ✅ Seasonal calendar configuration (RED/WHITE/BLUE periods)
 - ✅ Credit pricing and rate management
+- ✅ **Owner invitation management** - Create and send invitations
+- ✅ **Booking approval system** - Review and approve owner invitations
+- ✅ **Email integration** - Automated notifications via Mailgun
 
 ---
 
@@ -215,6 +221,13 @@ JWT_SECRET=your_jwt_secret
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_PUBLISHABLE_KEY=pk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Email Configuration - Mailgun
+MAILGUN_API_KEY=your-mailgun-api-key-here
+MAILGUN_DOMAIN=your-mailgun-domain.mailgun.org
+MAILGUN_URL=https://api.mailgun.net
+EMAIL_FROM=noreply@your-domain.com
+EMAIL_FROM_NAME=Timeshare Exchange Platform
 ```
 
 ### Frontend (.env)
@@ -267,6 +280,8 @@ npm test
 - Public marketplace with room browsing and booking
 - Timeshare week management and P2P exchanges
 - **Variable credit system with dynamic valuation** (December 2025)
+- **Owner invitation system with staff approval workflow** (December 2025)
+- **Email integration via Mailgun** (December 2025)
 - Multi-language support (EN, ES)
 - User authentication and authorization
 - Admin dashboard with user management
@@ -283,9 +298,9 @@ npm test
 
 ### 📋 Planned Features
 - Multi-currency support
-- Email notifications
 - Advanced booking rules
 - Loyalty program integration
+- SMS notifications
 
 ---
 
@@ -312,6 +327,30 @@ For support and questions, please contact the development team.
 ---
 
 ## 🎯 Recent Updates
+
+### Owner Invitation System with Staff Approval (December 30, 2025)
+**Complete workflow for owners to invite new members:**
+
+- ✅ **OwnerInvitation Model** - Track invitation status and metadata
+- ✅ **Email Integration** - Automated emails via Mailgun API
+- ✅ **Unique Registration Links** - Token-based invitation acceptance
+- ✅ **Staff Approval Workflow** - Bookings pending_approval status
+- ✅ **Dashboard Updates** - Owner dashboard shows all booking types
+- ✅ **Stats Classification** - Separate counts for invitations vs marketplace
+- ✅ **Recent Activity** - Combined view of weeks and bookings
+- ✅ **Staff Management** - Review and approve/reject bookings
+
+### Key Features:
+- **Owner Portal**: Create invitations with property/season selection
+- **Email Notifications**: Automatic welcome emails with registration links
+- **Staff Review**: Dedicated page for pending booking approvals
+- **Unified Credits**: Single credit system for all booking types
+- **Dashboard Stats**: Accurate counting of weeks + invitation bookings + marketplace bookings
+
+### Database:
+- `owner_invitations` - Invitation tracking (pending/sent/registered/expired)
+- `bookings` - Extended metadata with booking_type field
+- Modified dashboard endpoints to count all booking sources
 
 ### Dynamic PMS Product Integration (December 27, 2025)
 **Complete refactoring of guest services to use real-time PMS products:**

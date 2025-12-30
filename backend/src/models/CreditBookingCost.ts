@@ -9,8 +9,8 @@ interface CreditBookingCostAttributes {
   credits_per_night: number;
   effective_from: Date;
   effective_until?: Date;
-  is_active: boolean;
   notes?: string;
+  created_by?: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -25,13 +25,14 @@ class CreditBookingCost extends Model<CreditBookingCostAttributes, CreditBooking
   public credits_per_night!: number;
   public effective_from!: Date;
   public effective_until?: Date;
-  public is_active!: boolean;
   public notes?: string;
+  public created_by?: number;
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
 
   /**
    * Get cost for specific property, room type, and season
+   * Filters by date range: effective_from <= date AND (effective_until IS NULL OR effective_until >= date)
    */
   static async getCost(propertyId: number, roomType: string, seasonType: string, date: Date = new Date()): Promise<CreditBookingCost | null> {
     return await this.findOne({
@@ -39,7 +40,6 @@ class CreditBookingCost extends Model<CreditBookingCostAttributes, CreditBooking
         property_id: propertyId,
         room_type: roomType,
         season_type: seasonType,
-        is_active: true,
         effective_from: { [Op.lte]: date },
         [Op.or]: [
           { effective_until: { [Op.is]: null } },
@@ -51,13 +51,12 @@ class CreditBookingCost extends Model<CreditBookingCostAttributes, CreditBooking
   }
 
   /**
-   * Get all active costs for a property
+   * Get all costs for a property
    */
   static async getPropertyCosts(propertyId: number): Promise<CreditBookingCost[]> {
     return await this.findAll({
       where: {
-        property_id: propertyId,
-        is_active: true
+        property_id: propertyId
       },
       order: [
         ['season_type', 'ASC'],
@@ -73,51 +72,9 @@ class CreditBookingCost extends Model<CreditBookingCostAttributes, CreditBooking
     return await this.findAll({
       where: {
         property_id: propertyId,
-        is_active: true,
-        effective_from: { [Op.lte]: endDate },
-        [Op.or]: [
-          { effective_until: { [Op.is]: null } },
-          { effective_until: { [Op.gte]: startDate } }
-        ]
+        effective_from: { [Op.lte]: endDate }
       } as any
     });
-  }
-
-  /**
-   * Deactivate old prices and create new ones (for price updates)
-   */
-  static async updatePrices(
-    propertyId: number,
-    newPrices: Array<{ roomType: string; seasonType: string; creditsPerNight: number }>,
-    effectiveFrom: Date,
-    transaction?: any
-  ): Promise<void> {
-    // Deactivate all current prices for this property
-    await this.update(
-      { 
-        is_active: false,
-        effective_until: effectiveFrom
-      },
-      {
-        where: {
-          property_id: propertyId,
-          is_active: true
-        },
-        transaction
-      }
-    );
-
-    // Create new prices
-    const prices = newPrices.map(price => ({
-      property_id: propertyId,
-      room_type: price.roomType as any,
-      season_type: price.seasonType as any,
-      credits_per_night: price.creditsPerNight,
-      effective_from: effectiveFrom,
-      is_active: true
-    }));
-
-    await this.bulkCreate(prices, { transaction });
   }
 }
 
@@ -143,6 +100,7 @@ CreditBookingCost.init(
     season_type: {
       type: DataTypes.ENUM('RED', 'WHITE', 'BLUE'),
       allowNull: false,
+      field: 'season',
     },
     credits_per_night: {
       type: DataTypes.DECIMAL(10, 2),
@@ -151,19 +109,23 @@ CreditBookingCost.init(
     effective_from: {
       type: DataTypes.DATE,
       allowNull: false,
+      field: 'effective_date',
     },
     effective_until: {
       type: DataTypes.DATE,
       allowNull: true,
     },
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
-    },
     notes: {
       type: DataTypes.TEXT,
       allowNull: true,
+    },
+    created_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
     },
     created_at: {
       type: DataTypes.DATE(3),

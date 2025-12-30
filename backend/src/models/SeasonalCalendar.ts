@@ -42,6 +42,43 @@ class SeasonalCalendar extends Model<SeasonalCalendarAttributes, SeasonalCalenda
   }
 
   /**
+   * Get season for a date with fallback to default calendar
+   * Returns the configured season or determines from default calendar if not configured
+   */
+  static async getSeasonForDateWithDefault(propertyId: number, date: Date): Promise<'RED' | 'WHITE' | 'BLUE'> {
+    // Try to get configured season first
+    const configuredSeason = await this.getSeasonForDate(propertyId, date);
+    if (configuredSeason) {
+      return configuredSeason;
+    }
+
+    // No configuration found, use default calendar logic
+    const month = date.getMonth() + 1; // 1-12
+    const day = date.getDate();
+    
+    // Default RED periods (High Season)
+    // Dec 15-31 or Jul 1 - Aug 31
+    if ((month === 12 && day >= 15) || (month === 7 || month === 8)) {
+      return 'RED';
+    }
+    
+    // Default WHITE periods (Mid Season)
+    // Mar 15 - May 31 or Sep 15 - Nov 30
+    if (
+      (month === 3 && day >= 15) || 
+      (month === 4 || month === 5) ||
+      (month === 9 && day >= 15) ||
+      (month === 10 || month === 11)
+    ) {
+      return 'WHITE';
+    }
+    
+    // Default BLUE periods (Low Season)
+    // Jan 1 - Mar 14, Jun, Sep 1-14, Dec 1-14
+    return 'BLUE';
+  }
+
+  /**
    * Get all seasons for a property and year
    */
   static async getSeasonsForYear(propertyId: number, year: number): Promise<SeasonalCalendar[]> {

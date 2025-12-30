@@ -136,3 +136,25 @@ export interface DashboardResponse {
     timestamp: string;
   }>;
 }
+
+export interface OwnerDashboardStats {
+  totalWeeks: number;
+  availableWeeks: number;
+  activeSwaps: number;
+  upcomingBookings: number;
+}
+
+export interface OwnerCreditsInfo {
+  total: number;
+  available: number;
+  expiringSoon: number;
+}
+
+export interface OwnerDashboardResponse {
+  stats: OwnerDashboardStats;
+  credits: OwnerCreditsInfo | null;
+  recentActivity: {
+    weeks: any[];
+    swaps: any[];
+  };
+}

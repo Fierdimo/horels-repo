@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { authorizeRole } from '../middleware/authMiddleware';
 import CreditAdminController from '../controllers/CreditAdminController';
 
@@ -11,6 +11,7 @@ const router = express.Router();
  */
 
 const adminOnly = authorizeRole(['admin', 'super_admin']);
+const adminOrStaff = authorizeRole(['admin', 'super_admin', 'staff']);
 
 /**
  * PROPERTY TIERS
@@ -42,8 +43,45 @@ router.put('/room-multipliers/:id', adminOnly, CreditAdminController.updateRoomM
 // Get seasonal calendar for property and year
 router.get('/seasonal-calendar/:propertyId/:year', adminOnly, CreditAdminController.getSeasonalCalendar);
 
+// Get season for specific date (accessible by staff for invitation creation)
+router.get('/seasonal-calendar/:propertyId/season', adminOrStaff, async (req: any, res: Response) => {
+  try {
+    console.log('🔍 User accessing seasonal calendar:', {
+      id: req.user?.id,
+      email: req.user?.email,
+      role: req.user?.Role?.name,
+      hasRole: !!req.user?.Role
+    });
+    
+    const propertyId = parseInt(req.params.propertyId);
+    const date = req.query.date ? new Date(req.query.date as string) : new Date();
+    
+    if (isNaN(propertyId)) {
+      return res.status(400).json({ success: false, error: 'Invalid propertyId' });
+    }
+
+    const SeasonalCalendar = (await import('../models/SeasonalCalendar')).default;
+    // Use method with default fallback
+    const season = await SeasonalCalendar.getSeasonForDateWithDefault(propertyId, date);
+    
+    res.json({
+      success: true,
+      data: {
+        season: season, // Always returns a season (configured or default)
+        date: date.toISOString().split('T')[0]
+      }
+    });
+  } catch (error: any) {
+    console.error('Error getting season for date:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Create seasonal calendar entry
 router.post('/seasonal-calendar', adminOnly, CreditAdminController.createSeasonalEntry);
+
+// Delete seasonal calendar entry
+router.delete('/seasonal-calendar/:id', adminOnly, CreditAdminController.deleteSeasonalEntry);
 
 /**
  * BOOKING COSTS

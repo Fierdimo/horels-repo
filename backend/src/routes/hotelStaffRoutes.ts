@@ -152,11 +152,109 @@ router.get('/services/history', authenticateToken, authorizeRole(['staff', 'admi
 // ============================================
 
 /**
+ * Get all properties (for staff to create invitations with multiple properties)
+ */
+router.get('/properties', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_list_properties'), async (req: AuthRequest, res: Response) => {
+  try {
+    const properties = await Property.findAll({
+      attributes: ['id', 'name', 'city', 'country', 'location'],
+      order: [['name', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: properties
+    });
+  } catch (error: any) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch properties',
+      message: error.message 
+    });
+  }
+});
+
+/**
  * Listar habitaciones del hotel del staff
  */
 router.get('/rooms', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_list_rooms'), (req: AuthRequest, res: Response) => 
   staffRoomController.getRoomsByProperty(req, res)
 );
+
+/**
+ * Get season for specific date (for credit estimation in invitations)
+ */
+router.get('/seasonal-calendar/:propertyId/season', authenticateToken, authorizeRole(['staff', 'admin']), async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyId = parseInt(req.params.propertyId);
+    const date = req.query.date ? new Date(req.query.date as string) : new Date();
+    
+    if (isNaN(propertyId)) {
+      return res.status(400).json({ success: false, error: 'Invalid propertyId' });
+    }
+
+    const SeasonalCalendar = (await import('../models/SeasonalCalendar')).default;
+    const season = await SeasonalCalendar.getSeasonForDateWithDefault(propertyId, date);
+    
+    res.json({
+      success: true,
+      data: {
+        season: season,
+        date: date.toISOString().split('T')[0]
+      }
+    });
+  } catch (error: any) {
+    console.error('Error getting season for date:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Estimate credits for room assignment (for invitations)
+ */
+router.post('/estimate-credits', authenticateToken, authorizeRole(['staff', 'admin']), async (req: AuthRequest, res: Response) => {
+  try {
+    const { propertyId, roomType, seasonType } = req.body;
+
+    if (!propertyId || !roomType || !seasonType) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'propertyId, roomType, and seasonType are required' 
+      });
+    }
+
+    if (!['RED', 'WHITE', 'BLUE'].includes(seasonType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'seasonType must be RED, WHITE, or BLUE' 
+      });
+    }
+
+    const CreditCalculationService = (await import('../services/CreditCalculationService')).default;
+    const estimate = await CreditCalculationService.estimateCreditsForWeek(
+      parseInt(propertyId),
+      roomType,
+      seasonType as 'RED' | 'WHITE' | 'BLUE'
+    );
+
+    res.json({
+      success: true,
+      data: {
+        estimatedCredits: estimate.estimatedCredits,
+        seasonType: estimate.seasonType,
+        breakdown: estimate.breakdown
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error estimating credits:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to estimate credits'
+    });
+  }
+});
 
 /**
  * Crear nueva habitación

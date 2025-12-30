@@ -1,41 +1,100 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, Mail, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProperties } from '@/hooks/useProperties';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { registerSchema, type RegisterFormData } from '@/lib/validations';
 import toast from 'react-hot-toast';
+import apiClient from '@/api/client';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Register() {
   const { t } = useTranslation();
   const { register: registerUser, isRegistering } = useAuth();
   const { data: propertiesData } = useProperties();
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get('invitation');
+  
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [invitationData, setInvitationData] = useState<any>(null);
+  const [loadingInvitation, setLoadingInvitation] = useState(false);
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isValid }
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     mode: 'onChange',
     defaultValues: {
-      roleName: 'owner'
+      roleName: invitationToken ? 'owner' : 'owner'
     }
   });
 
+  // Load invitation data if token is present
+  useEffect(() => {
+    if (invitationToken) {
+      setLoadingInvitation(true);
+      apiClient
+        .get(`/staff/invitations/invitation/${invitationToken}`)
+        .then((response) => {
+          if (response.data.success) {
+            const data = response.data.data;
+            setInvitationData(data);
+            // Pre-fill form with invitation data
+            setValue('email', data.email, { shouldValidate: true });
+            if (data.first_name) setValue('firstName', data.first_name, { shouldValidate: true });
+            if (data.last_name) setValue('lastName', data.last_name, { shouldValidate: true });
+            setValue('roleName', 'owner', { shouldValidate: true });
+            
+            toast.success(
+              t('auth.invitationFound', {
+                defaultValue: `Welcome! You've been invited with ${data.weeks_count} week(s)`,
+              })
+            );
+          }
+        })
+        .catch((error) => {
+          toast.error(error.response?.data?.message || t('auth.invitationError'));
+        })
+        .finally(() => {
+          setLoadingInvitation(false);
+        });
+    }
+  }, [invitationToken, setValue, t]);
+
   const selectedRole = watch('roleName');
 
-  const onSubmit = (data: RegisterFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
     const { confirmPassword, ...registerData } = data;
+    
     registerUser(registerData, {
-      onSuccess: () => {
-        toast.success(t('auth.registerSuccess') || 'Registration successful! Please login.');
+      onSuccess: async (userData) => {
+        // If invitation token exists, accept the invitation
+        if (invitationToken && userData?.user?.id) {
+          try {
+            await apiClient.post('/staff/invitations/accept-invitation', {
+              token: invitationToken,
+              user_id: userData.user.id,
+            });
+            toast.success(
+              t('auth.invitationAccepted', {
+                defaultValue: 'Account created! Your weeks have been assigned.',
+              })
+            );
+          } catch (error: any) {
+            console.error('Error accepting invitation:', error);
+            toast.error(t('auth.invitationAcceptError'));
+          }
+        } else {
+          toast.success(t('auth.registerSuccess') || 'Registration successful! Please login.');
+        }
       },
       onError: (error: any) => {
         const errorMessage = error?.response?.data?.error || error?.message || 'Registration failed';
@@ -44,16 +103,51 @@ export default function Register() {
     });
   };
 
+  if (loadingInvitation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-gray-600">{t('auth.loadingInvitation')}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 bg-primary rounded-lg flex items-center justify-center mb-4">
-            <UserPlus className="h-6 w-6 text-white" />
+            {invitationData ? <Mail className="h-6 w-6 text-white" /> : <UserPlus className="h-6 w-6 text-white" />}
           </div>
           <h2 className="text-3xl font-bold text-gray-900">SW2 Platform</h2>
-          <p className="mt-2 text-gray-600">{t('auth.registerSubtitle') || 'Create your account'}</p>
+          <p className="mt-2 text-gray-600">
+            {invitationData
+              ? t('auth.invitationRegister', { defaultValue: 'Complete Your Owner Registration' })
+              : t('auth.registerSubtitle') || 'Create your account'}
+          </p>
         </div>
+
+        {invitationData && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <Mail className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-blue-900">
+                  {t('auth.invitationTitle', { defaultValue: 'Owner Invitation' })}
+                </h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  {t('auth.invitationDescription', {
+                    defaultValue: `You'll receive ${invitationData.weeks_count} week(s) at ${invitationData.property?.name}`,
+                    count: invitationData.weeks_count,
+                    property: invitationData.property?.name,
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg">
           <div>
@@ -64,10 +158,11 @@ export default function Register() {
               id="email"
               type="email"
               autoComplete="email"
+              readOnly={!!invitationData}
               {...register('email')}
               className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition ${
                 errors.email ? 'border-red-500' : 'border-gray-300'
-              }`}
+              } ${invitationData ? 'bg-gray-50' : ''}`}
             />
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>

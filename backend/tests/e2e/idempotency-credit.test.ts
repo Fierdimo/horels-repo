@@ -29,7 +29,12 @@ describe('E2E: Night-credit idempotency and persistence', () => {
     const user = await User.create({ email: 'owner@example.com', password: 'x', role_id: role.id });
 
     // Create a property and week for that user
-    await Property.create({ name: 'Test Property', location: 'Test City' });
+    await Property.create({ 
+      name: 'Test Property', 
+      location: 'Test City',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
+    });
     const week = await Week.create({ owner_id: user.id, property_id: '1', start_date: new Date(), end_date: new Date(), color: 'red' });
 
     // Create night credit

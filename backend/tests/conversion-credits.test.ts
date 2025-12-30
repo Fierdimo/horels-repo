@@ -36,7 +36,12 @@ describe('Conversion to Night Credits', () => {
     const hashed = await bcrypt.hash('Password123!', 10);
     [owner] = await User.findOrCreate({ where: { email: 'credit-owner@test.com' }, defaults: { email: 'credit-owner@test.com', password: hashed, role_id: ownerRole.id } });
 
-    const prop = await Property.create({ name: 'Credit Hotel', location: 'Test City' });
+    const prop = await Property.create({ 
+      name: 'Credit Hotel', 
+      location: 'Test City',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
+    });
     propertyId = prop.id;
 
     const login = await request(app).post('/auth/login').send({ email: owner.email, password: 'Password123!' });

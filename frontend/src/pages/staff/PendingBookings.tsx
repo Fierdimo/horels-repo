@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/api/client';
+import { timeshareApi } from '@/api/timeshare';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { Calendar, User, Euro, Clock, CheckCircle, XCircle, AlertTriangle, Bed } from 'lucide-react';
+import { Calendar, User, Clock, CheckCircle, XCircle, AlertTriangle, Bed } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { toast } from 'react-hot-toast';
 
@@ -21,6 +21,18 @@ interface Property {
   location: string;
 }
 
+interface BookingMetadata {
+  source?: string;
+  booking_type?: string;
+  user_id?: number;
+  invitation_id?: number;
+  estimated_credits?: number;
+  season_type?: string;
+  rejection_reason?: string;
+  rejected_at?: string;
+  rejected_by?: number;
+}
+
 interface Booking {
   id: number;
   property_id: number;
@@ -30,12 +42,12 @@ interface Booking {
   check_in: string;
   check_out: string;
   room_type: string;
-  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
-  total_amount: number;
-  currency: string;
+  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'pending_approval';
   created_at: string;
   Room?: Room;
   Property?: Property;
+  raw?: string | BookingMetadata;
+  metadata?: BookingMetadata;
 }
 
 interface BookingStats {
@@ -53,64 +65,49 @@ export default function PendingBookings() {
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  // Fetch pending bookings
+  // Fetch pending bookings (owner invitations)
   const { data: pendingBookingsData, isLoading: loadingBookings } = useQuery({
-    queryKey: ['staff-pending-bookings'],
-    queryFn: async () => {
-      const { data } = await apiClient.get('/hotel-staff/bookings/pending');
-      return data;
-    }
-  });
-
-  // Fetch booking statistics
-  const { data: statsData } = useQuery({
-    queryKey: ['staff-booking-stats'],
-    queryFn: async () => {
-      const { data } = await apiClient.get('/hotel-staff/bookings/stats');
-      return data;
-    }
+    queryKey: ['staff-pending-approvals'],
+    queryFn: timeshareApi.getPendingApprovals
   });
 
   // Approve booking mutation
   const approveMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
-      const { data } = await apiClient.post(`/hotel-staff/bookings/${bookingId}/approve`);
-      return data;
-    },
+    mutationFn: (bookingId: number) => timeshareApi.approveBooking(bookingId),
     onSuccess: () => {
-      toast.success(t('staff.bookings.approveSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['staff-pending-bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['staff-booking-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      toast.success('Booking aprovado exitosamente');
+      queryClient.invalidateQueries({ queryKey: ['staff-pending-approvals'] });
       setSelectedBooking(null);
       setActionType(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('staff.bookings.approveError'));
+      toast.error(error.response?.data?.message || 'Error al aprobar el booking');
     }
   });
 
   // Reject booking mutation
   const rejectMutation = useMutation({
-    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason: string }) => {
-      const { data } = await apiClient.post(`/hotel-staff/bookings/${bookingId}/reject`, { reason });
-      return data;
-    },
+    mutationFn: ({ bookingId, reason }: { bookingId: number; reason: string }) => 
+      timeshareApi.rejectBooking(bookingId, reason),
     onSuccess: () => {
-      toast.success(t('staff.bookings.rejectSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['staff-pending-bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['staff-booking-stats'] });
+      toast.success('Booking rechazado exitosamente');
+      queryClient.invalidateQueries({ queryKey: ['staff-pending-approvals'] });
       setSelectedBooking(null);
       setActionType(null);
       setRejectReason('');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('staff.bookings.rejectError'));
+      toast.error(error.response?.data?.message || 'Error al rechazar el booking');
     }
   });
 
-  const pendingBookings: Booking[] = pendingBookingsData?.data || [];
-  const stats: BookingStats = statsData?.data || { total: 0, pending: 0, confirmed: 0, checkedIn: 0 };
+  const pendingBookings: Booking[] = Array.isArray(pendingBookingsData) ? pendingBookingsData : [];
+  const stats: BookingStats = { 
+    total: pendingBookings.length, 
+    pending: pendingBookings.filter(b => b.status === 'pending_approval').length,
+    confirmed: 0,
+    checkedIn: 0
+  };
 
   const handleApprove = (bookingId: number) => {
     setSelectedBooking(bookingId);
@@ -152,52 +149,32 @@ export default function PendingBookings() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {t('staff.bookings.title')}
+            Bookings Pendientes de Aprobación
           </h1>
           <p className="text-gray-600">
-            {t('staff.bookings.subtitle')}
+            Revisa y gestiona los bookings de invitaciones de owners que requieren tu aprobación
           </p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-yellow-50 rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-purple-50 rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">{t('staff.bookings.pendingCount')}</p>
-                <p className="text-3xl font-bold text-yellow-600 mt-2">{stats.pending}</p>
+                <p className="text-sm font-medium text-gray-600">Pendientes de Aprobación</p>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{stats.pending}</p>
               </div>
-              <Clock className="h-12 w-12 text-yellow-500 opacity-20" />
-            </div>
-          </div>
-
-          <div className="bg-green-50 rounded-lg shadow-sm p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">{t('staff.bookings.confirmedCount')}</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{stats.confirmed}</p>
-              </div>
-              <CheckCircle className="h-12 w-12 text-green-500 opacity-20" />
+              <Clock className="h-12 w-12 text-purple-500 opacity-20" />
             </div>
           </div>
 
           <div className="bg-blue-50 rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">{t('staff.bookings.checkedInCount')}</p>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.checkedIn}</p>
+                <p className="text-sm font-medium text-gray-600">Total de Solicitudes</p>
+                <p className="text-3xl font-bold text-blue-600 mt-2">{stats.total}</p>
               </div>
-              <Bed className="h-12 w-12 text-blue-500 opacity-20" />
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg shadow-sm p-6 border-l-4 border-gray-400">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">{t('staff.bookings.totalCount')}</p>
-                <p className="text-3xl font-bold text-gray-700 mt-2">{stats.total}</p>
-              </div>
-              <AlertTriangle className="h-12 w-12 text-gray-400 opacity-20" />
+              <AlertTriangle className="h-12 w-12 text-blue-500 opacity-20" />
             </div>
           </div>
         </div>
@@ -207,17 +184,17 @@ export default function PendingBookings() {
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {t('staff.bookings.allCaughtUp')}
+              ¡Todo al día!
             </h3>
             <p className="text-gray-600">
-              {t('staff.bookings.noRequestsDesc')}
+              No hay bookings pendientes de aprobación en este momento
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {pendingBookings.map((booking) => {
               const nights = calculateNights(booking.check_in, booking.check_out);
-              const pricePerNight = booking.total_amount / nights;
+              const metadata = typeof booking.raw === 'string' ? JSON.parse(booking.raw) : booking.raw || {};
 
               return (
                 <div key={booking.id} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
@@ -225,17 +202,20 @@ export default function PendingBookings() {
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {t('staff.bookings.bookingNumber', { number: booking.id })}
+                          Booking #{booking.id}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {t('staff.bookings.requestedOn', {
-                            date: format(parseISO(booking.created_at), 'PPpp')
-                          })}
+                          Solicitado el {format(parseISO(booking.created_at), 'dd/MM/yyyy HH:mm')}
                         </p>
+                        {metadata.estimated_credits && (
+                          <p className="text-sm text-blue-600 font-medium mt-1">
+                            Valor estimado: {metadata.estimated_credits} créditos
+                          </p>
+                        )}
                       </div>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
                         <Clock className="h-4 w-4 mr-1" />
-                        {t('staff.bookings.pending')}
+                        Pendiente de Aprobación
                       </span>
                     </div>
 
@@ -244,15 +224,15 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <User className="h-5 w-5 text-gray-400" />
-                          {t('staff.bookings.guestInfo')}
+                          Información del Owner
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.name')}:</span>{' '}
+                            <span className="text-gray-600">Nombre:</span>{' '}
                             <span className="font-medium text-gray-900">{booking.guest_name}</span>
                           </p>
                           <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.email')}:</span>{' '}
+                            <span className="text-gray-600">Email:</span>{' '}
                             <span className="font-medium text-gray-900">{booking.guest_email}</span>
                           </p>
                         </div>
@@ -262,19 +242,19 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <Bed className="h-5 w-5 text-gray-400" />
-                          {t('staff.bookings.roomInfo')}
+                          Información de Habitación
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.room')}:</span>{' '}
-                            <span className="font-medium text-gray-900">
-                              {booking.Room?.name || booking.room_type}
-                            </span>
+                            <span className="text-gray-600">Tipo:</span>{' '}
+                            <span className="font-medium text-gray-900">{booking.room_type}</span>
                           </p>
-                          <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.type')}:</span>{' '}
-                            <span className="font-medium text-gray-900">{booking.Room?.type || booking.room_type}</span>
-                          </p>
+                          {metadata.season_type && (
+                            <p className="text-sm">
+                              <span className="text-gray-600">Temporada:</span>{' '}
+                              <span className="font-medium text-gray-900">{metadata.season_type}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -282,46 +262,46 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <Calendar className="h-5 w-5 text-gray-400" />
-                          {t('staff.bookings.dates')}
+                          Fechas
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.checkIn')}:</span>{' '}
+                            <span className="text-gray-600">Check-in:</span>{' '}
                             <span className="font-medium text-gray-900">
-                              {format(parseISO(booking.check_in), 'PPP')}
+                              {format(parseISO(booking.check_in), 'dd/MM/yyyy')}
                             </span>
                           </p>
                           <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.checkOut')}:</span>{' '}
+                            <span className="text-gray-600">Check-out:</span>{' '}
                             <span className="font-medium text-gray-900">
-                              {format(parseISO(booking.check_out), 'PPP')}
+                              {format(parseISO(booking.check_out), 'dd/MM/yyyy')}
                             </span>
                           </p>
                           <p className="text-sm font-medium text-blue-600">
-                            {t('staff.bookings.nights', { count: nights })}
+                            {nights} {nights === 1 ? 'noche' : 'noches'}
                           </p>
                         </div>
                       </div>
 
-                      {/* Payment */}
+                      {/* Source Information */}
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                          <Euro className="h-5 w-5 text-gray-400" />
-                          {t('staff.bookings.payment')}
+                          <AlertTriangle className="h-5 w-5 text-gray-400" />
+                          Origen
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.pricePerNight')}:</span>{' '}
+                            <span className="text-gray-600">Tipo:</span>{' '}
                             <span className="font-medium text-gray-900">
-                              {pricePerNight.toFixed(2)} {booking.currency}
+                              {metadata.booking_type === 'owner_invitation' ? 'Invitación de Owner' : 'Booking Regular'}
                             </span>
                           </p>
-                          <p className="text-sm">
-                            <span className="text-gray-600">{t('staff.bookings.totalAmount')}:</span>{' '}
-                            <span className="font-bold text-lg text-gray-900">
-                              {booking.total_amount.toFixed(2)} {booking.currency}
-                            </span>
-                          </p>
+                          {booking.Property?.name && (
+                            <p className="text-sm">
+                              <span className="text-gray-600">Propiedad:</span>{' '}
+                              <span className="font-medium text-gray-900">{booking.Property.name}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -334,7 +314,7 @@ export default function PendingBookings() {
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <CheckCircle className="h-5 w-5" />
-                        {t('staff.bookings.approve')}
+                        Aprobar Booking
                       </button>
                       <button
                         onClick={() => handleReject(booking.id)}
@@ -342,7 +322,7 @@ export default function PendingBookings() {
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <XCircle className="h-5 w-5" />
-                        {t('staff.bookings.reject')}
+                        Rechazar Booking
                       </button>
                     </div>
                   </div>
@@ -362,10 +342,10 @@ export default function PendingBookings() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {t('staff.bookings.confirmApprove')}
+                    Confirmar Aprobación
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {t('staff.bookings.approveDescription')}
+                    El booking será confirmado y el owner será notificado
                   </p>
                 </div>
               </div>
@@ -379,14 +359,14 @@ export default function PendingBookings() {
                   disabled={approveMutation.isPending}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
-                  {t('common.cancel')}
+                  Cancelar
                 </button>
                 <button
                   onClick={confirmApprove}
                   disabled={approveMutation.isPending}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
-                  {approveMutation.isPending ? t('common.processing') : t('staff.bookings.confirmButton')}
+                  {approveMutation.isPending ? 'Procesando...' : 'Aprobar'}
                 </button>
               </div>
             </div>
@@ -403,24 +383,24 @@ export default function PendingBookings() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {t('staff.bookings.confirmReject')}
+                    Confirmar Rechazo
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {t('staff.bookings.rejectDescription')}
+                    El booking será cancelado y el owner será notificado con la razón del rechazo
                   </p>
                 </div>
               </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('staff.bookings.rejectReason')} *
+                  Razón del Rechazo *
                 </label>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  placeholder={t('staff.bookings.rejectReasonPlaceholder')}
+                  placeholder="Ej: Habitación no disponible en esas fechas, no cumple con los requisitos, etc."
                   disabled={rejectMutation.isPending}
                 />
               </div>
@@ -435,14 +415,14 @@ export default function PendingBookings() {
                   disabled={rejectMutation.isPending}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
-                  {t('common.cancel')}
+                  Cancelar
                 </button>
                 <button
                   onClick={confirmReject}
                   disabled={rejectMutation.isPending || !rejectReason.trim()}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
-                  {rejectMutation.isPending ? t('common.processing') : t('staff.bookings.confirmReject')}
+                  {rejectMutation.isPending ? 'Procesando...' : 'Rechazar Booking'}
                 </button>
               </div>
             </div>

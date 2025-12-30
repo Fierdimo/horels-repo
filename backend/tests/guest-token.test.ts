@@ -19,7 +19,9 @@ describe('Guest token lifecycle - create & access', () => {
       name: 'Test Property',
       location: 'Test City',
       latitude: 40.7128,
-      longitude: -74.0060
+      longitude: -74.0060,
+      tier: 'STANDARD',
+      location_multiplier: 1.00
     });
     propertyId = prop.id;
 

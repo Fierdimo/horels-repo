@@ -38,6 +38,18 @@ export const timeshareApi = {
     return data.data!;
   },
 
+  // Confirm pending booking from invitation
+  confirmInvitationBooking: async (bookingId: number): Promise<any> => {
+    const { data } = await apiClient.post(`/staff/invitations/confirm-booking/${bookingId}`);
+    return data;
+  },
+
+  // Convert pending booking to credits
+  convertInvitationBookingToCredits: async (bookingId: number): Promise<any> => {
+    const { data } = await apiClient.post(`/staff/invitations/convert-booking-to-credits/${bookingId}`);
+    return data;
+  },
+
   // ============================================================================
   // SWAPS - Owner Endpoints
   // ============================================================================
@@ -287,21 +299,50 @@ export const timeshareApi = {
   },
 
   // ============================================================================
-  // NIGHT CREDITS
+  // CREDIT WALLET (New unified credit system)
   // ============================================================================
   
-  getCredits: async (): Promise<NightCredit[]> => {
+  getCreditWallet: async (): Promise<any> => {
     try {
-      const { data } = await apiClient.get<ApiResponse<NightCredit[]>>('/timeshare/night-credits');
+      const { data } = await apiClient.get('/credits/wallet');
+      return data.data || null;
+    } catch (error) {
+      console.error('Failed to fetch credit wallet:', error);
+      return null;
+    }
+  },
+
+  getCreditTransactions: async (): Promise<any[]> => {
+    try {
+      const { data } = await apiClient.get('/credits/transactions');
       return Array.isArray(data.data) ? data.data : [];
     } catch (error) {
-      console.error('Failed to fetch credits:', error);
+      console.error('Failed to fetch credit transactions:', error);
       return [];
     }
   },
 
-  useCredits: async (creditId: number, request: UseCreditsRequest): Promise<any> => {
-    const { data } = await apiClient.post(`/timeshare/night-credits/${creditId}/use`, request);
+  // ============================================================================
+  // INVITATION BOOKINGS (Staff approval workflow)
+  // ============================================================================
+
+  getPendingApprovals: async (): Promise<any[]> => {
+    try {
+      const { data } = await apiClient.get('/staff/invitations/pending-approvals');
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch pending approvals:', error);
+      return [];
+    }
+  },
+
+  approveBooking: async (bookingId: number): Promise<any> => {
+    const { data } = await apiClient.post(`/staff/invitations/approve-booking/${bookingId}`);
+    return data;
+  },
+
+  rejectBooking: async (bookingId: number, reason: string): Promise<any> => {
+    const { data } = await apiClient.post(`/staff/invitations/reject-booking/${bookingId}`, { reason });
     return data;
   }
 };

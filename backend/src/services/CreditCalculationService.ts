@@ -1,41 +1,84 @@
-import PropertyTier from '../models/PropertyTier';
-import RoomTypeMultiplier from '../models/RoomTypeMultiplier';
-import SeasonalCalendar from '../models/SeasonalCalendar';
 import CreditBookingCost from '../models/CreditBookingCost';
 import PlatformSetting from '../models/PlatformSetting';
 import Week from '../models/Week';
 import Property from '../models/Property';
 
 /**
- * Service for calculating credit values for deposits and bookings
+ * Credit Calculation Service - Master Formula Implementation
+ * 
+ * Implements the comprehensive credit valuation system:
+ * - Deposit: Base_Season_Value × Tier_Multiplier × Location_Multiplier × Unit_Size_Multiplier
+ * - Booking: Nightly_Cost = Base_Rate × Room_Type_Multiplier × Tier_Multiplier × Location_Multiplier
  */
 class CreditCalculationService {
   
   /**
-   * Base season values (standard multipliers)
+   * Base season values (reference points for credit calculation)
    */
   private static readonly BASE_SEASON_VALUES = {
-    RED: 1000,
-    WHITE: 600,
-    BLUE: 300
+    RED: 1000,    // High season - peak demand
+    WHITE: 600,   // Medium season - moderate demand
+    BLUE: 300     // Low season - low demand
   };
 
   /**
+   * Property tier multipliers
+   */
+  private static readonly TIER_MULTIPLIERS = {
+    DIAMOND: 1.5,      // Premium properties
+    GOLD: 1.3,         // High-quality properties
+    SILVER_PLUS: 1.1,  // Above standard
+    STANDARD: 1.0      // Standard properties
+  };
+
+  /**
+   * Room type multipliers (accommodation size factor)
+   */
+  private static readonly ROOM_TYPE_MULTIPLIERS = {
+    STANDARD: 1.0,      // Studio / Standard room
+    SUPERIOR: 1.2,      // 1 bedroom
+    DELUXE: 1.5,        // 2 bedroom
+    SUITE: 2.0,         // 3 bedroom
+    PRESIDENTIAL: 2.5   // Penthouse
+  };
+
+  /**
+   * Accommodation type to room type mapping
+   */
+  private static readonly ACCOMMODATION_TO_ROOM_TYPE: Record<string, keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS> = {
+    'studio': 'STANDARD',
+    '1bedroom': 'SUPERIOR',
+    '2bedroom': 'DELUXE',
+    '3bedroom': 'SUITE',
+    'penthouse': 'PRESIDENTIAL'
+  };
+
+  /**
+   * Map accommodation type (from weeks) to room type (for bookings)
+   */
+  private mapAccommodationToRoomType(accommodationType: string): keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS {
+    const normalized = accommodationType.toLowerCase().replace(/\s+/g, '');
+    return CreditCalculationService.ACCOMMODATION_TO_ROOM_TYPE[normalized] || 'STANDARD';
+  }
+
+  /**
    * Calculate credits earned from depositing a week
-   * Formula: Credits = BASE_SEASON_VALUE × LOCATION_MULTIPLIER × ROOM_TYPE_MULTIPLIER
+   * Master Formula: BASE_SEASON_VALUE × TIER_MULTIPLIER × LOCATION_MULTIPLIER × ROOM_TYPE_MULTIPLIER
    */
   async calculateDepositCredits(weekId: number): Promise<{
     credits: number;
     breakdown: {
       seasonType: string;
       baseValue: number;
+      tierMultiplier: number;
       locationMultiplier: number;
       roomTypeMultiplier: number;
       propertyName: string;
+      propertyTier: string;
       roomType: string;
     };
   }> {
-    // Get week details
+    // Get week details with property
     const week = await Week.findByPk(weekId, {
       include: [{ model: Property, as: 'property' }]
     });
@@ -49,51 +92,43 @@ class CreditCalculationService {
       throw new Error(`Week #${weekId} has no associated property`);
     }
 
-    if (!week.start_date) {
-      throw new Error(`Week #${weekId} has no start_date (floating week not supported for credit calculation)`);
+    // Get season type from week (now stored directly on weeks table)
+    const seasonType = week.season_type || 'WHITE';
+    const baseValue = CreditCalculationService.BASE_SEASON_VALUES[seasonType as keyof typeof CreditCalculationService.BASE_SEASON_VALUES];
+
+    // Get tier multiplier from property
+    const tierMultiplier = CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0;
+
+    // Get location multiplier from property
+    const locationMultiplier = parseFloat(property.location_multiplier.toString());
+
+    // Get room type multiplier - check if it's already a room type (STANDARD, SUPERIOR, etc.) or needs mapping
+    let roomType: keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS;
+    const accommodationType = week.accommodation_type || 'STANDARD';
+    
+    // Check if it's already a valid room type
+    if (accommodationType in CreditCalculationService.ROOM_TYPE_MULTIPLIERS) {
+      roomType = accommodationType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS;
+    } else {
+      // Map from legacy format (studio, 1bedroom, etc.)
+      roomType = this.mapAccommodationToRoomType(accommodationType);
     }
+    
+    const roomTypeMultiplier = CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType];
 
-    // Get season type for the week
-    const season = await SeasonalCalendar.getSeasonForDate(
-      week.property_id,
-      new Date(week.start_date)
-    );
-
-    if (!season) {
-      throw new Error(`No season defined for property #${week.property_id} on ${week.start_date}`);
-    }
-
-    // season is the season type string ('RED' | 'WHITE' | 'BLUE')
-    const seasonType = season as 'RED' | 'WHITE' | 'BLUE';
-    const baseValue = CreditCalculationService.BASE_SEASON_VALUES[seasonType];
-
-    // Get property tier multiplier
-    let locationMultiplier = 1.0;
-
-    const tierIdProp = (property as any).tier_id;
-    if (tierIdProp) {
-      const tier = await PropertyTier.findByPk(tierIdProp);
-      if (tier) {
-        locationMultiplier = Number((tier as any).location_multiplier);
-      }
-    }
-
-    // Get room type multiplier (accommodation_type in Week model)
-    const roomType = week.accommodation_type || 'STANDARD';
-    const roomTypeMultiplierResult = await RoomTypeMultiplier.getByRoomType(roomType);
-    const roomMultiplier = roomTypeMultiplierResult ? Number((roomTypeMultiplierResult as any).multiplier) : 1.0;
-
-    // Calculate final credits
-    const credits = Math.round(baseValue * locationMultiplier * roomMultiplier);
+    // Calculate final credits using Master Formula
+    const credits = Math.round(baseValue * tierMultiplier * locationMultiplier * roomTypeMultiplier);
 
     return {
       credits,
       breakdown: {
         seasonType,
         baseValue,
+        tierMultiplier,
         locationMultiplier,
-        roomTypeMultiplier: roomMultiplier,
-        propertyName: (property as any).name,
+        roomTypeMultiplier,
+        propertyName: property.name,
+        propertyTier: property.tier,
         roomType
       }
     };
@@ -101,63 +136,84 @@ class CreditCalculationService {
 
   /**
    * Calculate cost in credits for a booking
+   * Uses CreditBookingCost configuration or fallback to Master Formula
    */
   async calculateBookingCost(
     propertyId: number,
     roomType: string,
-    checkInDate: Date,
-    checkOutDate: Date
+    seasonType: 'RED' | 'WHITE' | 'BLUE',
+    nights: number,
+    checkInDate?: Date
   ): Promise<{
     totalCredits: number;
+    creditsPerNight: number;
     nights: number;
-    breakdown: Array<{
-      date: string;
+    breakdown: {
+      baseRate: number;
+      tierMultiplier: number;
+      locationMultiplier: number;
+      roomTypeMultiplier: number;
+      propertyTier: string;
       seasonType: string;
-      creditsPerNight: number;
-    }>;
+      configUsed: boolean;
+    };
   }> {
-    const nights: Array<{ date: string; seasonType: string; creditsPerNight: number }> = [];
-    let totalCredits = 0;
+    let creditsPerNight: number;
+    let configUsed = false;
 
-    // Iterate through each night
-    const currentDate = new Date(checkInDate);
-    const endDate = new Date(checkOutDate);
+    // Try to get configured cost from CreditBookingCost table
+    const costConfig = await CreditBookingCost.getCost(
+      propertyId,
+      roomType,
+      seasonType,
+      checkInDate
+    );
 
-    while (currentDate < endDate) {
-      // Get season for this date
-      const season = await SeasonalCalendar.getSeasonForDate(propertyId, currentDate);
-      
-      if (!season) {
-        throw new Error(`No season defined for property #${propertyId} on ${currentDate.toISOString()}`);
+    if (costConfig && costConfig.credits_per_night) {
+      // Use configured value
+      creditsPerNight = costConfig.credits_per_night;
+      configUsed = true;
+    } else {
+      // Fallback to Master Formula calculation
+      const property = await Property.findByPk(propertyId);
+      if (!property) {
+        throw new Error(`Property ${propertyId} not found`);
       }
 
-      // season is the season type string
-      const seasonType = season as 'RED' | 'WHITE' | 'BLUE';
+      // Base rate from season
+      const baseRate = CreditCalculationService.BASE_SEASON_VALUES[seasonType];
 
-      // Get cost for this combination
-      const cost = await CreditBookingCost.getCost(propertyId, roomType, seasonType, currentDate);
+      // Room type multiplier
+      const roomMultiplier = CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0;
 
-      if (!cost) {
-        throw new Error(`No booking cost defined for property #${propertyId}, room type ${roomType}, season ${seasonType}`);
-      }
+      // Tier multiplier
+      const tierMultiplier = CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0;
 
-      const creditsPerNight = Number((cost as any).credits_per_night);
-      totalCredits += creditsPerNight;
+      // Location multiplier
+      const locationMultiplier = parseFloat(property.location_multiplier.toString());
 
-      nights.push({
-        date: currentDate.toISOString().split('T')[0],
-        seasonType,
-        creditsPerNight
-      });
-
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
+      // Calculate nightly cost: Base_Rate × Room_Multiplier × Tier_Multiplier × Location_Multiplier
+      creditsPerNight = Math.round(baseRate * roomMultiplier * tierMultiplier * locationMultiplier);
     }
+
+    const totalCredits = creditsPerNight * nights;
+
+    // Get property for breakdown
+    const property = await Property.findByPk(propertyId);
 
     return {
       totalCredits,
-      nights: nights.length,
-      breakdown: nights
+      creditsPerNight,
+      nights,
+      breakdown: {
+        baseRate: CreditCalculationService.BASE_SEASON_VALUES[seasonType],
+        tierMultiplier: property ? CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] : 1.0,
+        locationMultiplier: property ? parseFloat(property.location_multiplier.toString()) : 1.0,
+        roomTypeMultiplier: CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0,
+        propertyTier: property?.tier || 'STANDARD',
+        seasonType,
+        configUsed
+      }
     };
   }
 
@@ -257,67 +313,115 @@ class CreditCalculationService {
   }
 
   /**
-   * Get all season values (for admin configuration)
+   * Calculate credit difference for swap scenarios
+   * When swapping a RED/RIMINI for WHITE/MADONNA, calculate if additional payment needed
    */
-  getBaseSeasonValues(): Record<string, number> {
-    return { ...CreditCalculationService.BASE_SEASON_VALUES };
+  async calculateSwapDifference(
+    depositedWeekId: number,
+    requestedPropertyId: number,
+    requestedRoomType: string,
+    requestedSeasonType: 'RED' | 'WHITE' | 'BLUE',
+    requestedNights: number
+  ): Promise<{
+    deposited_credits: number;
+    required_credits: number;
+    credit_difference: number;
+    requires_payment: boolean;
+    payment_amount_credits: number;
+  }> {
+    // Calculate credits from deposited week
+    const depositResult = await this.calculateDepositCredits(depositedWeekId);
+
+    // Calculate credits required for booking
+    const bookingResult = await this.calculateBookingCost(
+      requestedPropertyId,
+      requestedRoomType,
+      requestedSeasonType,
+      requestedNights
+    );
+
+    const creditDifference = depositResult.credits - bookingResult.totalCredits;
+
+    return {
+      deposited_credits: depositResult.credits,
+      required_credits: bookingResult.totalCredits,
+      credit_difference: creditDifference,
+      requires_payment: creditDifference < 0,
+      payment_amount_credits: creditDifference < 0 ? Math.abs(creditDifference) : 0
+    };
   }
 
   /**
-   * Estimate credits for a week without saving
+   * Estimate credits for a week without creating it
    * (Useful for showing users potential earnings before depositing)
    */
   async estimateCreditsForWeek(
     propertyId: number,
-    roomType: string,
-    weekStartDate: Date
+    accommodationType: string,
+    seasonType: 'RED' | 'WHITE' | 'BLUE'
   ): Promise<{
     estimatedCredits: number;
     seasonType: string;
     breakdown: {
       baseValue: number;
+      tierMultiplier: number;
       locationMultiplier: number;
       roomTypeMultiplier: number;
+      propertyTier: string;
     };
   }> {
-    // Get season
-    const season = await SeasonalCalendar.getSeasonForDate(propertyId, weekStartDate);
-    if (!season) {
-      throw new Error(`No season defined for property #${propertyId} on ${weekStartDate.toISOString()}`);
+    // Get property details
+    const property = await Property.findByPk(propertyId);
+    if (!property) {
+      throw new Error(`Property ${propertyId} not found`);
     }
 
-    // season is the season type string
-    const seasonType = season as 'RED' | 'WHITE' | 'BLUE';
+    // Get base season value
     const baseValue = CreditCalculationService.BASE_SEASON_VALUES[seasonType];
 
-    // Get property tier
-    const property = await Property.findByPk(propertyId);
-    let locationMultiplier = 1.0;
+    // Get tier multiplier
+    const tierMultiplier = CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0;
 
-    const tierIdProp = property ? (property as any).tier_id : null;
-    if (tierIdProp) {
-      const tier = await PropertyTier.findByPk(tierIdProp);
-      if (tier) {
-        locationMultiplier = Number((tier as any).location_multiplier);
-      }
-    }
+    // Get location multiplier
+    const locationMultiplier = parseFloat(property.location_multiplier.toString());
 
-    // Get room multiplier
-    const roomTypeMultiplierResult = await RoomTypeMultiplier.getByRoomType(roomType);
-    const roomMultiplier = roomTypeMultiplierResult ? Number((roomTypeMultiplierResult as any).multiplier) : 1.0;
+    // Get room type multiplier
+    const roomType = this.mapAccommodationToRoomType(accommodationType);
+    const roomTypeMultiplier = CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType];
 
-    // Calculate
-    const estimatedCredits = Math.round(baseValue * locationMultiplier * roomMultiplier);
+    // Calculate estimated credits
+    const estimatedCredits = Math.round(baseValue * tierMultiplier * locationMultiplier * roomTypeMultiplier);
 
     return {
       estimatedCredits,
       seasonType,
       breakdown: {
         baseValue,
+        tierMultiplier,
         locationMultiplier,
-        roomTypeMultiplier: roomMultiplier
+        roomTypeMultiplier,
+        propertyTier: property.tier
       }
     };
+  }
+
+  /**
+   * Get system constants (for admin reference and calculations)
+   */
+  getSystemConstants() {
+    return {
+      season_base_values: CreditCalculationService.BASE_SEASON_VALUES,
+      tier_multipliers: CreditCalculationService.TIER_MULTIPLIERS,
+      room_type_multipliers: CreditCalculationService.ROOM_TYPE_MULTIPLIERS,
+      accommodation_mapping: CreditCalculationService.ACCOMMODATION_TO_ROOM_TYPE
+    };
+  }
+
+  /**
+   * Get all season values (for admin configuration)
+   */
+  getBaseSeasonValues(): Record<string, number> {
+    return { ...CreditCalculationService.BASE_SEASON_VALUES };
   }
 }
 

@@ -23,7 +23,12 @@ describe('Concurrency: completeSwap', () => {
     const role = await Role.create({ name: 'owner' } as any);
     const user = await User.create({ email: 'owner1@example.com', password: 'x', role_id: role.id } as any);
     // Create property referenced by the week
-    const property = await Property.create({ name: 'Test Property', location: 'Test Location' });
+    const property = await Property.create({ 
+      name: 'Test Property', 
+      location: 'Test Location',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
+    });
     const week = await Week.create({ owner_id: user.id, property_id: property.id, start_date: new Date(), end_date: new Date(Date.now() + 7 * 86400 * 1000), color: 'red' } as any);
 
     // Create a swap row with status 'matched' referencing the week

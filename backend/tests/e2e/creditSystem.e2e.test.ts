@@ -71,8 +71,9 @@ describe('Credit System E2E Tests', () => {
       address: '789 E2E St',
       city: 'E2E City',
       country: 'Test Country',
-      tier_id: tier.id,
-      allows_credit_bookings: true
+      location: 'E2E City, Test Country',
+      tier: 'GOLD',
+      location_multiplier: 1.30
     });
 
     // Create seasonal calendar

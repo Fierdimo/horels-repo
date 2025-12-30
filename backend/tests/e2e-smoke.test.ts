@@ -73,7 +73,12 @@ describe('E2E Smoke Tests - Business Flows', () => {
     await User.findOrCreate({ where: { email: 'admin@sw2.com' }, defaults: { email: 'admin@sw2.com', password: adminHashed, role_id: adminRole.id } });
 
     // Create a property
-    const prop = await Property.create({ name: 'Smoke Hotel', location: 'Test City' });
+    const prop = await Property.create({ 
+      name: 'Smoke Hotel', 
+      location: 'Test City',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
+    });
     propertyId = prop.id;
 
     // Login users

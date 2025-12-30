@@ -18,6 +18,16 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       },
+      '/api/admin/credit-config': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/api/credits/estimate': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      },
       '/api': {
         target: 'http://localhost:3000/hotels',
         changeOrigin: true,

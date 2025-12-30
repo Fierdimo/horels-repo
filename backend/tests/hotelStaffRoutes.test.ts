@@ -13,7 +13,13 @@ beforeAll(async () => {
   // Create roles
   const staffRole = await Role.create({ name: 'staff' });
   // Create property
-  property = await Property.create({ name: 'Test Hotel', location: 'Test City', coordinates: '{"lat":0,"lng":0}' });
+  property = await Property.create({ 
+    name: 'Test Hotel', 
+    location: 'Test City', 
+    coordinates: '{"lat":0,"lng":0}',
+    tier: 'STANDARD',
+    location_multiplier: 1.00
+  });
   // Create staff user
   const staffUser = await User.create({
     email: 'staff@test.com',

@@ -4,7 +4,12 @@ import { SwapRequest, User, Week, Property } from '../../src/models';
 describe('Cleanup stuck swaps job', () => {
   it('should mark old processing swaps as failed', async () => {
     // Setup: create a property, user y week válidos para el swap
-    const prop = await Property.create({ name: 'Cleanup Prop', location: 'Test City' });
+    const prop = await Property.create({ 
+      name: 'Cleanup Prop', 
+      location: 'Test City',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
+    });
     const user = await User.create({ email: `cleanup-test-${Date.now()}@test.com`, password: 'x', role_id: 1 });
     const week = await Week.create({ owner_id: user.id, property_id: prop.id, start_date: new Date(), end_date: new Date(Date.now() + 7*24*3600*1000), color: 'red', status: 'available' });
     const oldDate = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago

@@ -14,6 +14,8 @@ import PMSSyncLog from './PMSSyncLog';
 import Fee from './Fee';
 import Room from './room';
 import RoomType from './RoomType';
+import OwnerInvitation from './OwnerInvitation';
+import CreditBookingCost from './CreditBookingCost';
 
 // Asociaciones existentes (guardadas con comprobaciones para evitar errores durante el arranque de tests)
 try {
@@ -78,6 +80,18 @@ try {
     // Asociaciones para Bookings-Room (trackear habitación específica)
     Room.hasMany(Booking, { foreignKey: 'room_id', as: 'Bookings' });
     Booking.belongsTo(Room, { foreignKey: 'room_id', as: 'Room' });
+
+    // Asociaciones para Owner Invitations
+    OwnerInvitation.belongsTo(User, { foreignKey: 'created_by_staff_id', as: 'createdByStaff' });
+    OwnerInvitation.belongsTo(Property, { foreignKey: 'property_id', as: 'property' });
+    OwnerInvitation.belongsTo(User, { foreignKey: 'created_user_id', as: 'createdUser' });
+    User.hasMany(OwnerInvitation, { foreignKey: 'created_by_staff_id', as: 'createdInvitations' });
+    User.hasMany(OwnerInvitation, { foreignKey: 'created_user_id', as: 'receivedInvitation' });
+    Property.hasMany(OwnerInvitation, { foreignKey: 'property_id', as: 'invitations' });
+
+    // Asociaciones para Credit Booking Costs
+    CreditBookingCost.belongsTo(Property, { foreignKey: 'property_id', as: 'property' });
+    Property.hasMany(CreditBookingCost, { foreignKey: 'property_id', as: 'creditCosts' });
   }
 } catch (e) {
   // Log and continue — tests will surface issues if associations are required
@@ -102,4 +116,6 @@ export {
   Fee,
   Room,
   RoomType,
+  OwnerInvitation,
+  CreditBookingCost,
 };

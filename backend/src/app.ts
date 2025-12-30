@@ -25,6 +25,9 @@ import healthRoutes from './routes/healthRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import creditRoutes from './routes/creditRoutes';
 import creditAdminRoutes from './routes/creditAdminRoutes';
+import adminCreditConfigRoutes from './routes/adminCreditConfigRoutes';
+import creditEstimationRoutes from './routes/creditEstimationRoutes';
+import invitationRoutes, { publicInvitationRoutes } from './routes/invitationRoutes';
 import { authenticateToken } from './middleware/authMiddleware';
 import { authorize } from './middleware/authorizationMiddleware';
 import { logAction } from './middleware/loggingMiddleware';
@@ -68,6 +71,8 @@ app.use(apiLimiter); // General rate limiting
 app.use('/hotels/auth', authLimiter, logFailedAuth, authRoutes); // Stricter rate limiting for auth + failed auth logging
 app.use('/hotels/admin', adminLimiter, adminRoutes); // Stricter rate limiting for admin
 app.use('/hotels/admin/rooms', adminLimiter, roomRoutes); // Room management for admin
+app.use('/hotels/staff/invitations/public', publicInvitationRoutes); // Public invitation routes (no auth required)
+app.use('/hotels/staff/invitations', authenticateToken, invitationRoutes); // Staff owner invitations
 app.use('/hotels/properties', authenticateToken, propertyRoutes); // Property management (admin + hotel staff)
 app.use('/hotels/dashboard', authenticateToken, dashboardRoutes); // Dashboard with property filtering
 app.use('/hotels/public', publicRoutes); // Public marketplace routes (no auth required)
@@ -87,8 +92,10 @@ app.use('/hotels/staff', authenticateToken, staffNightCreditRoutes); // Staff ni
 app.use('/hotels/hotel', hotelGuestRoutes); // Hotel guest routes (light access)
 app.use('/hotels/hotel-staff', authenticateToken, hotelStaffRoutes); // Hotel staff routes
 app.use('/hotels/settings', settingsRoutes); // Platform settings (admin only)
-app.use('/api/credits', authenticateToken, creditRoutes); // Variable credit system (user)
-app.use('/api/credits/admin', authenticateToken, creditAdminRoutes); // Credit admin configuration
+app.use('/hotels/credits', authenticateToken, creditRoutes); // Variable credit system (user)
+app.use('/hotels/api/credits/admin', authenticateToken, creditAdminRoutes); // Credit admin configuration
+app.use('/hotels/api/credits/estimate', authenticateToken, creditEstimationRoutes); // Credit estimation tools
+app.use('/hotels/api/admin/credit-config', authenticateToken, adminCreditConfigRoutes); // Credit configuration panel (admin)
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);
 app.use('/hotels', healthRoutes);

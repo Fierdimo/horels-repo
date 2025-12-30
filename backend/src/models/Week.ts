@@ -9,7 +9,8 @@ class Week extends Model {
   public end_date!: Date | null; // Nullable for floating periods
   public nights!: number | null; // Duration for floating periods
   public valid_until!: Date | null; // Expiration date for floating periods
-  public accommodation_type!: string; // e.g., 'sencilla', 'duplex', 'suite'
+  public accommodation_type!: string; // e.g., 'studio', '1bedroom', 'suite'
+  public season_type!: 'RED' | 'WHITE' | 'BLUE'; // Season for credit calculation
   public status!: 'available' | 'confirmed' | 'converted' | 'used' | 'pending_swap';
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
@@ -54,7 +55,12 @@ Week.init({
   accommodation_type: {
     type: DataTypes.STRING,
     allowNull: false,
-    comment: 'Type of accommodation (sencilla, duplex, suite, etc.) - inherited from room.type'
+    comment: 'Type of accommodation (studio, 1bedroom, suite, etc.)'
+  },
+  season_type: {
+    type: DataTypes.ENUM('RED', 'WHITE', 'BLUE'),
+    allowNull: true,
+    comment: 'Season type for credit calculation (RED/WHITE/BLUE)'
   },
   status: {
     type: DataTypes.ENUM('available', 'confirmed', 'converted', 'used'),

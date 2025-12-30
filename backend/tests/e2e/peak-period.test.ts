@@ -27,7 +27,12 @@ describe('E2E: Peak-period restriction for night-credit usage', () => {
     const user = await User.create({ email: 'peak@example.com', password: 'x', role_id: role.id });
 
     // Create a property and week
-    const property = await Property.create({ name: 'Peak Property', location: 'Peak City' });
+    const property = await Property.create({ 
+      name: 'Peak Property', 
+      location: 'Peak City',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
+    });
     const week = await Week.create({ owner_id: user.id, property_id: property.id, start_date: new Date('2025-12-10'), end_date: new Date('2025-12-17'), color: 'red' });
 
     // Night credit that overlaps the MEWS_PEAK_DATES window

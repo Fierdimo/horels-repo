@@ -64,7 +64,9 @@ describe('Credit Admin API Integration Tests', () => {
       address: '456 Admin St',
       city: 'Admin City',
       country: 'Test Country',
-      tier_id: testTier.id
+      location: 'Admin City, Test Country',
+      tier: 'STANDARD',
+      location_multiplier: 1.00
     });
 
     // Create room multipliers

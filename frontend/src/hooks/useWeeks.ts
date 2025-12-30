@@ -36,13 +36,43 @@ export function useWeeks(filter?: 'all' | 'available') {
     }
   });
 
+  // Confirm invitation booking
+  const confirmInvitationBookingMutation = useMutation({
+    mutationFn: (bookingId: number) => timeshareApi.confirmInvitationBooking(bookingId),
+    onSuccess: () => {
+      toast.success('Booking confirmed successfully!');
+      queryClient.invalidateQueries({ queryKey: ['weeks'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to confirm booking');
+    }
+  });
+
+  // Convert invitation booking to credits
+  const convertInvitationBookingMutation = useMutation({
+    mutationFn: (bookingId: number) => timeshareApi.convertInvitationBookingToCredits(bookingId),
+    onSuccess: (data) => {
+      toast.success(`Converted to ${data.data.credits_added} credits successfully!`);
+      queryClient.invalidateQueries({ queryKey: ['weeks'] });
+      queryClient.invalidateQueries({ queryKey: ['creditWallet'] });
+      queryClient.invalidateQueries({ queryKey: ['creditTransactions'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to convert to credits');
+    }
+  });
+
   return {
     weeks: weeks || [],
     isLoading,
     error,
     confirmWeek: confirmWeekMutation.mutate,
     convertWeek: convertWeekMutation.mutate,
+    confirmInvitationBooking: confirmInvitationBookingMutation.mutate,
+    convertInvitationBookingToCredits: convertInvitationBookingMutation.mutate,
     isConfirming: confirmWeekMutation.isPending,
-    isConverting: convertWeekMutation.isPending
+    isConverting: convertWeekMutation.isPending,
+    isConfirmingInvitation: confirmInvitationBookingMutation.isPending,
+    isConvertingInvitation: convertInvitationBookingMutation.isPending
   };
 }

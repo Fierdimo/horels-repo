@@ -51,9 +51,12 @@ const StaffAssignPeriod = lazy(() => import('@/pages/staff/AssignPeriod'));
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
 const AdminPendingApprovals = lazy(() => import('@/pages/admin/PendingApprovals'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
+const AdminAssignPeriod = lazy(() => import('@/pages/admin/AssignPeriod'));
 const AdminLogs = lazy(() => import('@/pages/admin/ActivityLogs'));
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'));
 const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
+const StaffCreateOwnerInvitation = lazy(() => import('@/pages/staff/CreateOwnerInvitation'));
+const CreditConfiguration = lazy(() => import('@/pages/admin/CreditConfiguration'));
 // Marketplace pages
 const MarketplaceHome = lazy(() => import('@/pages/marketplace/MarketplaceHome'));
 const PropertyDetails = lazy(() => import('@/pages/marketplace/PropertyDetails'));
@@ -362,6 +365,7 @@ function AppRoutes() {
           <Route path="marketplace-settings" element={<StaffMarketplaceSettings />} />
           <Route path="swaps" element={<StaffSwapApprovals />} />
           <Route path="assign-period" element={<StaffAssignPeriod />} />
+          <Route path="create-owner-invitation" element={<StaffCreateOwnerInvitation />} />
           <Route path="marketplace" element={<MarketplaceHome />} />
           <Route path="marketplace/properties/:id" element={<PropertyDetails />} />
           <Route path="marketplace/properties/:propertyId/rooms/:roomId/book" element={<BookingForm />} />
@@ -421,11 +425,31 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/assign-period"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+              <MainLayout>
+                <AdminAssignPeriod />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/rooms"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout>
                 <AdminRooms />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/credit-config"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <CreditConfiguration />
               </MainLayout>
             </ProtectedRoute>
           }

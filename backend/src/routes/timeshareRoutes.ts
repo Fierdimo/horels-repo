@@ -11,8 +11,203 @@ import { Op } from 'sequelize';
 
 const router = Router();
 
+// Get owner dashboard statistics
+router.get('/dashboard', authenticateToken, requireOwnerRole, logAction('view_owner_dashboard'), async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get total weeks from Week model
+    const totalWeeksFromModel = await Week.count({
+      where: { owner_id: userId }
+    });
+
+    // Get ALL bookings (invitations + marketplace)
+    const allUserBookings = await Booking.findAll({
+      where: {
+        guest_email: req.user.email,
+        status: { [Op.notIn]: ['cancelled'] }
+      },
+      attributes: ['id', 'raw', 'check_in', 'status'],
+      raw: true
+    });
+
+    // Count bookings from invitations
+    const invitationBookings = allUserBookings.filter(booking => {
+      if (!booking.raw) return false;
+      try {
+        const metadata = typeof booking.raw === 'string' ? JSON.parse(booking.raw) : booking.raw;
+        return metadata?.booking_type === 'owner_invitation';
+      } catch (e) {
+        return false;
+      }
+    });
+
+    // Count marketplace bookings (no metadata or different booking_type)
+    const marketplaceBookings = allUserBookings.filter(booking => {
+      if (!booking.raw) return true; // No metadata = marketplace
+      try {
+        const metadata = typeof booking.raw === 'string' ? JSON.parse(booking.raw) : booking.raw;
+        return metadata?.booking_type !== 'owner_invitation';
+      } catch (e) {
+        return true;
+      }
+    });
+
+    const totalWeeks = totalWeeksFromModel + allUserBookings.length;
+
+    // Get available weeks (future dates, not used/swapped)
+    const availableWeeksFromModel = await Week.count({
+      where: {
+        owner_id: userId,
+        start_date: { [Op.gte]: today },
+        status: { [Op.in]: ['available', 'confirmed'] }
+      }
+    });
+
+    // Count future bookings (invitation + marketplace)
+    const futureBookings = allUserBookings.filter(booking => {
+      const checkIn = new Date(booking.check_in);
+      return checkIn >= today && ['confirmed', 'checked_in', 'pending_approval'].includes(booking.status);
+    });
+
+    const availableWeeks = availableWeeksFromModel + futureBookings.length;
+
+    // Get active swaps (pending or accepted)
+    const activeSwaps = await SwapRequest.count({
+      where: {
+        [Op.or]: [
+          { requester_id: userId },
+          { responder_id: userId }
+        ],
+        status: { [Op.in]: ['pending', 'accepted'] }
+      }
+    });
+
+    // Upcoming marketplace bookings (future, confirmed, not from invitations)
+    const upcomingMarketplaceBookings = marketplaceBookings.filter(booking => {
+      const checkIn = new Date(booking.check_in);
+      return checkIn >= today && ['confirmed', 'checked_in'].includes(booking.status);
+    }).length;
+
+    // Get credits info (if UserCreditWallet exists)
+    let creditsInfo = null;
+    try {
+      const { UserCreditWallet } = require('../models');
+      const wallet = await UserCreditWallet.findOne({
+        where: { user_id: userId }
+      });
+      
+      if (wallet) {
+        creditsInfo = {
+          total: parseFloat(wallet.total_balance) || 0,
+          available: parseFloat(wallet.total_balance) || 0,
+          expiringSoon: parseFloat(wallet.pending_expiration) || 0
+        };
+      }
+    } catch (error) {
+      console.log('[Dashboard] Credit wallet not available yet');
+    }
+
+    // Get recent activity (last 5 weeks or swaps)
+    const recentWeeks = await Week.findAll({
+      where: { owner_id: userId },
+      include: [{
+        association: 'Property',
+        attributes: ['name', 'location']
+      }],
+      order: [['created_at', 'DESC']],
+      limit: 5
+    });
+
+    // Get recent bookings (including invitations and marketplace)
+    const recentBookings = await Booking.findAll({
+      where: {
+        guest_email: req.user.email,
+        status: { [Op.notIn]: ['cancelled'] }
+      },
+      include: [{
+        model: require('../models').Property,
+        as: 'Property',
+        attributes: ['name', 'location']
+      }],
+      order: [['created_at', 'DESC']],
+      limit: 5
+    });
+
+    // Combine weeks and bookings for recent activity
+    const combinedRecentActivity = [
+      ...recentWeeks.map(week => ({
+        ...week.toJSON(),
+        type: 'week',
+        start_date: week.start_date,
+        end_date: week.end_date
+      })),
+      ...recentBookings.map(booking => ({
+        id: `booking_${booking.id}`,
+        type: 'booking',
+        status: booking.status,
+        start_date: booking.check_in,
+        end_date: booking.check_out,
+        Property: booking.Property,
+        created_at: booking.created_at
+      }))
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
+
+    const recentSwaps = await SwapRequest.findAll({
+      where: {
+        [Op.or]: [
+          { requester_id: userId },
+          { responder_id: userId }
+        ]
+      },
+      order: [['created_at', 'DESC']],
+      limit: 3
+    });
+
+    console.log('[Dashboard] Stats:', {
+      totalWeeksFromModel,
+      totalBookings: allUserBookings.length,
+      invitationBookings: invitationBookings.length,
+      marketplaceBookings: marketplaceBookings.length,
+      totalWeeks,
+      availableWeeks,
+      futureBookings: futureBookings.length,
+      activeSwaps,
+      upcomingMarketplaceBookings,
+      userId: req.user.id,
+      email: req.user.email
+    });
+
+    res.json({
+      success: true,
+      data: {
+        stats: {
+          totalWeeks,
+          availableWeeks,
+          activeSwaps,
+          upcomingBookings: upcomingMarketplaceBookings
+        },
+        credits: creditsInfo,
+        recentActivity: {
+          weeks: combinedRecentActivity,
+          swaps: recentSwaps
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching owner dashboard:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch dashboard data',
+      message: error.message
+    });
+  }
+});
+
 // Get owner's weeks
-router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_weeks']), logAction('view_weeks'), async (req: any, res: Response) => {
+router.get('/weeks', authenticateToken, requireOwnerRole, logAction('view_weeks'), async (req: any, res: Response) => {
   try {
     const userId = req.user.id;
     const filter = req.query.filter as string; // 'available' | 'all'
@@ -49,7 +244,7 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
     // If filter is 'available', only show future dates and exclude checked_out
     if (filter === 'available') {
       bookingWhere.check_in = { [Op.gte]: today };
-      bookingWhere.status = { [Op.in]: ['confirmed', 'checked_in'] };
+      bookingWhere.status = { [Op.in]: ['confirmed', 'checked_in', 'pending'] }; // Include pending
     }
 
     // Obtener también bookings que pertenecen a este usuario (como guest)
@@ -59,28 +254,35 @@ router.get('/weeks', authenticateToken, requireOwnerRole, authorize(['view_own_w
         association: 'Property',
         attributes: ['name', 'location']
       }],
-      attributes: { include: ['acquired_via_swap_id'] }, // Include swap info
+      attributes: { include: ['acquired_via_swap_id', 'raw'] }, // Include swap info and metadata
       order: [['check_in', 'ASC']]
     });
 
     // Transformar bookings al mismo formato que weeks para una respuesta consistente
-    const weeksFromBookings = bookingsAsGuest.map((booking: any) => ({
-      id: `booking_${booking.id}`, // ID único para distinguirlo
-      owner_id: userId,
-      property_id: booking.property_id,
-      start_date: booking.check_in,
-      end_date: booking.check_out,
-      accommodation_type: booking.room_type || 'Standard',
-      status: booking.status === 'checked_in' ? 'checked_in' : 'confirmed',
-      source: 'booking', // Marcar que viene de una reserva marketplace
-      acquired_via_swap: booking.acquired_via_swap_id ? true : false, // Indicar si fue por swap
-      acquired_via_swap_id: booking.acquired_via_swap_id,
-      booking_id: booking.id,
-      guest_name: booking.guest_name,
-      guest_email: booking.guest_email,
-      total_amount: booking.total_amount,
-      Property: booking.Property
-    }));
+    const weeksFromBookings = bookingsAsGuest.map((booking: any) => {
+      // Parse raw metadata
+      const metadata = booking.raw ? (typeof booking.raw === 'string' ? JSON.parse(booking.raw) : booking.raw) : {};
+      
+      return {
+        id: `booking_${booking.id}`, // ID único para distinguirlo
+        owner_id: userId,
+        property_id: booking.property_id,
+        start_date: booking.check_in,
+        end_date: booking.check_out,
+        accommodation_type: booking.room_type || 'Standard',
+        status: booking.status, // Keep original status (pending, confirmed, checked_in, etc.)
+        source: 'booking', // Marcar que viene de una reserva marketplace
+        acquired_via_swap: booking.acquired_via_swap_id ? true : false, // Indicar si fue por swap
+        acquired_via_swap_id: booking.acquired_via_swap_id,
+        booking_id: booking.id,
+        booking_type: metadata.booking_type || null, // Include booking_type from metadata
+        guest_name: booking.guest_name,
+        guest_email: booking.guest_email,
+        total_amount: booking.total_amount,
+        Property: booking.Property,
+        raw: booking.raw // Include full metadata
+      };
+    });
 
     // Combinar weeks y bookings
     const allWeeks = [...weeks, ...weeksFromBookings].sort((a: any, b: any) => {

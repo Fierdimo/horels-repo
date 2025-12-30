@@ -65,8 +65,9 @@ describe('Credit Wallet API Integration Tests', () => {
       address: '123 Test St',
       city: 'Test City',
       country: 'Test Country',
-      tier_id: testTier.id,
-      allows_credit_bookings: true
+      location: 'Test City, Test Country',
+      tier: 'GOLD',
+      location_multiplier: 1.20
     });
 
     // Create seasonal calendar

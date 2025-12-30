@@ -68,6 +68,10 @@ interface PropertyAttributes {
   marketplace_amenities?: string[];
   marketplace_enabled_at?: Date;
   
+  // Credit valuation configuration
+  tier: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
+  location_multiplier: number;
+  
   // Timestamps
   created_at: Date;
   updated_at: Date;
@@ -151,6 +155,10 @@ class Property extends Model<PropertyAttributes, PropertyCreationAttributes> imp
   public marketplace_images?: string[];
   public marketplace_amenities?: string[];
   public marketplace_enabled_at?: Date;
+  
+  // Credit valuation configuration
+  public tier!: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
+  public location_multiplier!: number;
   
   // Timestamps
   public readonly created_at!: Date;
@@ -363,6 +371,24 @@ Property.init({
   marketplace_enabled_at: {
     type: DataTypes.DATE,
     allowNull: true,
+  },
+  
+  // Credit valuation configuration
+  tier: {
+    type: DataTypes.ENUM('DIAMOND', 'GOLD', 'SILVER_PLUS', 'STANDARD'),
+    defaultValue: 'STANDARD',
+    allowNull: false,
+    comment: 'Property tier for credit valuation (DIAMOND=1.5x, GOLD=1.3x, SILVER_PLUS=1.1x, STANDARD=1.0x)',
+  },
+  location_multiplier: {
+    type: DataTypes.DECIMAL(3, 2),
+    defaultValue: 1.00,
+    allowNull: false,
+    validate: {
+      min: 0.5,
+      max: 3.0,
+    },
+    comment: 'Location-based credit multiplier (0.5 to 3.0)',
   },
   
   created_at: {

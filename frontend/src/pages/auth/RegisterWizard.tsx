@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/api/auth';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/api/client';
 import {
   Hotel,
   ArrowLeft,
@@ -15,12 +17,15 @@ import {
   MapPin,
   Check,
   Loader2,
-  Search
+  Search,
+  AlertCircle,
+  Calendar,
+  Home
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LanguageSelector } from '@/components/common/LanguageSelector';
 
-type UserRole = 'guest' | 'staff';
+type UserRole = 'guest' | 'staff' | 'owner';
 
 interface FormData {
   role: UserRole | null;
@@ -39,6 +44,22 @@ export default function RegisterWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { register, user } = useAuth();
+  const [searchParams] = useSearchParams();
+  
+  // Detect invitation token from URL
+  const invitationToken = searchParams.get('invitation');
+
+  // Validate invitation token if present
+  const { data: invitationData, isLoading: isLoadingInvitation, error: invitationError } = useQuery({
+    queryKey: ['invitation', invitationToken],
+    queryFn: async () => {
+      if (!invitationToken) return null;
+      const response = await apiClient.get(`/staff/invitations/public/invitation/${invitationToken}`);
+      return response.data;
+    },
+    enabled: !!invitationToken,
+    retry: false,
+  });
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +77,20 @@ export default function RegisterWizard() {
     propertyId: '',
     pmsExternalId: ''
   });
+
+  // Pre-fill form data if invitation is valid
+  useEffect(() => {
+    if (invitationData?.success && invitationData?.data) {
+      const invitation = invitationData.data;
+      setFormData(prev => ({
+        ...prev,
+        role: 'owner',
+        email: invitation.email,
+        firstName: invitation.first_name || '',
+        lastName: invitation.last_name || '',
+      }));
+    }
+  }, [invitationData]);
 
   // Search properties in platform
   useEffect(() => {
@@ -87,7 +122,7 @@ export default function RegisterWizard() {
     return () => clearTimeout(timeoutId);
   }, [formData.hotelName]);
 
-  const totalSteps = formData.role === 'staff' ? 4 : 3;
+  const totalSteps = invitationToken ? 2 : (formData.role === 'staff' ? 4 : 3);
 
   const updateFormData = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -137,6 +172,11 @@ export default function RegisterWizard() {
         lastName: formData.lastName
       };
 
+      // If registering from an invitation, include the token
+      if (invitationToken && formData.role === 'owner') {
+        registerData.invitationToken = invitationToken;
+      }
+
       // If staff, include PMS data
       if (formData.role === 'staff' && formData.pmsExternalId) {
         registerData.pms_property_id = formData.pmsExternalId;
@@ -147,8 +187,14 @@ export default function RegisterWizard() {
       }
 
       register(registerData, {
-        onSuccess: (data: any) => {
+        onSuccess: async (data: any) => {
           toast.success(t('auth.accountCreatedSuccess'));
+
+          // If owner registered via invitation, the backend automatically accepts it
+          if (invitationToken && formData.role === 'owner') {
+            toast.success('Invitation accepted successfully!');
+          }
+
           setIsLoading(false);
 
           // Redirect based on user status
@@ -173,6 +219,52 @@ export default function RegisterWizard() {
       toast.error(t('auth.registrationFailed'));
       setIsLoading(false);
     }
+  };
+
+  // Render invitation info for owners
+  const renderInvitationInfo = () => {
+    if (!invitationData?.data) return null;
+    
+    const invitation = invitationData.data;
+    
+    return (
+      <div className="space-y-4 mb-6 animate-fadeIn">
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <Mail className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                You've been invited!
+              </h3>
+              <p className="text-gray-600 mb-4">
+                You've been invited to become an owner at <strong>{invitation.property?.name}</strong>
+              </p>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center text-gray-700">
+                  <Building className="h-4 w-4 mr-2 text-blue-600" />
+                  <span><strong>Property:</strong> {invitation.property?.name}</span>
+                </div>
+                {invitation.property?.location && (
+                  <div className="flex items-center text-gray-700">
+                    <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                    <span><strong>Location:</strong> {invitation.property.location}</span>
+                  </div>
+                )}
+                <div className="flex items-center text-gray-700">
+                  <Home className="h-4 w-4 mr-2 text-blue-600" />
+                  <span><strong>Rooms assigned:</strong> {invitation.rooms_count || invitation.rooms_data?.length || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // Step 1: Role Selection
@@ -276,10 +368,10 @@ export default function RegisterWizard() {
     <div className="space-y-6 animate-fadeIn">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          {t('auth.createYourAccount')}
+          {invitationToken ? 'Complete Your Profile' : t('auth.createYourAccount')}
         </h2>
         <p className="text-gray-600">
-          {t('auth.enterEmailPassword')}
+          {invitationToken ? 'Create your password to activate your owner account' : t('auth.enterEmailPassword')}
         </p>
       </div>
 
@@ -294,9 +386,16 @@ export default function RegisterWizard() {
             value={formData.email}
             onChange={(e) => updateFormData('email', e.target.value)}
             placeholder={t('auth.emailPlaceholder')}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             required
+            disabled={!!invitationToken}
+            readOnly={!!invitationToken}
           />
+          {invitationToken && (
+            <p className="mt-1 text-xs text-gray-500">
+              Email from invitation (cannot be changed)
+            </p>
+          )}
         </div>
 
         <div>
@@ -587,59 +686,110 @@ export default function RegisterWizard() {
           <LanguageSelector />
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center">
-            {Array.from({ length: totalSteps }).map((_, index) => (
-              <div key={index} className="flex items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${index + 1 < currentStep
-                      ? 'bg-green-500 text-white'
-                      : index + 1 === currentStep
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-500'
-                    }`}
-                >
-                  {index + 1 < currentStep ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    index + 1
+        {/* Loading invitation */}
+        {isLoadingInvitation && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
+              <p className="text-gray-600">Validating invitation...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Invalid or expired invitation */}
+        {invitationToken && !isLoadingInvitation && (invitationError || !invitationData?.success) && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Invitation</h2>
+              <p className="text-gray-600 text-center mb-6">
+                This invitation link is invalid, expired, or has already been used.
+              </p>
+              <Link
+                to="/register"
+                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Register as Guest or Staff
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Valid invitation or normal registration */}
+        {(!invitationToken || (invitationData?.success && !isLoadingInvitation)) && (
+          <>
+            {/* Show invitation info if present */}
+            {invitationToken && invitationData?.success && renderInvitationInfo()}
+
+            {/* Progress Steps - Only show for normal registration or hide role selection for invitation */}
+            {!invitationToken && (
+              <div className="mb-8">
+                <div className="flex items-center justify-center">
+                  {Array.from({ length: totalSteps }).map((_, index) => (
+                    <div key={index} className="flex items-center">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${index + 1 < currentStep
+                            ? 'bg-green-500 text-white'
+                            : index + 1 === currentStep
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-500'
+                          }`}
+                      >
+                        {index + 1 < currentStep ? (
+                          <Check className="h-5 w-5" />
+                        ) : (
+                          index + 1
+                        )}
+                      </div>
+                      {index < totalSteps - 1 && (
+                        <div
+                          className={`w-16 h-1 transition-all ${index + 1 < currentStep ? 'bg-green-500' : 'bg-gray-200'
+                            }`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-4 text-sm text-gray-600">
+                  <span className={currentStep === 1 ? 'font-semibold text-blue-600' : ''}>{t('auth.role')}</span>
+                  <span className={currentStep === 2 ? 'font-semibold text-blue-600' : ''}>{t('auth.account')}</span>
+                  <span className={currentStep === 3 ? 'font-semibold text-blue-600' : ''}>{t('auth.personal')}</span>
+                  {totalSteps === 4 && (
+                    <span className={currentStep === 4 ? 'font-semibold text-blue-600' : ''}>{t('auth.hotel')}</span>
                   )}
                 </div>
-                {index < totalSteps - 1 && (
-                  <div
-                    className={`w-16 h-1 transition-all ${index + 1 < currentStep ? 'bg-green-500' : 'bg-gray-200'
-                      }`}
-                  />
-                )}
               </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-4 text-sm text-gray-600">
-            <span className={currentStep === 1 ? 'font-semibold text-blue-600' : ''}>{t('auth.role')}</span>
-            <span className={currentStep === 2 ? 'font-semibold text-blue-600' : ''}>{t('auth.account')}</span>
-            <span className={currentStep === 3 ? 'font-semibold text-blue-600' : ''}>{t('auth.personal')}</span>
-            {totalSteps === 4 && (
-              <span className={currentStep === 4 ? 'font-semibold text-blue-600' : ''}>{t('auth.hotel')}</span>
             )}
-          </div>
-        </div>
 
-        {/* Form Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
-          {currentStep === 4 && renderStep4()}
-        </div>
+            {/* Form Card */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+              {/* For invitation flow, skip step 1 and go directly to step 2 */}
+              {invitationToken ? (
+                <>
+                  {currentStep === 1 && renderStep2()}
+                  {currentStep === 2 && renderStep3()}
+                </>
+              ) : (
+                <>
+                  {currentStep === 1 && renderStep1()}
+                  {currentStep === 2 && renderStep2()}
+                  {currentStep === 3 && renderStep3()}
+                  {currentStep === 4 && renderStep4()}
+                </>
+              )}
+            </div>
 
-        {/* Footer */}
-        <p className="mt-8 text-center text-sm text-gray-600">
-          {t('auth.alreadyHaveAccountQuestion')}{' '}
-          <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
-            {t('auth.signIn')}
-          </Link>
-        </p>
+            {/* Footer */}
+            <p className="mt-8 text-center text-sm text-gray-600">
+              {t('auth.alreadyHaveAccountQuestion')}{' '}
+              <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
+                {t('auth.signIn')}
+              </Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
