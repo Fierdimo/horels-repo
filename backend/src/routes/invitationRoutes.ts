@@ -10,6 +10,7 @@ import Week from '../models/Week';
 import NightCredit from '../models/NightCredit';
 import Role from '../models/Role';
 import CreditCalculationService from '../services/CreditCalculationService';
+import sequelize from '../config/database';
 
 // Extend Request type to include user
 interface AuthRequest extends Request {
@@ -678,12 +679,15 @@ router.get('/pending-approvals', authenticateToken, requireStaffRole, async (req
 
 // Approve booking (staff only)
 router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, async (req: AuthRequest, res: Response) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const { bookingId } = req.params;
     const staffUser = req.user;
     const propertyId = staffUser?.property_id;
 
     if (!propertyId) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: 'Staff user must be associated with a property',
@@ -691,10 +695,13 @@ router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, 
     }
 
     const { default: Booking } = await import('../models/Booking');
+    const { default: UserCreditWallet } = await import('../models/UserCreditWallet');
+    const { default: CreditTransaction } = await import('../models/CreditTransaction');
 
-    const booking = await Booking.findByPk(bookingId);
+    const booking = await Booking.findByPk(bookingId, { transaction });
 
     if (!booking) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: 'Booking not found',
@@ -703,6 +710,7 @@ router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, 
 
     // Verify booking belongs to staff's property
     if (booking.property_id !== propertyId) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: 'You can only approve bookings for your property',
@@ -711,19 +719,73 @@ router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, 
 
     // Verify it's pending approval
     if (booking.status !== 'pending_approval') {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: 'Only bookings with pending_approval status can be approved',
       });
     }
 
-    // Approve the booking
-    await booking.update({ status: 'confirmed' });
+    // Si el booking fue pagado con créditos, confirmar la transacción
+    if (booking.payment_method === 'CREDITS') {
+      // Buscar la transacción pendiente de créditos
+      const creditTx = await CreditTransaction.findOne({
+        where: {
+          booking_id: booking.id,
+          transaction_type: 'SPEND',
+          status: 'ACTIVE' // Los créditos están bloqueados pero no gastados
+        },
+        transaction
+      });
+
+      if (creditTx) {
+        // Marcar créditos como SPENT (confirmados)
+        creditTx.status = 'SPENT';
+        
+        // Actualizar metadata
+        let metadata = creditTx.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            metadata = {};
+          }
+        }
+        metadata = { 
+          ...metadata, 
+          approved_at: new Date(), 
+          approved_by: staffUser?.id,
+          pending_approval: false 
+        };
+        creditTx.metadata = metadata;
+        creditTx.description = creditTx.description?.replace('pending approval', 'approved');
+        
+        await creditTx.save({ transaction });
+
+        console.log('✅ Credits confirmed for approved booking:', {
+          booking_id: booking.id,
+          transaction_id: creditTx.id,
+          amount: creditTx.amount
+        });
+      }
+
+      // Actualizar payment_status del booking
+      await booking.update({ 
+        status: 'confirmed',
+        payment_status: 'paid'
+      }, { transaction });
+    } else {
+      // Booking sin créditos (invitación normal)
+      await booking.update({ status: 'confirmed' }, { transaction });
+    }
+
+    await transaction.commit();
 
     console.log('✅ Booking approved by staff:', {
       booking_id: booking.id,
       staff_id: staffUser?.id,
-      property_id: propertyId
+      property_id: propertyId,
+      payment_method: booking.payment_method
     });
 
     return res.json({
@@ -732,6 +794,7 @@ router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, 
       data: booking,
     });
   } catch (error: any) {
+    await transaction.rollback();
     console.error('Error approving booking:', error);
     return res.status(500).json({
       success: false,
@@ -743,6 +806,8 @@ router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, 
 
 // Reject booking (staff only)
 router.post('/reject-booking/:bookingId', authenticateToken, requireStaffRole, async (req: AuthRequest, res: Response) => {
+  const transaction = await sequelize.transaction();
+  
   try {
     const { bookingId } = req.params;
     const { reason } = req.body;
@@ -750,6 +815,7 @@ router.post('/reject-booking/:bookingId', authenticateToken, requireStaffRole, a
     const propertyId = staffUser?.property_id;
 
     if (!propertyId) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: 'Staff user must be associated with a property',
@@ -757,10 +823,14 @@ router.post('/reject-booking/:bookingId', authenticateToken, requireStaffRole, a
     }
 
     const { default: Booking } = await import('../models/Booking');
+    const { default: UserCreditWallet } = await import('../models/UserCreditWallet');
+    const { default: CreditTransaction } = await import('../models/CreditTransaction');
+    const { default: User } = await import('../models/User');
 
-    const booking = await Booking.findByPk(bookingId);
+    const booking = await Booking.findByPk(bookingId, { transaction });
 
     if (!booking) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: 'Booking not found',
@@ -769,6 +839,7 @@ router.post('/reject-booking/:bookingId', authenticateToken, requireStaffRole, a
 
     // Verify booking belongs to staff's property
     if (booking.property_id !== propertyId) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: 'You can only reject bookings for your property',
@@ -777,42 +848,131 @@ router.post('/reject-booking/:bookingId', authenticateToken, requireStaffRole, a
 
     // Verify it's pending approval
     if (booking.status !== 'pending_approval') {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: 'Only bookings with pending_approval status can be rejected',
       });
     }
 
+    // Si el booking fue pagado con créditos, REVERTIR los créditos bloqueados
+    if (booking.payment_method === 'CREDITS') {
+      // Buscar el usuario del booking
+      const user = await User.findOne({
+        where: { email: booking.guest_email },
+        transaction
+      });
+
+      if (user) {
+        // Buscar la transacción pendiente de créditos
+        const creditTx = await CreditTransaction.findOne({
+          where: {
+            booking_id: booking.id,
+            transaction_type: 'SPEND',
+            status: 'ACTIVE'
+          },
+          transaction
+        });
+
+        if (creditTx) {
+          const creditsToRefund = Math.abs(creditTx.amount);
+          
+          // Marcar transacción original como REFUNDED
+          creditTx.status = 'REFUNDED';
+          let metadata = creditTx.metadata;
+          if (typeof metadata === 'string') {
+            try {
+              metadata = JSON.parse(metadata);
+            } catch (e) {
+              metadata = {};
+            }
+          }
+          metadata = { 
+            ...metadata, 
+            rejected_at: new Date(), 
+            rejected_by: staffUser?.id,
+            rejection_reason: reason 
+          };
+          creditTx.metadata = metadata;
+          await creditTx.save({ transaction });
+
+          // Crear transacción de REFUND
+          const wallet = await UserCreditWallet.getWalletWithLock(user.id, transaction);
+          
+          await CreditTransaction.create({
+            user_id: user.id,
+            transaction_type: 'REFUND',
+            amount: creditsToRefund,
+            balance_after: wallet.total_balance + creditsToRefund,
+            status: 'ACTIVE',
+            booking_id: booking.id,
+            description: `Refund for rejected booking - ${reason || 'Staff rejection'}`,
+            metadata: JSON.stringify({
+              original_transaction_id: creditTx.id,
+              rejected_by: staffUser?.id,
+              rejection_reason: reason
+            })
+          }, { transaction });
+
+          // Actualizar wallet (devolver créditos)
+          wallet.total_balance += creditsToRefund;
+          wallet.total_spent -= creditsToRefund; // Restar del spent porque no se consumió
+          wallet.last_transaction_at = new Date();
+          await wallet.save({ transaction });
+
+          console.log('💰 Credits refunded for rejected booking:', {
+            booking_id: booking.id,
+            user_id: user.id,
+            credits_refunded: creditsToRefund,
+            new_balance: wallet.total_balance
+          });
+        }
+      }
+
+      // Actualizar payment_status del booking
+      await booking.update({ 
+        status: 'cancelled',
+        payment_status: 'refunded'
+      }, { transaction });
+    } else {
+      // Booking sin créditos (invitación normal)
+      await booking.update({ status: 'cancelled' }, { transaction });
+    }
+
     // Update metadata with rejection reason
-    let metadata = booking.raw;
-    if (typeof metadata === 'string') {
+    let bookingMetadata = booking.raw;
+    if (typeof bookingMetadata === 'string') {
       try {
-        metadata = JSON.parse(metadata);
+        bookingMetadata = JSON.parse(bookingMetadata);
       } catch (e) {
-        metadata = {};
+        bookingMetadata = {};
       }
     }
-    metadata = { ...metadata, rejection_reason: reason, rejected_at: new Date(), rejected_by: staffUser?.id };
+    bookingMetadata = { 
+      ...bookingMetadata, 
+      rejection_reason: reason, 
+      rejected_at: new Date(), 
+      rejected_by: staffUser?.id 
+    };
+    await booking.update({ raw: bookingMetadata }, { transaction });
 
-    // Reject the booking
-    await booking.update({ 
-      status: 'cancelled',
-      raw: metadata
-    });
+    await transaction.commit();
 
     console.log('❌ Booking rejected by staff:', {
       booking_id: booking.id,
       staff_id: staffUser?.id,
       property_id: propertyId,
+      payment_method: booking.payment_method,
       reason
     });
 
     return res.json({
       success: true,
-      message: 'Booking rejected successfully',
+      message: 'Booking rejected successfully. Credits have been refunded.',
       data: booking,
     });
   } catch (error: any) {
+    await transaction.rollback();
     console.error('Error rejecting booking:', error);
     return res.status(500).json({
       success: false,

@@ -10,6 +10,9 @@ import bookingStatusService from '../services/bookingStatusService';
 import { StripeService } from '../services/stripeService';
 import RoomEnrichmentService from '../services/roomEnrichmentService';
 import jwt from 'jsonwebtoken';
+import UserCreditWallet from '../models/UserCreditWallet';
+import CreditTransaction from '../models/CreditTransaction';
+import sequelize from '../config/database';
 
 const router = Router();
 const stripeService = new StripeService();
@@ -1046,6 +1049,190 @@ router.post('/bookings/confirm-payment-with-saved-card', authenticateToken, asyn
     res.status(500).json({
       success: false,
       error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/public/properties/:propertyId/rooms/:roomId/book-with-credits
+ * @desc    Create booking paid with credits (requires staff approval)
+ * @access  Authenticated (owner role)
+ */
+router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authenticateToken, async (req: any, res: Response) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { propertyId, roomId } = req.params;
+    const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests } = req.body;
+    const userId = req.user.id;
+
+    // Validar campos requeridos
+    if (!guestName || !guestEmail || !checkIn || !checkOut) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields'
+      });
+    }
+
+    // Validar property
+    const property = await Property.findByPk(propertyId);
+    if (!property) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found'
+      });
+    }
+
+    // Validar room
+    const room = await Room.findOne({
+      where: {
+        id: roomId,
+        propertyId: propertyId
+      }
+    });
+
+    if (!room) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        error: 'Room not found or not available'
+      });
+    }
+
+    // Calcular fechas y noches
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (nights <= 0) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid date range'
+      });
+    }
+
+    // Obtener pricing
+    const basePrice = room.customPrice || 100; // Default price if not set
+    const guestPrice = await pricingService.calculateGuestPrice(basePrice);
+    const totalAmount = guestPrice * nights;
+
+    // TODO: Aquí debería calcularse el costo en créditos basado en:
+    // - Season (RED/WHITE/BLUE)
+    // - Property tier multiplier
+    // - Room type multiplier
+    // Por ahora usamos equivalencia 1:1 (1 credit = 1 EUR)
+    const creditsRequired = Math.round(totalAmount);
+
+    // Verificar balance de créditos del usuario
+    const wallet = await UserCreditWallet.getOrCreateWallet(userId);
+    
+    if (wallet.total_balance < creditsRequired) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        error: 'Insufficient credits',
+        data: {
+          required: creditsRequired,
+          available: wallet.total_balance,
+          deficit: creditsRequired - wallet.total_balance
+        }
+      });
+    }
+
+    // Enriquecer room para obtener el nombre desde PMS
+    let enrichedRoom;
+    try {
+      enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+    } catch (error: any) {
+      console.warn('Warning: Could not enrich room with PMS data:', error.message);
+      enrichedRoom = { name: `Room ${room.id}` } as any;
+    }
+
+    // Crear booking con status pending_approval
+    const guestToken = `gt_credits_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    
+    const booking = await Booking.create({
+      property_id: parseInt(propertyId),
+      room_id: parseInt(roomId),
+      guest_name: guestName,
+      guest_email: guestEmail,
+      guest_phone: guestPhone || null,
+      check_in: checkInDate,
+      check_out: checkOutDate,
+      status: 'pending_approval', // Requiere aprobación staff
+      payment_status: 'pending',
+      payment_method: 'CREDITS',
+      total_amount: totalAmount,
+      guest_token: guestToken,
+      raw: JSON.stringify({
+        nights,
+        price_per_night: guestPrice,
+        booking_type: 'marketplace_credits',
+        credits_required: creditsRequired,
+        room_name: enrichedRoom.name,
+        property_name: property.name
+      })
+    }, { transaction });
+
+    // Bloquear créditos temporalmente (transacción PENDIENTE)
+    // Los créditos se marcan como "bloqueados" pero no se gastan hasta aprobación staff
+    const creditTransaction = await CreditTransaction.create({
+      user_id: userId,
+      transaction_type: 'SPEND',
+      amount: -creditsRequired,
+      balance_after: wallet.total_balance - creditsRequired,
+      status: 'ACTIVE', // Será SPENT cuando staff apruebe, o REFUNDED si rechaza
+      booking_id: booking.id,
+      description: `Marketplace booking (pending approval) - ${property.name}`,
+      metadata: JSON.stringify({
+        property_id: propertyId,
+        room_id: roomId,
+        nights,
+        pending_approval: true
+      })
+    }, { transaction });
+
+    // Actualizar wallet (bloquear créditos)
+    wallet.total_balance -= creditsRequired;
+    wallet.total_spent += creditsRequired;
+    wallet.last_transaction_at = new Date();
+    await wallet.save({ transaction });
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        booking: {
+          id: booking.id,
+          status: booking.status,
+          payment_status: booking.payment_status,
+          check_in: booking.check_in,
+          check_out: booking.check_out,
+          total_amount: booking.total_amount,
+          credits_used: creditsRequired,
+          room: {
+            name: enrichedRoom.name
+          },
+          property: {
+            name: property.name
+          }
+        },
+        message: 'Booking created successfully. Waiting for staff approval.',
+        pendingApproval: true
+      }
+    });
+
+  } catch (error: any) {
+    await transaction.rollback();
+    console.error('Error creating booking with credits:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create booking',
       message: error.message
     });
   }

@@ -344,5 +344,26 @@ export const timeshareApi = {
   rejectBooking: async (bookingId: number, reason: string): Promise<any> => {
     const { data } = await apiClient.post(`/staff/invitations/reject-booking/${bookingId}`, { reason });
     return data;
+  },
+
+  // ============================================================================
+  // MARKETPLACE - PAY WITH CREDITS
+  // ============================================================================
+
+  bookRoomWithCredits: async (params: {
+    propertyId: number;
+    roomId: number;
+    guestName: string;
+    guestEmail: string;
+    guestPhone?: string;
+    checkIn: string;
+    checkOut: string;
+    guests: number;
+  }): Promise<any> => {
+    const { data } = await apiClient.post(
+      `/public/properties/${params.propertyId}/rooms/${params.roomId}/book-with-credits`,
+      params
+    );
+    return data;
   }
 };

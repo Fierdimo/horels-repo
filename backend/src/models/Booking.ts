@@ -18,6 +18,7 @@ class Booking extends Model {
   public currency?: string;
   public payment_intent_id?: string; // Stripe Payment Intent ID
   public payment_status?: string; // 'pending' | 'processing' | 'paid' | 'failed' | 'refunded'
+  public payment_method?: string; // 'STRIPE' | 'CREDITS' | 'HYBRID' | 'P2P_SWAP'
   public platform_fee_amount?: number; // Platform commission charged
   public platform_fee_percentage?: number; // Platform commission percentage applied
   public pms_transfer_amount?: number; // Amount to transfer to PMS (total - fee)
@@ -106,6 +107,11 @@ Booking.init({
   payment_status: {
     type: DataTypes.STRING,
     allowNull: true,
+  },
+  payment_method: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Payment method: STRIPE, CREDITS, HYBRID, P2P_SWAP',
   },
   platform_fee_amount: {
     type: DataTypes.DECIMAL(10, 2),
