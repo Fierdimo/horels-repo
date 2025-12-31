@@ -57,7 +57,8 @@
     "copy": "Copy",
     "copied": "Copied",
     "creating": "Creating...",
-    "email": "Email"
+    "email": "Email",
+    "important": "Important"
   },
   "nav": {
     "home": "Home",
@@ -491,7 +492,13 @@
       "requirement3": "Cannot be in a swap process",
       "dates": "Dates",
       "nights": "Nights",
-      "convert": "Convert"
+      "convert": "Convert",
+      "available": "Available",
+      "required": "Required",
+      "creditsShort": "credits",
+      "insufficientCredits": "Insufficient Credits",
+      "creditsToSpend": "Credits to Spend",
+      "remainingBalance": "Remaining Balance"
     },
     "profile": {
       "title": "My Profile",
@@ -1413,7 +1420,17 @@
     "totalNights": "{{count}} night total | {{count}} nights total",
     "savedCards": "Saved Payment Methods",
     "useNewCard": "Use a new card",
-    "saveCardForFuture": "Save this card for future bookings"
+    "saveCardForFuture": "Save this card for future bookings",
+    "payWithCredits": "Pay with Credits",
+    "payWithCreditsDescription": "Use your accumulated credits to book this room",
+    "bookWithCredits": "Book with Credits",
+    "or": "or",
+    "continueToPayWithCard": "continue to pay with card",
+    "pendingApprovalNotice": "Pending Approval",
+    "creditBookingsRequireApproval": "Credit bookings require hotel staff approval. Your credits will be temporarily held until staff reviews your request.",
+    "confirmBookingWithCredits": "Confirm Booking with Credits",
+    "creditsWillBeHeldUntilApproval": "Credits will be held until staff approves or rejects the booking. If approved, credits will be deducted. If rejected, credits will be returned to your account.",
+    "bookingCreatedPendingApproval": "Booking created successfully. Awaiting staff approval."
   },
   "staff": {
     "invitations": {

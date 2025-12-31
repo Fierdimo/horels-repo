@@ -57,7 +57,8 @@
     "copy": "Copiar",
     "copied": "Copiado",
     "creating": "Creando...",
-    "email": "Correo Electrónico"
+    "email": "Correo Electrónico",
+    "important": "Importante"
   },
   "nav": {
     "home": "Inicio",
@@ -527,7 +528,13 @@
       "requirement3": "No puede estar en proceso de intercambio",
       "dates": "Fechas",
       "nights": "Noches",
-      "convert": "Convertir"
+      "convert": "Convertir",
+      "available": "Disponible",
+      "required": "Requeridos",
+      "creditsShort": "créditos",
+      "insufficientCredits": "Créditos Insuficientes",
+      "creditsToSpend": "Créditos a Gastar",
+      "remainingBalance": "Saldo Restante"
     },
     "profile": {
       "title": "Mi Perfil",
@@ -1440,7 +1447,18 @@
     "totalNights": "{{count}} noche en total | {{count}} noches en total",
     "savedCards": "Métodos de Pago Guardados",
     "useNewCard": "Usar una tarjeta nueva",
-    "saveCardForFuture": "Guardar esta tarjeta para futuras reservas"
+    "saveCardForFuture": "Guardar esta tarjeta para futuras reservas",
+    "payWithCredits": "Pagar con Créditos",
+    "payWithCreditsDescription": "Usa tus créditos acumulados para reservar esta habitación",
+    "bookWithCredits": "Reservar con Créditos",
+    "or": "o",
+    "continueToPayWithCard": "continúa para pagar con tarjeta",
+    "pendingApprovalNotice": "Aprobación Pendiente",
+    "creditBookingsRequireApproval": "Las reservas con créditos requieren aprobación del staff del hotel. Tus créditos serán bloqueados temporalmente hasta que el staff revise tu solicitud.",
+    "confirmBookingWithCredits": "Confirmar Reserva con Créditos",
+    "creditsWillBeHeldUntilApproval": "Los créditos serán bloqueados hasta que el staff apruebe o rechace la reserva. Si es aprobada, los créditos se deducirán. Si es rechazada, los créditos serán devueltos a tu cuenta.",
+    "bookingCreatedPendingApproval": "Reserva creada exitosamente. Esperando aprobación del staff.",
+    "bookingError": "Error al crear la reserva"
   },
   "staff": {
     "invitations": {

@@ -8,6 +8,7 @@ import { ArrowLeft, Calendar, User, Mail, Phone, CreditCard, CheckCircle, AlertC
 import { format, parseISO, differenceInDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
+import CreditPaymentOption from '@/components/marketplace/CreditPaymentOption';
 
 interface Room {
   id: number;
@@ -341,6 +342,24 @@ export default function BookingForm() {
                   </span>
                 </label>
               </div>
+
+              {/* Credit Payment Option (only for owners) */}
+              {user && user.role === 'owner' && checkIn && checkOut && guestName && guestEmail && nights > 0 && (
+                <div className="mb-6">
+                  <CreditPaymentOption
+                    propertyId={propertyId!}
+                    roomId={roomId!}
+                    checkIn={checkIn}
+                    checkOut={checkOut}
+                    guests={state.guests || 1}
+                    guestName={guestName}
+                    guestEmail={guestEmail}
+                    guestPhone={guestPhone}
+                    totalAmount={totalAmount}
+                    nights={nights}
+                  />
+                </div>
+              )}
 
               {/* Submit Button */}
               <button
