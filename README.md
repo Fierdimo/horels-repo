@@ -156,6 +156,27 @@ Credits = [Base Season Value] × [Location Multiplier] × [Room Type Multiplier]
 - 📊 **Week claim system** - Users can claim ownership of legacy weeks
 - ⚖️ **Inter-property settlements** - Automated financial reconciliation
 - 📝 **Full audit trail** - All credit movements tracked
+- 🏨 **Cross-property redemption** - Use credits in any PMS-integrated hotel
+
+### Cross-Property Credit Model
+
+**Current Implementation:**
+The system allows users to deposit weeks at one property and redeem credits at any other property in the network. This follows the RCI/Interval International exchange model where credits are "universal currency" across the entire portfolio.
+
+**Settlement Logic:**
+- **Internal Properties** (PMS-integrated hotels): Compensated through internal accounting reconciliation tracked in `inter_property_settlements` table
+- Credits deposited at Property A can be redeemed at Property B
+- System tracks originating vs receiving properties for monthly settlement reports
+- No real cash flow between properties - purely accounting adjustments
+
+**Future Considerations (Pending Client Decision):**
+- **External Network Integration**: If external hotels join the network, implementation will require:
+  - Pre-negotiated net rates with external properties
+  - Outbound payment system (Stripe Connect or bank transfers)
+  - Revenue model based on: swap fees (€99), top-up payments, net rate markup
+  - Liquidity management for monthly external settlements
+- **Current Scope**: System designed for internal group properties only
+- **Decision Required**: How to handle monetary settlements if external properties are added
 
 ### Database Tables
 The system includes 11 new optimized tables:
