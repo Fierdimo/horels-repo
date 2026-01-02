@@ -28,6 +28,7 @@ import creditAdminRoutes from './routes/creditAdminRoutes';
 import adminCreditConfigRoutes from './routes/adminCreditConfigRoutes';
 import creditEstimationRoutes from './routes/creditEstimationRoutes';
 import invitationRoutes, { publicInvitationRoutes } from './routes/invitationRoutes';
+import roomAvailabilityRoutes from './routes/roomAvailabilityRoutes';
 import { authenticateToken } from './middleware/authMiddleware';
 import { authorize } from './middleware/authorizationMiddleware';
 import { logAction } from './middleware/loggingMiddleware';
@@ -96,6 +97,7 @@ app.use('/hotels/credits', authenticateToken, creditRoutes); // Variable credit 
 app.use('/hotels/api/credits/admin', authenticateToken, creditAdminRoutes); // Credit admin configuration
 app.use('/hotels/api/credits/estimate', authenticateToken, creditEstimationRoutes); // Credit estimation tools
 app.use('/hotels/api/admin/credit-config', authenticateToken, adminCreditConfigRoutes); // Credit configuration panel (admin)
+app.use('/hotels/api/rooms', roomAvailabilityRoutes); // Room availability with correct types from PMS
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);
 app.use('/hotels', healthRoutes);

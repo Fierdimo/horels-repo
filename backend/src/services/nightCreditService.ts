@@ -114,7 +114,7 @@ export class NightCreditService {
         {
           model: Property,
           as: 'Property',
-          attributes: ['id', 'name', 'location']
+          attributes: ['id', 'name', 'location', 'city', 'country']
         },
         {
           model: NightCredit,
@@ -151,7 +151,7 @@ export class NightCreditService {
         {
           model: Property,
           as: 'Property',
-          attributes: ['id', 'name', 'location']
+          attributes: ['id', 'name', 'location', 'city', 'country']
         }
       ],
       order: [['created_at', 'ASC']]
@@ -344,9 +344,31 @@ export class NightCreditService {
       const totalNights = request.nights_requested + request.additional_nights;
       const owner = await User.findByPk(request.owner_id, { transaction: t });
       
+      // Build guest name from firstName and lastName, fallback to email
+      let guestName = 'Guest';
+      if (owner) {
+        if (owner.firstName && owner.lastName) {
+          guestName = `${owner.firstName} ${owner.lastName}`;
+        } else if (owner.firstName) {
+          guestName = owner.firstName;
+        } else if (owner.lastName) {
+          guestName = owner.lastName;
+        } else {
+          guestName = owner.email;
+        }
+      }
+      
+      console.log('[Night Credit Service] Creating booking with room_type:', request.room_type);
+      console.log('[Night Credit Service] Full request:', {
+        property_id: request.property_id,
+        check_in: request.check_in,
+        check_out: request.check_out,
+        room_type: request.room_type
+      });
+      
       const booking = await Booking.create({
         property_id: request.property_id,
-        guest_name: owner?.email || 'Guest',
+        guest_name: guestName,
         guest_email: owner?.email || `guest-${Date.now()}@example.com`,
         check_in: request.check_in,
         check_out: request.check_out,

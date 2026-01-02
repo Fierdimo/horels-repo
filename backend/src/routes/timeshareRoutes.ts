@@ -115,7 +115,7 @@ router.get('/dashboard', authenticateToken, requireOwnerRole, logAction('view_ow
       where: { owner_id: userId },
       include: [{
         association: 'Property',
-        attributes: ['name', 'location']
+        attributes: ['name', 'location', 'city', 'country']
       }],
       order: [['created_at', 'DESC']],
       limit: 5
@@ -130,7 +130,7 @@ router.get('/dashboard', authenticateToken, requireOwnerRole, logAction('view_ow
       include: [{
         model: require('../models').Property,
         as: 'Property',
-        attributes: ['name', 'location']
+        attributes: ['name', 'location', 'city', 'country']
       }],
       order: [['created_at', 'DESC']],
       limit: 5
@@ -230,7 +230,7 @@ router.get('/weeks', authenticateToken, requireOwnerRole, logAction('view_weeks'
       where: weekWhere,
       include: [{
         association: 'Property',
-        attributes: ['name', 'location']
+        attributes: ['name', 'location', 'city', 'country']
       }],
       order: [['start_date', 'ASC']]
     });
@@ -252,7 +252,7 @@ router.get('/weeks', authenticateToken, requireOwnerRole, logAction('view_weeks'
       where: bookingWhere,
       include: [{
         association: 'Property',
-        attributes: ['name', 'location']
+        attributes: ['name', 'location', 'city', 'country']
       }],
       attributes: { include: ['acquired_via_swap_id', 'raw'] }, // Include swap info and metadata
       order: [['check_in', 'ASC']]
@@ -313,7 +313,7 @@ router.get('/weeks/:weekId', authenticateToken, requireOwnerRole, authorize(['vi
       where: { id: weekId, owner_id: userId },
       include: [{
         association: 'Property',
-        attributes: ['name', 'location']
+        attributes: ['name', 'location', 'city', 'country']
       }]
     });
 

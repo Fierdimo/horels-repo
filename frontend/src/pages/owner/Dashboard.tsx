@@ -28,6 +28,14 @@ export default function DashboardNew() {
   const { t, i18n } = useTranslation();
   const currentLocale = localeMap[i18n.language] || enUS;
 
+  // Helper function to get translated status
+  const getStatusLabel = (status: string): string => {
+    const statusKey = `common.statusValues.${status}`;
+    const translated = t(statusKey);
+    // If translation doesn't exist, return original status
+    return translated === statusKey ? status : translated;
+  };
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['ownerDashboard'],
     queryFn: dashboardApi.getOwnerDashboard
@@ -192,7 +200,12 @@ export default function DashboardNew() {
                       <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{week.Property?.name}</p>
-                        <p className="text-sm text-gray-600">{week.Property?.location}</p>
+                        <p className="text-sm text-gray-600">
+                          {week.Property?.city && week.Property?.country 
+                            ? `${week.Property.city}, ${week.Property.country}`
+                            : week.Property?.location || 'N/A'
+                          }
+                        </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {week.start_date && format(new Date(week.start_date), 'PPP', { locale: currentLocale })}
                         </p>
@@ -202,7 +215,7 @@ export default function DashboardNew() {
                         week.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {week.status}
+                        {getStatusLabel(week.status)}
                       </span>
                     </div>
                   ))}
@@ -244,7 +257,7 @@ export default function DashboardNew() {
                         swap.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {swap.status}
+                        {getStatusLabel(swap.status)}
                       </span>
                     </div>
                   ))}

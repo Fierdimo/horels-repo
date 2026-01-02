@@ -16,7 +16,7 @@ router.get('/booking/:token', logAction('view_booking_guest'), async (req: Reque
       where: { guest_token: token },
       include: [{
         association: 'Property',
-        attributes: ['name', 'location', 'coordinates']
+        attributes: ['name', 'location', 'city', 'country', 'coordinates']
       }]
     });
 

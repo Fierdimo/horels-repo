@@ -137,7 +137,7 @@ export class SwapService {
           {
             model: Property,
             as: "Property",
-            attributes: ["id", "name", "location"],
+            attributes: ["id", "name", "location", "city", "country"],
           },
         ],
         limit: options?.limit || 50,

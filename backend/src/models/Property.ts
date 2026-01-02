@@ -178,6 +178,27 @@ Property.init({
   location: {
     type: DataTypes.STRING(255),
     allowNull: false,
+    get() {
+      const rawValue = this.getDataValue('location');
+      const city = this.getDataValue('city');
+      const country = this.getDataValue('country');
+      
+      // If location is "undefined, undefined" or contains "undefined", try to construct from city/country
+      if (rawValue && (rawValue === 'undefined, undefined' || rawValue.includes('undefined'))) {
+        // Only try to construct if city and country are actually loaded
+        if (city && country) {
+          return `${city}, ${country}`;
+        } else if (city) {
+          return city;
+        } else if (country) {
+          return country;
+        }
+        // If city/country not loaded, return original value as-is
+        return rawValue;
+      }
+      
+      return rawValue || '';
+    }
   },
   coordinates: {
     type: DataTypes.STRING(255),
@@ -408,6 +429,44 @@ Property.init({
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
+  hooks: {
+    afterFind: (result: any) => {
+      if (!result) return result;
+      
+      // Helper function to fix location on a single instance
+      const fixLocation = (instance: any) => {
+        if (!instance) return;
+        
+        const dataValues = instance.dataValues || instance;
+        const location = dataValues.location;
+        const city = dataValues.city;
+        const country = dataValues.country;
+        
+        // Fix "undefined, undefined" location
+        if (location && (location === 'undefined, undefined' || location.includes('undefined'))) {
+          if (city && country) {
+            dataValues.location = `${city}, ${country}`;
+            if (instance.location !== undefined) instance.location = `${city}, ${country}`;
+          } else if (city) {
+            dataValues.location = city;
+            if (instance.location !== undefined) instance.location = city;
+          } else if (country) {
+            dataValues.location = country;
+            if (instance.location !== undefined) instance.location = country;
+          }
+        }
+      };
+      
+      // Handle both single instance and array of instances
+      if (Array.isArray(result)) {
+        result.forEach(fixLocation);
+      } else {
+        fixLocation(result);
+      }
+      
+      return result;
+    }
+  }
 });
 
 export default Property;

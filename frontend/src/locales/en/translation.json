@@ -23,6 +23,7 @@
     "yes": "Yes",
     "no": "No",
     "user": "User",
+    "guest": "Guest",
     "registered": "Registered",
     "currentPage": "Current Page",
     "pageOf": "Page {{page}} of {{total}}",
@@ -30,6 +31,16 @@
     "description": "Description",
     "saving": "Saving...",
     "status": "Status",
+    "statusValues": {
+      "available": "Available",
+      "confirmed": "Confirmed",
+      "pending_approval": "Pending",
+      "cancelled": "Cancelled",
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "completed": "Completed",
+      "rejected": "Rejected"
+    },
     "allStatuses": "All Statuses",
     "actions": "Actions",
     "total": "Total",
@@ -309,14 +320,19 @@
       "confirmed": "Confirmed",
       "converted": "Converted",
       "used": "Used",
+      "checkedOut": "Checked Out",
       "color": "Color",
       "dates": "Dates",
       "property": "Property",
       "status": "Status",
       "actions": "Actions",
+      "type": "Type",
       "accommodationType": "Accommodation Type",
-      "confirm": "Confirm Week",
+      "confirm": "Confirm",
+      "confirmBooking": "Confirm Booking",
       "convert": "Convert to Credits",
+      "convertToCredits": "Convert to Credits",
+      "viewDetails": "View details",
       "extraNights": "Extra Nights",
       "extraNightsHelp": "(optional, extra cost)",
       "confirmTitle": "Confirm week",
@@ -324,14 +340,21 @@
       "confirmAction": "Confirm now",
       "allColors": "All colors",
       "allStatuses": "All statuses",
+      "allReservations": "All reservations",
       "searchPlaceholder": "Search by property or location...",
+      "searchProperty": "Search property...",
       "confirmSuccess": "Week confirmed successfully",
       "convertSuccess": "Week converted to credits",
       "weekDetails": "Week Details",
       "notFound": "Week not found",
       "red": "Red (6 nights)",
       "blue": "Blue (5 nights)",
-      "white": "White (4 nights)"
+      "white": "White (4 nights)",
+      "totalReservations": "Total reservations",
+      "timeshareWeeks": "Timeshare Weeks",
+      "invitationBookings": "From Invitations",
+      "marketplaceBookings": "Marketplace",
+      "acquiredViaSwap": "Acquired via Swap"
     },
     "swaps": {
       "title": "Swaps",
@@ -630,7 +653,22 @@
         "rejecting": "Rejecting...",
         "required": "Reason is required"
       },
-      "requested": "Requested"
+      "requested": "Requested",
+      "noRoomsAvailable": "No rooms available for these dates"
+    },
+    "bookings": {
+      "guestInformation": "Guest Information",
+      "additionalServices": "Additional Services",
+      "quantity": "Quantity",
+      "bookingReference": "Booking Reference",
+      "nightsCount": "nights",
+      "status": {
+        "confirmed": "Confirmed",
+        "checked_in": "Checked In",
+        "checked_out": "Checked Out",
+        "cancelled": "Cancelled",
+        "pending": "Pending"
+      }
     }
   },
   "guest": {
@@ -696,7 +734,19 @@
       "specialRequests": "Special Requests",
       "paidWith": "Paid with",
       "checkedIn": "Checked In",
-      "checkedOut": "Checked Out"
+      "checkedOut": "Checked Out",
+      "guestInformation": "Guest Information",
+      "additionalServices": "Additional Services",
+      "quantity": "Quantity",
+      "bookingReference": "Booking Reference",
+      "nightsCount": "nights",
+      "status": {
+        "confirmed": "Confirmed",
+        "checked_in": "Checked In",
+        "checked_out": "Checked Out",
+        "cancelled": "Cancelled",
+        "pending": "Pending"
+      }
     },
     "info": {
       "title": "Guest Access",

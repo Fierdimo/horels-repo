@@ -21,12 +21,23 @@
     "yes": "Oui",
     "no": "Non",
     "user": "Utilisateur",
+    "guest": "Invité",
     "registered": "Enregistré",
     "currentPage": "Page Actuelle",
     "pageOf": "Page {{page}} sur {{total}}",
     "close": "Fermer",
     "description": "Description",
     "status": "Statut",
+    "statusValues": {
+      "available": "Disponible",
+      "confirmed": "Confirmé",
+      "pending_approval": "En attente",
+      "cancelled": "Annulé",
+      "pending": "En attente",
+      "accepted": "Accepté",
+      "completed": "Terminé",
+      "rejected": "Rejeté"
+    },
     "allStatuses": "Tous les Statuts",
     "actions": "Actions",
     "total": "Total",
@@ -540,22 +551,34 @@
       "confirmed": "Confirmé",
       "converted": "Converti",
       "used": "Utilisé",
+      "checkedOut": "Terminé",
       "color": "Couleur",
       "dates": "Dates",
       "property": "Propriété",
       "status": "Statut",
       "actions": "Actions",
+      "type": "Type",
       "accommodationType": "Type d'Hébergement",
-      "confirm": "Confirmer la semaine",
+      "confirm": "Confirmer",
+      "confirmBooking": "Confirmer la réservation",
       "convert": "Convertir en crédits",
+      "convertToCredits": "Convertir en crédits",
+      "viewDetails": "Voir les détails",
       "extraNights": "Nuits supplémentaires",
+      "allReservations": "Toutes les réservations",
+      "searchProperty": "Rechercher une propriété...",
       "confirmSuccess": "Semaine confirmée avec succès",
       "convertSuccess": "Semaine convertie en crédits",
       "weekDetails": "Détails de la Semaine",
       "notFound": "Semaine introuvable",
       "red": "Rouge (6 nuits)",
       "blue": "Bleu (5 nuits)",
-      "white": "Blanc (4 nuits)"
+      "white": "Blanc (4 nuits)",
+      "totalReservations": "Total des réservations",
+      "timeshareWeeks": "Semaines en copropriété",
+      "invitationBookings": "Des invitations",
+      "marketplaceBookings": "Marketplace",
+      "acquiredViaSwap": "Obtenu par échange"
     },
     "swaps": {
       "title": "Échanges",
@@ -881,6 +904,21 @@
       "requested": "Demandé",
       "status": {
         "pending": "En attente"
+      },
+      "noRoomsAvailable": "Aucune chambre disponible pour ces dates"
+    },
+    "bookings": {
+      "guestInformation": "Informations de l'invité",
+      "additionalServices": "Services supplémentaires",
+      "quantity": "Quantité",
+      "bookingReference": "Référence de réservation",
+      "nightsCount": "nuits",
+      "status": {
+        "confirmed": "Confirmé",
+        "checked_in": "Enregistré",
+        "checked_out": "Départ effectué",
+        "cancelled": "Annulé",
+        "pending": "En attente"
       }
     }
   },
@@ -947,7 +985,19 @@
       "specialRequests": "Demandes Spéciales",
       "paidWith": "Payé avec",
       "checkedIn": "Enregistré",
-      "checkedOut": "Départ Effectué"
+      "checkedOut": "Départ Effectué",
+      "guestInformation": "Informations de l'invité",
+      "additionalServices": "Services supplémentaires",
+      "quantity": "Quantité",
+      "bookingReference": "Référence de réservation",
+      "nightsCount": "nuits",
+      "status": {
+        "confirmed": "Confirmé",
+        "checked_in": "Enregistré",
+        "checked_out": "Départ effectué",
+        "cancelled": "Annulé",
+        "pending": "En attente"
+      }
     },
     "booking": {
       "title": "Ma Réservation",

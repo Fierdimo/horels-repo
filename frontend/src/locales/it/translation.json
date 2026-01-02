@@ -23,6 +23,7 @@
     "yes": "Sì",
     "no": "No",
     "user": "Utente",
+    "guest": "Ospite",
     "registered": "Registrato",
     "currentPage": "Pagina Corrente",
     "pageOf": "Pagina {{page}} di {{total}}",
@@ -30,6 +31,16 @@
     "description": "Descrizione",
     "saving": "Salvataggio...",
     "status": "Stato",
+    "statusValues": {
+      "available": "Disponibile",
+      "confirmed": "Confermato",
+      "pending_approval": "In attesa",
+      "cancelled": "Annullato",
+      "pending": "In attesa",
+      "accepted": "Accettato",
+      "completed": "Completato",
+      "rejected": "Rifiutato"
+    },
     "allStatuses": "Tutti gli Stati",
     "actions": "Azioni",
     "total": "Totale",
@@ -309,14 +320,19 @@
       "confirmed": "Confermata",
       "converted": "Convertita",
       "used": "Usata",
+      "checkedOut": "Check-out effettuato",
       "color": "Colore",
       "dates": "Date",
       "property": "Proprietà",
       "status": "Stato",
       "actions": "Azioni",
+      "type": "Tipo",
       "accommodationType": "Tipo di Alloggio",
-      "confirm": "Conferma Settimana",
+      "confirm": "Conferma",
+      "confirmBooking": "Conferma prenotazione",
       "convert": "Converti in Crediti",
+      "convertToCredits": "Converti in Crediti",
+      "viewDetails": "Vedi dettagli",
       "extraNights": "Notti Extra",
       "extraNightsHelp": "(opzionale, costo aggiuntivo)",
       "confirmTitle": "Conferma settimana",
@@ -324,14 +340,21 @@
       "confirmAction": "Conferma ora",
       "allColors": "Tutti i colori",
       "allStatuses": "Tutti gli stati",
+      "allReservations": "Tutte le prenotazioni",
       "searchPlaceholder": "Cerca per proprietà o località...",
+      "searchProperty": "Cerca proprietà...",
       "confirmSuccess": "Settimana confermata con successo",
       "convertSuccess": "Settimana convertita in crediti",
       "weekDetails": "Dettagli della Settimana",
       "notFound": "Settimana non trovata",
       "red": "Rosso (6 notti)",
       "blue": "Blu (5 notti)",
-      "white": "Bianco (4 notti)"
+      "white": "Bianco (4 notti)",
+      "totalReservations": "Prenotazioni totali",
+      "timeshareWeeks": "Settimane Timeshare",
+      "invitationBookings": "Da inviti",
+      "marketplaceBookings": "Marketplace",
+      "acquiredViaSwap": "Acquisito tramite scambio"
     },
     "swaps": {
       "title": "Scambi",
@@ -658,6 +681,21 @@
       "requested": "Richiesto",
       "status": {
         "pending": "In sospeso"
+      },
+      "noRoomsAvailable": "Nessuna camera disponibile per queste date"
+    },
+    "bookings": {
+      "guestInformation": "Informazioni ospite",
+      "additionalServices": "Servizi aggiuntivi",
+      "quantity": "Quantità",
+      "bookingReference": "Riferimento prenotazione",
+      "nightsCount": "notti",
+      "status": {
+        "confirmed": "Confermato",
+        "checked_in": "Check-in effettuato",
+        "checked_out": "Check-out effettuato",
+        "cancelled": "Cancellato",
+        "pending": "In attesa"
       }
     }
   },
@@ -724,7 +762,19 @@
       "specialRequests": "Richieste Speciali",
       "paidWith": "Pagato con",
       "checkedIn": "Check-in Effettuato",
-      "checkedOut": "Check-out Effettuato"
+      "checkedOut": "Check-out Effettuato",
+      "guestInformation": "Informazioni ospite",
+      "additionalServices": "Servizi aggiuntivi",
+      "quantity": "Quantità",
+      "bookingReference": "Riferimento prenotazione",
+      "nightsCount": "notti",
+      "status": {
+        "confirmed": "Confermato",
+        "checked_in": "Check-in effettuato",
+        "checked_out": "Check-out effettuato",
+        "cancelled": "Cancellato",
+        "pending": "In attesa"
+      }
     },
     "info": {
       "title": "Accesso Ospite",

@@ -44,13 +44,9 @@ export default function BookingDetails() {
   const statusColor = statusColors[booking.status] || { bg: 'bg-gray-100', text: 'text-gray-800' };
 
   const getStatusLabel = (status: string) => {
-    const statusMap: Record<string, string> = {
-      confirmed: 'Confirmado',
-      checked_in: 'Check-in realizado',
-      checked_out: 'Check-out realizado',
-      cancelled: 'Cancelado'
-    };
-    return statusMap[status] || status;
+    const statusKey = `owner.bookings.status.${status}`;
+    const translated = t(statusKey);
+    return translated !== statusKey ? translated : t(`common.statusValues.${status}`, status);
   };
 
   return (
@@ -85,8 +81,10 @@ export default function BookingDetails() {
                 <div className="flex items-center gap-2 text-gray-600 ml-7">
                   <MapPin className="h-4 w-4" />
                   <span>
-                    {booking.Property?.location}, {booking.Property?.city},{' '}
-                    {booking.Property?.country}
+                    {booking.Property?.city && booking.Property?.country
+                      ? `${booking.Property.city}, ${booking.Property.country}`
+                      : booking.Property?.location || 'N/A'
+                    }
                   </span>
                 </div>
                 {booking.Property?.stars && (
@@ -142,7 +140,7 @@ export default function BookingDetails() {
               <label className="text-sm font-semibold text-gray-500 uppercase">
                 {t('common.nights')}
               </label>
-              <p className="mt-2 text-lg text-gray-900">{nights} noches</p>
+              <p className="mt-2 text-lg text-gray-900">{nights} {t('owner.bookings.nightsCount', { count: nights })}</p>
             </div>
 
             {/* Room Type */}
@@ -158,7 +156,7 @@ export default function BookingDetails() {
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              Información del huésped
+              {t('owner.bookings.guestInformation')}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -189,7 +187,7 @@ export default function BookingDetails() {
           {booking.Services && booking.Services.length > 0 && (
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Servicios adicionales
+                {t('owner.bookings.additionalServices')}
               </h3>
               <div className="space-y-3">
                 {booking.Services.map((service) => (
@@ -203,11 +201,11 @@ export default function BookingDetails() {
                         <p className="text-sm text-gray-600">{service.notes}</p>
                       )}
                       <p className="text-xs text-gray-500 mt-1">
-                        Estado: {service.status}
+                        {t('common.status')}: {service.status}
                       </p>
                       {service.quantity > 1 && (
                         <p className="text-sm text-gray-500">
-                          Cantidad: {service.quantity}
+                          {t('owner.bookings.quantity')}: {service.quantity}
                         </p>
                       )}
                     </div>
@@ -224,7 +222,7 @@ export default function BookingDetails() {
           {booking.pms_booking_id && (
             <div className="p-6 bg-gray-50 border-t border-gray-200">
               <p className="text-sm text-gray-600">
-                Referencia de reserva: <span className="font-mono">{booking.pms_booking_id}</span>
+                {t('owner.bookings.bookingReference')}: <span className="font-mono">{booking.pms_booking_id}</span>
               </p>
             </div>
           )}

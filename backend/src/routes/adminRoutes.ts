@@ -50,7 +50,7 @@ router.get('/users', authenticateToken, authorize(['view_users']), logAction('vi
         },
         {
           model: Property,
-          attributes: ['name', 'location']
+          attributes: ['name', 'location', 'city', 'country']
         }
       ],
       limit: Number(limit),
@@ -255,7 +255,7 @@ router.patch('/users/:userId', authenticateToken, authorize(['update_user']), lo
         },
         {
           model: Property,
-          attributes: ['name', 'location']
+          attributes: ['name', 'location', 'city', 'country']
         }
       ],
       attributes: { exclude: ['password'] }
@@ -404,7 +404,7 @@ router.get('/staff-requests', authenticateToken, authorize(['view_users']), logA
         attributes: ['name']
       }, {
         model: Property,
-        attributes: ['name', 'location']
+        attributes: ['name', 'location', 'city', 'country']
       }]
     });
 
@@ -753,7 +753,7 @@ router.post('/assign-period', authenticateToken, authorize(['manage_users', 'man
 
     // Load relations
     await week.reload({
-      include: [{ model: Property, attributes: ['name', 'location'] }]
+      include: [{ model: Property, attributes: ['name', 'location', 'city', 'country'] }]
     });
 
     // Auto-convert guest to owner if this is their first week

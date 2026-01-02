@@ -21,12 +21,23 @@
     "yes": "Ja",
     "no": "Nein",
     "user": "Benutzer",
+    "guest": "Gast",
     "registered": "Registriert",
     "currentPage": "Aktuelle Seite",
     "pageOf": "Seite {{page}} von {{total}}",
     "close": "Schließen",
     "description": "Beschreibung",
     "status": "Status",
+    "statusValues": {
+      "available": "Verfügbar",
+      "confirmed": "Bestätigt",
+      "pending_approval": "Ausstehend",
+      "cancelled": "Storniert",
+      "pending": "Ausstehend",
+      "accepted": "Akzeptiert",
+      "completed": "Abgeschlossen",
+      "rejected": "Abgelehnt"
+    },
     "allStatuses": "Alle Status",
     "actions": "Aktionen",
     "total": "Gesamt",
@@ -541,22 +552,34 @@
       "confirmed": "Bestätigt",
       "converted": "Umgewandelt",
       "used": "Verwendet",
+      "checkedOut": "Ausgecheckt",
       "color": "Farbe",
       "dates": "Daten",
       "property": "Immobilie",
       "status": "Status",
       "actions": "Aktionen",
+      "type": "Typ",
       "accommodationType": "Unterkunftsart",
-      "confirm": "Woche bestätigen",
+      "confirm": "Bestätigen",
+      "confirmBooking": "Buchung bestätigen",
       "convert": "In Gutschriften umwandeln",
+      "convertToCredits": "In Gutschriften umwandeln",
+      "viewDetails": "Details anzeigen",
       "extraNights": "Zusätzliche Nächte",
+      "allReservations": "Alle Reservierungen",
+      "searchProperty": "Immobilie suchen...",
       "confirmSuccess": "Woche erfolgreich bestätigt",
       "convertSuccess": "Woche in Gutschriften umgewandelt",
       "weekDetails": "Wochendetails",
       "notFound": "Woche nicht gefunden",
       "red": "Rot (6 Nächte)",
       "blue": "Blau (5 Nächte)",
-      "white": "Weiß (4 Nächte)"
+      "white": "Weiß (4 Nächte)",
+      "totalReservations": "Gesamtreservierungen",
+      "timeshareWeeks": "Timeshare-Wochen",
+      "invitationBookings": "Von Einladungen",
+      "marketplaceBookings": "Marketplace",
+      "acquiredViaSwap": "Durch Tausch erworben"
     },
     "swaps": {
       "title": "Tauschgeschäfte",
@@ -882,6 +905,21 @@
       "requested": "Angefordert",
       "status": {
         "pending": "Ausstehend"
+      },
+      "noRoomsAvailable": "Keine Zimmer für diese Termine verfügbar"
+    },
+    "bookings": {
+      "guestInformation": "Gastinformationen",
+      "additionalServices": "Zusätzliche Services",
+      "quantity": "Menge",
+      "bookingReference": "Buchungsreferenz",
+      "nightsCount": "Nächte",
+      "status": {
+        "confirmed": "Bestätigt",
+        "checked_in": "Eingecheckt",
+        "checked_out": "Ausgecheckt",
+        "cancelled": "Storniert",
+        "pending": "Ausstehend"
       }
     }
   },
@@ -948,7 +986,19 @@
       "specialRequests": "Besondere Wünsche",
       "paidWith": "Bezahlt mit",
       "checkedIn": "Eingecheckt",
-      "checkedOut": "Ausgecheckt"
+      "checkedOut": "Ausgecheckt",
+      "guestInformation": "Gastinformationen",
+      "additionalServices": "Zusätzliche Services",
+      "quantity": "Menge",
+      "bookingReference": "Buchungsreferenz",
+      "nightsCount": "Nächte",
+      "status": {
+        "confirmed": "Bestätigt",
+        "checked_in": "Eingecheckt",
+        "checked_out": "Ausgecheckt",
+        "cancelled": "Storniert",
+        "pending": "Ausstehend"
+      }
     },
     "booking": {
       "title": "Meine Buchung",

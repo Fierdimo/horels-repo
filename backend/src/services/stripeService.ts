@@ -4,6 +4,7 @@ import Property from '../models/Property';
 import Room from '../models/room';
 import User from '../models/User';
 import Role from '../models/Role';
+import RoomEnrichmentService from './roomEnrichmentService';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
@@ -103,6 +104,21 @@ export class StripeService {
       throw new Error('Property not found');
     }
 
+    // Obtener información de la habitación para el room_type
+    const { Room } = await import('../models');
+    const room = await Room.findByPk(roomId);
+    let roomType = 'Standard'; // Default fallback
+    
+    if (room) {
+      // Intentar obtener el room_type desde RoomEnrichmentService
+      try {
+        const enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+        roomType = enrichedRoom.type || enrichedRoom.name || 'Standard';
+      } catch (error) {
+        console.warn('Could not enrich room for room_type, using default:', error);
+      }
+    }
+
     // Obtener o crear customer si el usuario está autenticado
     let customerId: string | undefined;
     if (userId) {
@@ -127,6 +143,7 @@ export class StripeService {
         property_name: property.name,
         room_id: roomId.toString(),
         room_name: roomName || `Room ${roomId}`,
+        room_type: roomType,
         guest_name: guestName,
         guest_email: guestEmail,
         guest_phone: guestPhone || '',
@@ -184,7 +201,7 @@ export class StripeService {
       guest_phone: metadata.guest_phone || null,
       check_in: new Date(metadata.check_in),
       check_out: new Date(metadata.check_out),
-      room_type: 'Standard',
+      room_type: metadata.room_type || 'Standard',
       status: 'confirmed',
       guest_token: guestToken,
       total_amount: paymentIntent.amount / 100, // Convertir de centavos a euros

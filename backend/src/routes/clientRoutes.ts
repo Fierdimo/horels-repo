@@ -125,7 +125,7 @@ router.get('/payments', authenticateToken, logAction('view_payments'), async (re
       },
       include: [{
         association: 'Property',
-        attributes: ['id', 'name', 'location']
+        attributes: ['id', 'name', 'location', 'city', 'country']
       }],
       order: [['created_at', 'DESC']]
     });
@@ -174,7 +174,7 @@ router.get('/properties/names', async (req: Request, res: Response) => {
   try {
     const { Property } = await import('../models');
     const properties = await Property.findAll({
-      attributes: ['name', 'location'],
+      attributes: ['name', 'location', 'city', 'country'],
       order: [['name', 'ASC']]
     });
     res.json({ properties: properties.map(p => ({ name: p.name, location: p.location })) });

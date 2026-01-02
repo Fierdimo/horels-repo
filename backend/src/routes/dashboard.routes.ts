@@ -170,7 +170,7 @@ router.get('/weeks', logAction('view_dashboard_weeks'), async (req: any, res: Re
       include: [
         {
           association: 'Property',
-          attributes: ['id', 'name', 'location']
+          attributes: ['id', 'name', 'location', 'city', 'country']
         },
         {
           association: 'Owner',

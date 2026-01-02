@@ -1310,7 +1310,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
     const booking = await Booking.create({
       property_id: parseInt(propertyId),
       room_id: parseInt(roomId),
-      room_type: enrichedRoom.name || `Room ${roomId}`, // Usar nombre del PMS enrichment
+      room_type: enrichedRoom.type || roomType || 'Standard', // Usar tipo del PMS enrichment, no el nombre
       guest_name: guestName,
       guest_email: guestEmail,
       guest_phone: guestPhone || null,

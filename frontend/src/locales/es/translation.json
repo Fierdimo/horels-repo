@@ -24,12 +24,23 @@
     "yes": "Sí",
     "no": "No",
     "user": "Usuario",
+    "guest": "Huésped",
     "registered": "Registrado",
     "currentPage": "Página Actual",
     "pageOf": "Página {{page}} de {{total}}",
     "close": "Cerrar",
     "description": "Descripción",
     "status": "Estado",
+    "statusValues": {
+      "available": "Disponible",
+      "confirmed": "Confirmado",
+      "pending_approval": "Pendiente",
+      "cancelled": "Cancelado",
+      "pending": "Pendiente",
+      "accepted": "Aceptado",
+      "completed": "Completado",
+      "rejected": "Rechazado"
+    },
     "allStatuses": "Todos los Estados",
     "actions": "Acciones",
     "total": "Total",
@@ -307,14 +318,19 @@
       "confirmed": "Confirmada",
       "converted": "Convertida",
       "used": "Usada",
+      "checkedOut": "Finalizado",
       "color": "Color",
       "dates": "Fechas",
       "property": "Propiedad",
       "status": "Estado",
       "actions": "Acciones",
+      "type": "Tipo",
       "accommodationType": "Tipo de Alojamiento",
-      "confirm": "Confirmar Semana",
+      "confirm": "Confirmar",
+      "confirmBooking": "Confirmar Booking",
       "convert": "Convertir a Créditos",
+      "convertToCredits": "Convertir a Créditos",
+      "viewDetails": "Ver detalles",
       "extraNights": "Noches Extra",
       "extraNightsHelp": "(opcional, coste adicional)",
       "confirmTitle": "Confirmar semana",
@@ -322,14 +338,21 @@
       "confirmAction": "Confirmar ahora",
       "allColors": "Todos los colores",
       "allStatuses": "Todos los estados",
+      "allReservations": "Todas las reservas",
       "searchPlaceholder": "Buscar por propiedad o ubicación...",
+      "searchProperty": "Buscar propiedad...",
       "confirmSuccess": "Semana confirmada exitosamente",
       "convertSuccess": "Semana convertida a créditos",
       "weekDetails": "Detalles de la Semana",
       "notFound": "Semana no encontrada",
       "red": "Roja (6 noches)",
       "blue": "Azul (5 noches)",
-      "white": "Blanca (4 noches)"
+      "white": "Blanca (4 noches)",
+      "totalReservations": "Total de reservas",
+      "timeshareWeeks": "Semanas Timeshare",
+      "invitationBookings": "De Invitaciones",
+      "marketplaceBookings": "Marketplace",
+      "acquiredViaSwap": "Obtenido por Swap"
     },
     "swaps": {
       "title": "Intercambios",
@@ -629,7 +652,22 @@
       "created": "Creado",
       "usingCredits": "Usando Créditos",
       "buying": "Comprando",
-      "requestId": "Solicitud #"
+      "requestId": "Solicitud #",
+      "noRoomsAvailable": "No hay habitaciones disponibles para estas fechas"
+    },
+    "bookings": {
+      "guestInformation": "Información del huésped",
+      "additionalServices": "Servicios adicionales",
+      "quantity": "Cantidad",
+      "bookingReference": "Referencia de reserva",
+      "nightsCount": "noches",
+      "status": {
+        "confirmed": "Confirmado",
+        "checked_in": "Check-in realizado",
+        "checked_out": "Check-out realizado",
+        "cancelled": "Cancelado",
+        "pending": "Pendiente"
+      }
     },
     "staffNightCredits": {
       "title": "Solicitudes de Créditos Nocturnos",
@@ -732,7 +770,19 @@
       "specialRequests": "Solicitudes Especiales",
       "paidWith": "Pagado con",
       "checkedIn": "Registrado",
-      "checkedOut": "Salida Realizada"
+      "checkedOut": "Salida Realizada",
+      "guestInformation": "Información del huésped",
+      "additionalServices": "Servicios adicionales",
+      "quantity": "Cantidad",
+      "bookingReference": "Referencia de reserva",
+      "nightsCount": "noches",
+      "status": {
+        "confirmed": "Confirmado",
+        "checked_in": "Check-in realizado",
+        "checked_out": "Check-out realizado",
+        "cancelled": "Cancelado",
+        "pending": "Pendiente"
+      }
     },
     "info": {
       "title": "Acceso de Huésped",
