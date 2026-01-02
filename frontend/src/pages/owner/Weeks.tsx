@@ -202,21 +202,20 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                     <span className={`px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       week.status === 'available' ? 'bg-green-100 text-green-800' :
                       week.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
-                      week.status === 'pending_approval' ? 'bg-purple-100 text-purple-800' :
+                      week.status === 'converted' ? 'bg-purple-100 text-purple-800' :
                       week.status === 'used' || week.status === 'checked_out' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {week.status === 'used' ? t('owner.weeks.used') : 
                        week.status === 'checked_out' ? t('owner.weeks.checkedOut') :
                        week.status === 'confirmed' ? t('common.statusValues.confirmed') :
-                       week.status === 'pending_approval' ? t('common.statusValues.pending_approval') :
-                       week.status === 'pending' ? t('common.statusValues.pending') :
-                       week.status === 'available' ? t('common.statusValues.available') : week.status}
+                       week.status === 'available' ? t('common.statusValues.available') :
+                       week.status === 'converted' ? t('common.statusValues.converted') : week.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     {/* Pending invitation booking - owner must decide */}
-                    {week.status === 'pending' && (week as any).booking_type === 'owner_invitation' && (
+                    {(week as any).status === 'pending' && (week as any).booking_type === 'owner_invitation' && (
                       <div className="flex gap-2">
                         <button
                           className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-xs"
@@ -255,7 +254,7 @@ const { data: dashboardData, isLoading: loadingDashboard } = useOwnerDashboard()
                     )}
                     
                     {/* Confirmed booking from marketplace */}
-                    {((week as any).source === 'booking') && week.status !== 'pending' && (
+                    {((week as any).source === 'booking') && (week as any).status !== 'pending' && (
                       <a href={`/owner/bookings/${(week as any).booking_id}`} className="text-primary hover:text-primary/80 mr-3">
                         {t('owner.weeks.viewDetails')}
                       </a>

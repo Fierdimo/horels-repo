@@ -106,7 +106,7 @@ export default function StaffSwapApprovals() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              ⏳ Pendientes ({staffPendingSwaps.length})
+              ⏳ {t('staff.swaps.pendingTab')} ({staffPendingSwaps.length})
             </button>
             <button
               onClick={() => setActiveTab('history')}
@@ -116,7 +116,7 @@ export default function StaffSwapApprovals() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              📋 Histórico ({historySwaps.length})
+              📋 {t('staff.swaps.historyTab')} ({historySwaps.length})
             </button>
           </nav>
         </div>
@@ -244,7 +244,7 @@ export default function StaffSwapApprovals() {
                                 : 'bg-red-100 text-red-700'
                             }`}
                           >
-                            {swap.status === 'completed' ? '✓✓ Aprobado' : '✗ Rechazado'}
+                            {swap.status === 'completed' ? `✓✓ ${t('staff.swaps.approved')}` : `✗ ${t('staff.swaps.rejected')}`}
                           </span>
                           <span className="text-xs text-gray-500">
                             {new Date(swap.staff_review_date || swap.created_at || '').toLocaleDateString('es-ES')}
@@ -256,7 +256,7 @@ export default function StaffSwapApprovals() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                       {/* Requester */}
                       <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="text-xs text-blue-700 font-semibold mb-2">Solicitante:</p>
+                        <p className="text-xs text-blue-700 font-semibold mb-2">{t('staff.swaps.requester')}:</p>
                         <p className="font-semibold text-gray-900">
                           {getAccommodationTypeEmoji(swap.RequesterWeek?.accommodation_type || '')} 
                           {' '}{getAccommodationTypeName(swap.RequesterWeek?.accommodation_type || '')}
@@ -273,7 +273,7 @@ export default function StaffSwapApprovals() {
                       {/* Responder */}
                       {swap.ResponderWeek && (
                         <div className="bg-green-50 p-4 rounded-lg">
-                          <p className="text-xs text-green-700 font-semibold mb-2">Respuesta:</p>
+                          <p className="text-xs text-green-700 font-semibold mb-2">{t('staff.swaps.response')}:</p>
                           <p className="font-semibold text-gray-900">
                             {getAccommodationTypeEmoji(swap.ResponderWeek?.accommodation_type || '')}
                             {' '}{getAccommodationTypeName(swap.ResponderWeek?.accommodation_type || '')}
@@ -297,7 +297,7 @@ export default function StaffSwapApprovals() {
                         <p className={`text-xs font-semibold mb-1 ${
                           swap.status === 'completed' ? 'text-green-700' : 'text-red-700'
                         }`}>
-                          {swap.status === 'completed' ? 'Notas de aprobación:' : 'Razón de rechazo:'}
+                          {swap.status === 'completed' ? t('staff.swaps.approvalNotes') : t('staff.swaps.rejectionReason')}:
                         </p>
                         <p className={`text-sm ${
                           swap.status === 'completed' ? 'text-green-900' : 'text-red-900'
@@ -336,22 +336,22 @@ export default function StaffSwapApprovals() {
                 {/* Requester Information */}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    {t('staff.swaps.requesterInfo', { defaultValue: 'Requester Information' })}
+                    {t('staff.swaps.requesterInfo')}
                   </h3>
                   <div className="bg-blue-50 p-4 rounded-lg space-y-3">
                     <div>
-                      <p className="text-xs text-gray-600">Name</p>
+                      <p className="text-xs text-gray-600">{t('staff.swaps.name')}</p>
                       <p className="font-semibold text-gray-900">
                         {selectedSwap.Requester?.firstName || selectedSwap.Requester?.email || 'Unknown'} {selectedSwap.Requester?.lastName || ''}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600">Email</p>
+                      <p className="text-xs text-gray-600">{t('staff.swaps.email')}</p>
                       <p className="text-gray-900">{selectedSwap.Requester?.email}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">
-                        {t('staff.swaps.offeringAccommodation', { defaultValue: 'Offering Accommodation Type' })}
+                        {t('staff.swaps.offeringAccommodation')}
                       </p>
                       <p className="text-gray-900 font-semibold">
                         {getAccommodationTypeEmoji(selectedSwap.RequesterWeek?.accommodation_type || '')}
@@ -359,14 +359,14 @@ export default function StaffSwapApprovals() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600">Week</p>
+                      <p className="text-xs text-gray-600">{t('staff.swaps.week')}</p>
                       <p className="text-gray-900">
                         {new Date(selectedSwap.RequesterWeek?.start_date || '').toLocaleDateString()} -{' '}
                         {new Date(selectedSwap.RequesterWeek?.end_date || '').toLocaleDateString()}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600">Property</p>
+                      <p className="text-xs text-gray-600">{t('staff.swaps.property')}</p>
                       <p className="text-gray-900">{selectedSwap.RequesterWeek?.Property?.name}</p>
                     </div>
                   </div>
@@ -376,22 +376,22 @@ export default function StaffSwapApprovals() {
                 {(selectedSwap.ResponderWeek || selectedSwap.responder_source_id) && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      {t('staff.swaps.responderInfo', { defaultValue: 'Responder Information' })}
+                      {t('staff.swaps.responderInfo')}
                     </h3>
                     <div className="bg-green-50 p-4 rounded-lg space-y-3">
                       <div>
-                        <p className="text-xs text-gray-600">Name</p>
+                        <p className="text-xs text-gray-600">{t('staff.swaps.name')}</p>
                         <p className="font-semibold text-gray-900">
                           {selectedSwap.Responder?.firstName || selectedSwap.Responder?.email || 'Unknown'} {selectedSwap.Responder?.lastName || ''}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600">Email</p>
+                        <p className="text-xs text-gray-600">{t('staff.swaps.email')}</p>
                         <p className="text-gray-900">{selectedSwap.Responder?.email}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600">
-                          {t('staff.swaps.offeringAccommodation', { defaultValue: 'Offering Accommodation Type' })}
+                          {t('staff.swaps.offeringAccommodation')}
                         </p>
                         <p className="text-gray-900 font-semibold">
                           {getAccommodationTypeEmoji(selectedSwap.ResponderWeek?.accommodation_type || '')}
@@ -399,14 +399,14 @@ export default function StaffSwapApprovals() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600">Week</p>
+                        <p className="text-xs text-gray-600">{t('staff.swaps.week')}</p>
                         <p className="text-gray-900">
                           {new Date(selectedSwap.ResponderWeek?.start_date || '').toLocaleDateString()} -{' '}
                           {new Date(selectedSwap.ResponderWeek?.end_date || '').toLocaleDateString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600">Property</p>
+                        <p className="text-xs text-gray-600">{t('staff.swaps.property')}</p>
                         <p className="text-gray-900">{selectedSwap.ResponderWeek?.Property?.name}</p>
                       </div>
                     </div>
@@ -417,12 +417,12 @@ export default function StaffSwapApprovals() {
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <div className="flex justify-between items-center">
                     <span className="text-yellow-900 font-semibold">
-                      {t('staff.swaps.platformFeeTotal', { defaultValue: 'Total Platform Fee' })}
+                      {t('staff.swaps.platformFeeTotal')}
                     </span>
                     <span className="text-2xl font-bold text-yellow-700">€{selectedSwap.swap_fee || 10}</span>
                   </div>
                   <p className="text-xs text-yellow-800 mt-2">
-                    {t('staff.swaps.feeDescription', { defaultValue: 'This fee will be charged to both owners when the swap is completed' })}
+                    {t('staff.swaps.feeDescription')}
                   </p>
                 </div>
 
@@ -433,12 +433,12 @@ export default function StaffSwapApprovals() {
                       {/* Approve Section */}
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          {t('staff.swaps.approveNotes', { defaultValue: 'Approval Notes (Optional)' })}
+                          {t('staff.swaps.approveNotes')}
                         </label>
                         <textarea
                           value={approveNotes}
                           onChange={(e) => setApproveNotes(e.target.value)}
-                          placeholder="Any notes about this approval..."
+                          placeholder={t('staff.swaps.notesPlaceholder')}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                           rows={3}
                         />
@@ -450,26 +450,26 @@ export default function StaffSwapApprovals() {
                           disabled={approvingSwap}
                           className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-semibold transition"
                         >
-                          {approvingSwap ? '⏳ Processing' : '✓ Approve Swap'}
+                          {approvingSwap ? `⏳ ${t('staff.swaps.processing')}` : `✓ ${t('staff.swaps.approveSwap')}`}
                         </button>
                         <button
                           onClick={() => setShowRejectForm(true)}
                           disabled={rejectingStaffSwap}
                           className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-semibold transition"
                         >
-                          {rejectingStaffSwap ? '⏳ Processing' : '✗ Reject'}
+                          {rejectingStaffSwap ? `⏳ ${t('staff.swaps.processing')}` : `✗ ${t('staff.swaps.reject')}`}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('staff.swaps.rejectReason', { defaultValue: 'Reason for Rejection' })}
+                        {t('staff.swaps.rejectReason')}
                       </label>
                       <textarea
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="Explain why you're rejecting this swap request..."
+                        placeholder={t('staff.swaps.rejectPlaceholder')}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
                         rows={4}
                         required
@@ -482,14 +482,14 @@ export default function StaffSwapApprovals() {
                           }}
                           className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-semibold transition"
                         >
-                          {t('common.cancel')}
+                          {t('staff.swaps.cancel')}
                         </button>
                         <button
                           onClick={handleReject}
                           disabled={!rejectReason || rejectingStaffSwap}
                           className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-semibold transition"
                         >
-                          {rejectingStaffSwap ? '⏳ Processing' : 'Confirm Rejection'}
+                          {rejectingStaffSwap ? `⏳ ${t('staff.swaps.processing')}` : t('staff.swaps.confirmRejection')}
                         </button>
                       </div>
                     </div>
@@ -503,7 +503,7 @@ export default function StaffSwapApprovals() {
                     }}
                     className="w-full mt-3 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-semibold transition"
                   >
-                    {t('common.close')}
+                    {t('staff.swaps.close')}
                   </button>
                 </div>
               </div>

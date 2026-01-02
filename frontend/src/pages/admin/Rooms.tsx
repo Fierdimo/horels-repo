@@ -408,10 +408,7 @@ export default function Rooms() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{room.Property?.name}</div>
                       <div className="text-sm text-gray-500">
-                        {room.Property?.city && room.Property?.country
-                          ? `${room.Property.city}, ${room.Property.country}`
-                          : room.Property?.location || 'N/A'
-                        }
+                        {room.Property?.location || 'N/A'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -498,10 +495,7 @@ export default function Rooms() {
                   <label className="text-sm font-medium text-gray-500">{t('admin.rooms.hotel')}</label>
                   <p className="mt-1 text-base text-gray-900">{selectedRoom.Property?.name}</p>
                   <p className="text-sm text-gray-500">
-                    {selectedRoom.Property?.city && selectedRoom.Property?.country
-                      ? `${selectedRoom.Property.city}, ${selectedRoom.Property.country}`
-                      : selectedRoom.Property?.location || 'N/A'
-                    }
+                    {selectedRoom.Property?.location || 'N/A'}
                   </p>
                 </div>
                 <div>

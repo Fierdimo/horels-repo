@@ -49,8 +49,9 @@ export default function Register() {
             setInvitationData(data);
             // Pre-fill form with invitation data
             setValue('email', data.email, { shouldValidate: true });
-            if (data.first_name) setValue('firstName', data.first_name, { shouldValidate: true });
-            if (data.last_name) setValue('lastName', data.last_name, { shouldValidate: true });
+            // Note: firstName and lastName are not part of the form schema
+            // if (data.first_name) setValue('firstName', data.first_name, { shouldValidate: true });
+            // if (data.last_name) setValue('lastName', data.last_name, { shouldValidate: true });
             setValue('roleName', 'owner', { shouldValidate: true });
             
             toast.success(

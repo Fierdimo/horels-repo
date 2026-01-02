@@ -257,7 +257,7 @@ export default function GuestServiceRequest() {
                           {serviceTypes.find(t => t.value === service.service_type)?.label || service.service_type}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {t('guest.services.requestedAt') || 'Requested'}: {new Date(service.requested_at || service.created_at).toLocaleDateString()}
+                          {t('guest.services.requestedAt') || 'Requested'}: {new Date((service.requested_at || service.created_at) ?? '').toLocaleDateString()}
                         </p>
                       </div>
                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(service.status)}`}>

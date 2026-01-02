@@ -566,7 +566,7 @@ const CreditConfiguration: React.FC = () => {
               <option value="">Todas las propiedades</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} - {p.location}
+                  {p.name} - {(p as any).location || 'N/A'}
                 </option>
               ))}
             </select>

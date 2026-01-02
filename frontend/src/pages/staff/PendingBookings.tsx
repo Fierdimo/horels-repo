@@ -150,10 +150,10 @@ export default function PendingBookings() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Bookings Pendientes de Aprobación
+            {t('staff.bookings.pendingApprovals')}
           </h1>
           <p className="text-gray-600">
-            Revisa y gestiona los bookings de invitaciones de owners que requieren tu aprobación
+            {t('staff.bookings.manageOwnerBookings')}
           </p>
         </div>
 
@@ -162,7 +162,7 @@ export default function PendingBookings() {
           <div className="bg-purple-50 rounded-lg shadow-sm p-6 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pendientes de Aprobación</p>
+                <p className="text-sm font-medium text-gray-600">{t('staff.bookings.pendingApprovalsCount')}</p>
                 <p className="text-3xl font-bold text-purple-600 mt-2">{stats.pending}</p>
               </div>
               <Clock className="h-12 w-12 text-purple-500 opacity-20" />
@@ -172,7 +172,7 @@ export default function PendingBookings() {
           <div className="bg-blue-50 rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total de Solicitudes</p>
+                <p className="text-sm font-medium text-gray-600">{t('staff.bookings.totalRequests')}</p>
                 <p className="text-3xl font-bold text-blue-600 mt-2">{stats.total}</p>
               </div>
               <AlertTriangle className="h-12 w-12 text-blue-500 opacity-20" />
@@ -185,10 +185,10 @@ export default function PendingBookings() {
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              ¡Todo al día!
+              {t('staff.bookings.allCaughtUp')}
             </h3>
             <p className="text-gray-600">
-              No hay bookings pendientes de aprobación en este momento
+              {t('staff.bookings.noBookings')}
             </p>
           </div>
         ) : (
@@ -204,23 +204,23 @@ export default function PendingBookings() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="text-lg font-semibold text-gray-900">
-                            Booking #{booking.id}
+                            {t('staff.bookings.bookingNumber', { number: booking.id })}
                           </h3>
                           {booking.payment_method === 'CREDITS' && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">
-                              💳 CRÉDITOS
+                              💳 {t('staff.bookings.credits')}
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-gray-500">
-                          Solicitado el {format(parseISO(booking.created_at), 'dd/MM/yyyy HH:mm')}
+                          {t('staff.bookings.requestedOn', { date: format(parseISO(booking.created_at), 'dd/MM/yyyy HH:mm') })}
                         </p>
                         {booking.payment_method === 'CREDITS' && typeof booking.raw === 'string' && (() => {
                           try {
                             const rawData = JSON.parse(booking.raw);
                             return rawData.credits_required ? (
                               <p className="text-sm text-purple-600 font-medium mt-1">
-                                💰 {rawData.credits_required.toLocaleString()} créditos
+                                💰 {t('staff.bookings.creditsAmount', { count: rawData.credits_required })}
                               </p>
                             ) : null;
                           } catch {
@@ -229,13 +229,13 @@ export default function PendingBookings() {
                         })()}
                         {metadata.estimated_credits && (
                           <p className="text-sm text-blue-600 font-medium mt-1">
-                            Valor estimado: {metadata.estimated_credits} créditos
+                            {t('staff.bookings.estimatedValue')}: {t('staff.bookings.creditsAmount', { count: metadata.estimated_credits })}
                           </p>
                         )}
                       </div>
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
                         <Clock className="h-4 w-4 mr-1" />
-                        Pendiente de Aprobación
+                        {t('staff.bookings.pendingApproval')}
                       </span>
                     </div>
 
@@ -244,15 +244,15 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <User className="h-5 w-5 text-gray-400" />
-                          Información del Owner
+                          {t('staff.bookings.ownerInfo')}
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">Nombre:</span>{' '}
+                            <span className="text-gray-600">{t('staff.bookings.name')}:</span>{' '}
                             <span className="font-medium text-gray-900">{booking.guest_name}</span>
                           </p>
                           <p className="text-sm">
-                            <span className="text-gray-600">Email:</span>{' '}
+                            <span className="text-gray-600">{t('staff.bookings.email')}:</span>{' '}
                             <span className="font-medium text-gray-900">{booking.guest_email}</span>
                           </p>
                         </div>
@@ -262,16 +262,16 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <Bed className="h-5 w-5 text-gray-400" />
-                          Información de Habitación
+                          {t('staff.bookings.roomInfo')}
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">Tipo:</span>{' '}
+                            <span className="text-gray-600">{t('staff.bookings.type')}:</span>{' '}
                             <span className="font-medium text-gray-900">{booking.room_type}</span>
                           </p>
                           {metadata.season_type && (
                             <p className="text-sm">
-                              <span className="text-gray-600">Temporada:</span>{' '}
+                              <span className="text-gray-600">{t('staff.bookings.season')}:</span>{' '}
                               <span className="font-medium text-gray-900">{metadata.season_type}</span>
                             </p>
                           )}
@@ -282,23 +282,23 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <Calendar className="h-5 w-5 text-gray-400" />
-                          Fechas
+                          {t('staff.bookings.dates')}
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">Check-in:</span>{' '}
+                            <span className="text-gray-600">{t('staff.bookings.checkIn')}:</span>{' '}
                             <span className="font-medium text-gray-900">
                               {format(parseISO(booking.check_in), 'dd/MM/yyyy')}
                             </span>
                           </p>
                           <p className="text-sm">
-                            <span className="text-gray-600">Check-out:</span>{' '}
+                            <span className="text-gray-600">{t('staff.bookings.checkOut')}:</span>{' '}
                             <span className="font-medium text-gray-900">
                               {format(parseISO(booking.check_out), 'dd/MM/yyyy')}
                             </span>
                           </p>
                           <p className="text-sm font-medium text-blue-600">
-                            {nights} {nights === 1 ? 'noche' : 'noches'}
+                            {t('staff.bookings.nights', { count: nights })}
                           </p>
                         </div>
                       </div>
@@ -307,18 +307,18 @@ export default function PendingBookings() {
                       <div className="space-y-3">
                         <h4 className="font-medium text-gray-900 flex items-center gap-2">
                           <AlertTriangle className="h-5 w-5 text-gray-400" />
-                          Origen
+                          {t('staff.bookings.origin')}
                         </h4>
                         <div className="pl-7 space-y-2">
                           <p className="text-sm">
-                            <span className="text-gray-600">Tipo:</span>{' '}
+                            <span className="text-gray-600">{t('staff.bookings.type')}:</span>{' '}
                             <span className="font-medium text-gray-900">
-                              {metadata.booking_type === 'owner_invitation' ? 'Invitación de Owner' : 'Booking Regular'}
+                              {metadata.booking_type === 'owner_invitation' ? t('staff.bookings.ownerInvitation') : t('staff.bookings.regularBooking')}
                             </span>
                           </p>
                           {booking.Property?.name && (
                             <p className="text-sm">
-                              <span className="text-gray-600">Propiedad:</span>{' '}
+                              <span className="text-gray-600">{t('staff.bookings.property')}:</span>{' '}
                               <span className="font-medium text-gray-900">{booking.Property.name}</span>
                             </p>
                           )}
@@ -334,7 +334,7 @@ export default function PendingBookings() {
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <CheckCircle className="h-5 w-5" />
-                        Aprobar Booking
+                        {t('staff.bookings.approveBooking')}
                       </button>
                       <button
                         onClick={() => handleReject(booking.id)}
@@ -342,7 +342,7 @@ export default function PendingBookings() {
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <XCircle className="h-5 w-5" />
-                        Rechazar Booking
+                        {t('staff.bookings.rejectBooking')}
                       </button>
                     </div>
                   </div>
@@ -362,10 +362,10 @@ export default function PendingBookings() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Confirmar Aprobación
+                    {t('staff.bookings.confirmApprove')}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    El booking será confirmado y el owner será notificado
+                    {t('staff.bookings.approveNotification')}
                   </p>
                 </div>
               </div>
@@ -379,14 +379,14 @@ export default function PendingBookings() {
                   disabled={approveMutation.isPending}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Cancelar
+                  {t('staff.bookings.cancel')}
                 </button>
                 <button
                   onClick={confirmApprove}
                   disabled={approveMutation.isPending}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
-                  {approveMutation.isPending ? 'Procesando...' : 'Aprobar'}
+                  {approveMutation.isPending ? t('staff.bookings.processing') : t('staff.bookings.approveBooking')}
                 </button>
               </div>
             </div>
@@ -403,24 +403,24 @@ export default function PendingBookings() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Confirmar Rechazo
+                    {t('staff.bookings.confirmReject')}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    El booking será cancelado y el owner será notificado con la razón del rechazo
+                    {t('staff.bookings.rejectNotification')}
                   </p>
                 </div>
               </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Razón del Rechazo *
+                  {t('staff.bookings.rejectReasonRequired')}
                 </label>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  placeholder="Ej: Habitación no disponible en esas fechas, no cumple con los requisitos, etc."
+                  placeholder={t('staff.bookings.rejectReasonInput')}
                   disabled={rejectMutation.isPending}
                 />
               </div>
@@ -435,14 +435,14 @@ export default function PendingBookings() {
                   disabled={rejectMutation.isPending}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
-                  Cancelar
+                  {t('staff.bookings.cancel')}
                 </button>
                 <button
                   onClick={confirmReject}
                   disabled={rejectMutation.isPending || !rejectReason.trim()}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
-                  {rejectMutation.isPending ? 'Procesando...' : 'Rechazar Booking'}
+                  {rejectMutation.isPending ? t('staff.bookings.processing') : t('staff.bookings.rejectBooking')}
                 </button>
               </div>
             </div>

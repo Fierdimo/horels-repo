@@ -159,10 +159,7 @@ export default function BookingDetails() {
                   <div>
                     <p className="text-sm text-gray-600">Location</p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {booking.property.city && booking.property.country
-                        ? `${booking.property.city}, ${booking.property.country}`
-                        : booking.property.location || 'N/A'
-                      }
+                      {booking.property.location || 'N/A'}
                     </p>
                   </div>
                 </div>

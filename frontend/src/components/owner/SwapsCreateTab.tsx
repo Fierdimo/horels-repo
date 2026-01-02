@@ -45,7 +45,7 @@ export function SwapsCreateTab({
             </div>
             <div className="ml-3">
               <p className="text-sm text-yellow-700">
-                <span className="font-medium">Configuración requerida:</span> Debes agregar un método de pago en tu perfil antes de crear intercambios.
+                <span className="font-medium">{t('owner.swaps.paymentMethodSetupRequired')}</span> {t('owner.swaps.paymentMethodSetupMessage')}
               </p>
             </div>
           </div>
@@ -56,16 +56,16 @@ export function SwapsCreateTab({
         {/* Section 1: What You're Offering */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            💼 What week do you want to swap?
+            💼 {t('owner.swaps.whatWeekToSwap')}
           </h3>
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Select your week (required)
+              {t('owner.swaps.selectYourWeekRequired')}
             </label>
             <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-gray-50">
               {weeks.length === 0 ? (
-                <p className="text-sm text-gray-600 italic">You don't have any weeks available</p>
+                <p className="text-sm text-gray-600 italic">{t('owner.swaps.noWeeksAvailableMessage')}</p>
               ) : (
                 weeks.map((week) => {
                   // Handle both numeric IDs and string IDs like "booking_4"
@@ -96,7 +96,7 @@ export function SwapsCreateTab({
                         {getAccommodationTypeEmoji(week.accommodation_type)} {getAccommodationTypeName(week.accommodation_type)}
                       </p>
                       <p className="text-xs text-gray-600">
-                        {week.Property?.name} • {new Date(week.start_date).toLocaleDateString('es-ES')} to{' '}
+                        {week.Property?.name} • {new Date(week.start_date).toLocaleDateString('es-ES')} {t('owner.swaps.to')}{' '}
                         {new Date(week.end_date).toLocaleDateString('es-ES')}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
@@ -105,10 +105,10 @@ export function SwapsCreateTab({
                             new Date(week.start_date).getTime()) /
                             (1000 * 60 * 60 * 24)
                         )}{' '}
-                        nights
+                        {t('owner.swaps.nights')}
                       </p>
                       {(week as any).source === 'booking' && (
-                        <p className="text-xs text-blue-600 mt-1 font-semibold">📱 Marketplace booking</p>
+                        <p className="text-xs text-blue-600 mt-1 font-semibold">📱 {t('owner.swaps.marketplaceBooking')}</p>
                       )}
                     </div>
                   </label>
@@ -121,7 +121,7 @@ export function SwapsCreateTab({
 
         {/* What They're Looking For */}
         <div className="border-t pt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">🎯 What are you looking for?</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">🎯 {t('owner.swaps.whatLookingFor')}</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Desired property */}
@@ -136,7 +136,7 @@ export function SwapsCreateTab({
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value={0}>Any property</option>
+                <option value={0}>{t('owner.swaps.anyProperty')}</option>
                 {uniqueProperties.map((property, index) => (
                   <option key={`property-${property?.id || index}`} value={property?.id || 0}>
                     {property?.name}
@@ -161,7 +161,7 @@ export function SwapsCreateTab({
             </div>
 
             <div className="flex items-end">
-              <p className="text-sm text-gray-600">💡 Leave blank if flexible</p>
+              <p className="text-sm text-gray-600">💡 {t('owner.swaps.leaveBlankFlexible')}</p>
             </div>
           </div>
         </div>
@@ -169,9 +169,9 @@ export function SwapsCreateTab({
         {/* Info Box */}
         <div className="bg-green-50 border-l-4 border-green-600 p-4 rounded">
           <p className="text-sm text-gray-700">
-            ✅ <strong>Creating this request is 100% FREE</strong><br />
+            ✅ <strong>{t('owner.swaps.createFreeInfo')}</strong><br />
             <span className="text-xs text-gray-600 mt-1 block">
-              Fee (€{formData.requester_week_id ? 'TBD' : '?'}) is only charged if someone accepts your swap.
+              {t('owner.swaps.feeOnlyIfAccepted', { fee: formData.requester_week_id ? 'TBD' : '?' })}
             </span>
           </p>
         </div>

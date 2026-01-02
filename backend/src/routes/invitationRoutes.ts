@@ -14,15 +14,7 @@ import sequelize from '../config/database';
 
 // Extend Request type to include user
 interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-    role_id: number;
-    property_id?: number | null;
-    Role?: {
-      name: string;
-    };
-  };
+  user?: User;
 }
 
 // Week data interface for invitations

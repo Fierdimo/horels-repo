@@ -111,7 +111,7 @@ class BookingAncillaryService extends Model<BookingAncillaryServiceAttributes, B
     ancillaryServiceId: number,
     quantity: number,
     transaction?: any
-  ): Promise<[number, BookingAncillaryService[]]> {
+  ): Promise<[number]> {
     const service = await this.findOne({
       where: {
         booking_id: bookingId,

@@ -15,8 +15,8 @@ interface ActiveStayCardProps {
  */
 export function ActiveStayCard({ booking, hasProducts = true, onRequestService }: ActiveStayCardProps) {
   const { t } = useTranslation();
-  const checkInDate = new Date(booking.check_in || booking.check_in_date);
-  const checkOutDate = new Date(booking.check_out || booking.check_out_date);
+  const checkInDate = new Date((booking.check_in || booking.check_in_date) ?? '');
+  const checkOutDate = new Date((booking.check_out || booking.check_out_date) ?? '');
   const today = new Date();
   
   const daysRemaining = Math.ceil((checkOutDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));

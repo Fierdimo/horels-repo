@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
-import { Calendar, MapPin, CheckCircle, XCircle, Clock, Loader2, Plus } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle, XCircle, Clock, Loader2, Plus, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { bookingsApi, type Booking } from '@/api/bookings';
 import { useState, useEffect } from 'react';
@@ -11,6 +11,7 @@ export default function GuestBookings() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const [propertiesWithProducts, setPropertiesWithProducts] = useState<Set<number>>(new Set());
+  const [selectedStatus] = useState<string>('all');
 
   // Get all bookings
   const { data, isLoading } = useQuery({
@@ -142,8 +143,8 @@ interface BookingCardProps {
 }
 
 function BookingCard({ booking, t, getStatusColor, getStatusIcon, hasProducts }: BookingCardProps) {
-  const checkInDate = new Date(booking.check_in || booking.check_in_date);
-  const checkOutDate = new Date(booking.check_out || booking.check_out_date);
+  const checkInDate = new Date((booking.check_in || booking.check_in_date) ?? '');
+  const checkOutDate = new Date((booking.check_out || booking.check_out_date) ?? '');
   const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
   return (

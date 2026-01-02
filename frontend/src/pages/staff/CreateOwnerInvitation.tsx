@@ -111,11 +111,11 @@ export default function CreateOwnerInvitation() {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Invitation cancelled successfully');
+      toast.success(t('staff.invitations.invitationCancelled'));
       queryClient.invalidateQueries({ queryKey: ['staffInvitations'] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to cancel invitation');
+      toast.error(error.response?.data?.message || t('staff.invitations.cancelError'));
     },
   });
 
@@ -234,7 +234,7 @@ export default function CreateOwnerInvitation() {
 
     // Validate room_type is set
     if (rooms.some(r => !r.room_type)) {
-      toast.error('All rooms must have a room type specified');
+      toast.error(t('staff.invitations.allRoomsMustHaveType'));
       return;
     }
 
@@ -379,7 +379,7 @@ export default function CreateOwnerInvitation() {
       {pendingInvitations && pendingInvitations.length > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 mb-3">
-            ⚠️ Invitaciones Pendientes ({pendingInvitations.length})
+            ⚠️ {t('staff.invitations.pendingInvitations')} ({pendingInvitations.length})
           </h3>
           <div className="space-y-2">
             {pendingInvitations.map((inv: any) => (
@@ -387,7 +387,7 @@ export default function CreateOwnerInvitation() {
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">{inv.email}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {inv.rooms_count} habitaciones • Expira: {new Date(inv.expires_at).toLocaleDateString()}
+                    {inv.rooms_count} {t('staff.invitations.rooms')} • {t('staff.invitations.expires')}: {new Date(inv.expires_at).toLocaleDateString()}
                   </p>
                 </div>
                 <button
@@ -395,7 +395,7 @@ export default function CreateOwnerInvitation() {
                   disabled={cancelMutation.isPending}
                   className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                 >
-                  {cancelMutation.isPending ? 'Cancelando...' : 'Cancelar'}
+                  {cancelMutation.isPending ? t('staff.invitations.cancelling') : t('staff.invitations.cancel')}
                 </button>
               </div>
             ))}
@@ -504,7 +504,7 @@ export default function CreateOwnerInvitation() {
                     {roomNights > 0 && (
                       <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded-full">
                         {roomNights} {roomNights === 1 ? t('common.nights').replace('s', '') : t('common.nights')} 
-                        {room.estimated_credits ? ` ≈ ${Math.round(room.estimated_credits)} créditos` : ` = ${roomNights} créditos`}
+                        {room.estimated_credits ? ` ≈ ${Math.round(room.estimated_credits)} ${t('staff.invitations.credits')}` : ` = ${roomNights} ${t('staff.invitations.credits')}`}
                       </span>
                     )}
                   </div>
@@ -522,7 +522,7 @@ export default function CreateOwnerInvitation() {
                 {/* Room Selector */}
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                    Seleccionar Habitación *
+                    {t('staff.invitations.selectRoom')} *
                   </label>
                   <select
                     value={room.room_id || ''}
@@ -530,7 +530,7 @@ export default function CreateOwnerInvitation() {
                     required
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                   >
-                    <option value="">Elegir habitación...</option>
+                    <option value="">{t('staff.invitations.chooseRoom')}</option>
                     {availableRooms.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name} - {r.type} ({r.status})
@@ -570,7 +570,7 @@ export default function CreateOwnerInvitation() {
                 
                 {room.season_type && (
                   <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                    Temporada detectada: <span className={`font-semibold ${
+                    {t('staff.invitations.seasonDetected')}: <span className={`font-semibold ${
                       room.season_type === 'RED' ? 'text-red-600' : 
                       room.season_type === 'BLUE' ? 'text-blue-600' : 
                       'text-gray-600'

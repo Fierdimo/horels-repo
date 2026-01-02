@@ -41,7 +41,6 @@ const StaffDashboard = lazy(() => import('@/pages/staff/Dashboard'));
 const StaffServices = lazy(() => import('@/pages/staff/Services'));
 const StaffRooms = lazy(() => import('@/pages/staff/Rooms'));
 const StaffProducts = lazy(() => import('@/pages/staff/Products'));
-const StaffNightCreditRequests = lazy(() => import('@/pages/staff/NightCreditRequests'));
 const StaffPendingBookings = lazy(() => import('@/pages/staff/PendingBookings'));
 const StaffHistory = lazy(() => import('@/pages/staff/History'));
 const StaffAvailability = lazy(() => import('@/pages/staff/Availability'));
@@ -52,7 +51,6 @@ const StaffAssignPeriod = lazy(() => import('@/pages/staff/AssignPeriod'));
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
 const AdminPendingApprovals = lazy(() => import('@/pages/admin/PendingApprovals'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
-const AdminAssignPeriod = lazy(() => import('@/pages/admin/AssignPeriod'));
 const AdminLogs = lazy(() => import('@/pages/admin/ActivityLogs'));
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'));
 const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
@@ -368,7 +366,6 @@ function AppRoutes() {
           <Route path="services" element={<StaffServices />} />
           <Route path="rooms" element={<StaffRooms />} />
           <Route path="products" element={<StaffProducts />} />
-          <Route path="night-credits" element={<StaffNightCreditRequests />} />
           <Route path="bookings" element={<StaffPendingBookings />} />
           <Route path="history" element={<StaffHistory />} />
           <Route path="availability" element={<StaffAvailability />} />
@@ -436,16 +433,7 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/admin/assign-period"
-          element={
-            <ProtectedRoute allowedRoles={['admin', 'staff']}>
-              <MainLayout>
-                <AdminAssignPeriod />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
+
           path="/admin/rooms"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
