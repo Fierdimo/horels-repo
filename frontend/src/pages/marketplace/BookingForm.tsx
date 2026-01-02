@@ -14,7 +14,11 @@ interface Room {
   id: number;
   name: string;
   type: string;
-  guestPrice: number;
+  guestPrice?: number; // Legacy field
+  pricing?: {
+    guestPrice: number;
+    breakdown: any;
+  };
 }
 
 interface Property {
@@ -105,8 +109,26 @@ export default function BookingForm() {
   } : null;
 
   const nights = checkIn && checkOut ? differenceInDays(parseISO(checkOut), parseISO(checkIn)) : 0;
-  const pricePerNight = room?.guestPrice || 0;
+  
+  // Get price from room, use test price of 10 EUR in development if no price set
+  const roomPrice = room?.pricing?.guestPrice || room?.guestPrice || 0;
+  const pricePerNight = import.meta.env.DEV && roomPrice === 0 ? 10 : roomPrice;
+  
   const totalAmount = nights * pricePerNight;
+
+  // Debug logging
+  console.log('BookingForm Debug:', {
+    checkIn,
+    checkOut,
+    nights,
+    roomPrice,
+    pricePerNight,
+    totalAmount,
+    isDev: import.meta.env.DEV,
+    room,
+    pricing: room?.pricing,
+    state
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +216,12 @@ export default function BookingForm() {
           <p className="text-gray-600">
             {property.name} - {room.name}
           </p>
+          {/* Debug Info - Remove after testing */}
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+            <strong>Debug:</strong> pricePerNight={pricePerNight}, 
+            nights={nights}, totalAmount={totalAmount}, 
+            room.pricing.guestPrice={room?.pricing?.guestPrice}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -309,67 +337,85 @@ export default function BookingForm() {
                 />
               </div>
 
-              {/* Checkboxes Section */}
-              <div className="space-y-3 mb-6">
-                {/* Save Profile Checkbox (solo si está autenticado) */}
-                {user && (
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={saveProfile}
-                      onChange={(e) => setSaveProfile(e.target.checked)}
-                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              {/* Payment Options Section */}
+              <div className="mb-8">
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  {t('marketplace.paymentMethod')}
+                </h2>
+
+                {/* Credit Payment Option (only for owners) */}
+                {user && user.role === 'owner' && checkIn && checkOut && guestName && guestEmail && nights > 0 && (
+                  <div className="mb-6">
+                    <CreditPaymentOption
+                      propertyId={propertyId!}
+                      roomId={roomId!}
+                      checkIn={checkIn}
+                      checkOut={checkOut}
+                      guests={state.guests || 1}
+                      guestName={guestName}
+                      guestEmail={guestEmail}
+                      guestPhone={guestPhone}
+                      totalAmount={totalAmount}
+                      nights={nights}
+                      acceptTerms={acceptTerms}
                     />
-                    <span className="text-sm text-gray-700">
-                      {t('marketplace.saveProfileInfo')}
-                    </span>
-                  </label>
+                  </div>
                 )}
 
-                {/* Terms and Conditions */}
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={acceptTerms}
-                    onChange={(e) => setAcceptTerms(e.target.checked)}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="text-sm text-gray-700">
-                    {t('marketplace.acceptTerms')}{' '}
-                    <a href="/terms" target="_blank" className="text-blue-600 hover:text-blue-700">
-                      {t('marketplace.termsAndConditions')}
-                    </a>
-                  </span>
-                </label>
-              </div>
+                {/* Stripe Payment Button */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {t('marketplace.payWithCard')}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {t('marketplace.securePaymentWithStripe')}
+                  </p>
+                  
+                  {/* Checkboxes Section */}
+                  <div className="space-y-3 mb-4">
+                    {/* Save Profile Checkbox (solo si está autenticado) */}
+                    {user && (
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={saveProfile}
+                          onChange={(e) => setSaveProfile(e.target.checked)}
+                          className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">
+                          {t('marketplace.saveProfileInfo')}
+                        </span>
+                      </label>
+                    )}
 
-              {/* Credit Payment Option (only for owners) */}
-              {user && user.role === 'owner' && checkIn && checkOut && guestName && guestEmail && nights > 0 && (
-                <div className="mb-6">
-                  <CreditPaymentOption
-                    propertyId={propertyId!}
-                    roomId={roomId!}
-                    checkIn={checkIn}
-                    checkOut={checkOut}
-                    guests={state.guests || 1}
-                    guestName={guestName}
-                    guestEmail={guestEmail}
-                    guestPhone={guestPhone}
-                    totalAmount={totalAmount}
-                    nights={nights}
-                  />
+                    {/* Terms and Conditions */}
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {t('marketplace.acceptTerms')}{' '}
+                        <a href="/terms" target="_blank" className="text-blue-600 hover:text-blue-700">
+                          {t('marketplace.termsAndConditions')}
+                        </a>
+                      </span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!acceptTerms}
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    {t('marketplace.confirmBooking')}
+                  </button>
                 </div>
-              )}
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={!acceptTerms}
-                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-              >
-                <CreditCard className="h-5 w-5" />
-                {t('marketplace.confirmBooking')}
-              </button>
+              </div>
             </form>
           </div>
 

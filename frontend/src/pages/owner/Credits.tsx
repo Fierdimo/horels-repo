@@ -19,6 +19,8 @@ export default function Credits() {
     queryFn: timeshareApi.getCreditTransactions
   });
 
+  console.log('💳 Credits Page - Transactions data:', transactions);
+
   if (walletLoading || transactionsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -46,6 +48,11 @@ export default function Credits() {
   
   // All transactions for history
   const allTransactions = Array.isArray(transactions) ? transactions : [];
+  
+  // Calculate pending credits (ACTIVE transactions with booking_id = pending approval)
+  const pendingCredits = allTransactions
+    .filter((tx: any) => tx.status === 'ACTIVE' && tx.type === 'SPEND' && tx.bookingId)
+    .reduce((sum: number, tx: any) => sum + Math.abs(tx.amount), 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -94,30 +101,43 @@ export default function Credits() {
             </div>
           </div>
 
-          {/* Total Spent */}
+          {/* Total Spent (Only approved/confirmed) */}
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Gastados</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{totalSpent.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">créditos usados</p>
+                <p className="text-xs text-gray-500 mt-1">confirmados e irrecuperables</p>
               </div>
               <CheckCircle className="h-12 w-12 text-orange-500 opacity-20" />
             </div>
           </div>
 
-          {/* Expiring Soon */}
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+          {/* Pending Credits (Awaiting staff approval) */}
+          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Expiran en 30 días</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{expiringIn30Days.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">úsalos pronto</p>
+                <p className="text-sm font-medium text-gray-600">Pendientes</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{pendingCredits.toLocaleString()}</p>
+                <p className="text-xs text-gray-500 mt-1">esperando aprobación</p>
               </div>
-              <Clock className="h-12 w-12 text-red-500 opacity-20" />
+              <Clock className="h-12 w-12 text-yellow-500 opacity-20" />
             </div>
           </div>
         </div>
+
+        {/* Expiring Soon - Moved to info box */}
+        {expiringIn30Days > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8 flex items-start gap-3">
+            <Clock className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-900">⚠️ Créditos por expirar</p>
+              <p className="text-sm text-red-700">
+                <strong>{expiringIn30Days.toLocaleString()}</strong> créditos expirarán en los próximos 30 días. ¡Úsalos pronto!
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Active Credits (with expiration info) */}
         {activeTransactions.length > 0 && (
@@ -171,40 +191,72 @@ export default function Credits() {
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {allTransactions.map((tx: any) => (
-                <div key={tx.id} className="px-6 py-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        {tx.type === 'DEPOSIT' ? (
-                          <Plus className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <CheckCircle className="h-5 w-5 text-orange-500" />
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {tx.type === 'DEPOSIT' ? 'Depósito' : 'Gasto'} - {Math.abs(tx.amount).toLocaleString()} créditos
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {tx.description || 'Sin descripción'}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {format(parseISO(tx.createdAt), 'dd/MM/yyyy HH:mm')}
-                          </p>
+              {allTransactions.map((tx: any) => {
+                const isDeposit = tx.type === 'DEPOSIT';
+                const isPending = tx.status === 'ACTIVE' && tx.type === 'SPEND' && tx.bookingId;
+                const isSpent = tx.status === 'SPENT';
+                const isRefunded = tx.status === 'REFUNDED';
+                
+                return (
+                  <div key={tx.id} className="px-6 py-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          {isDeposit ? (
+                            <Plus className="h-5 w-5 text-green-500" />
+                          ) : isPending ? (
+                            <Clock className="h-5 w-5 text-yellow-500" />
+                          ) : isRefunded ? (
+                            <ArrowLeft className="h-5 w-5 text-blue-500" />
+                          ) : (
+                            <CheckCircle className="h-5 w-5 text-orange-500" />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">
+                                {isDeposit ? 'Depósito' : isPending ? 'Pendiente' : isRefunded ? 'Reembolsado' : 'Gasto'} - {Math.abs(tx.amount).toLocaleString()} créditos
+                              </p>
+                              {isPending && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                  ⏳ Esperando aprobación
+                                </span>
+                              )}
+                              {isSpent && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800">
+                                  ✓ Confirmado
+                                </span>
+                              )}
+                              {isRefunded && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                  ↩️ Devuelto
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              {tx.description || 'Sin descripción'}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {format(parseISO(tx.createdAt), 'dd/MM/yyyy HH:mm')}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-semibold ${tx.type === 'DEPOSIT' ? 'text-green-600' : 'text-orange-600'}`}>
-                        {tx.type === 'DEPOSIT' ? '+' : '-'}{Math.abs(tx.amount).toLocaleString()}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Balance: {tx.balanceAfter.toLocaleString()}
-                      </p>
+                      <div className="text-right">
+                        <p className={`text-lg font-semibold ${
+                          isDeposit || isRefunded ? 'text-green-600' : 
+                          isPending ? 'text-yellow-600' : 
+                          'text-orange-600'
+                        }`}>
+                          {isDeposit || isRefunded ? '+' : '-'}{Math.abs(tx.amount).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Balance: {tx.balanceAfter.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

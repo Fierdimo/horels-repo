@@ -12,6 +12,8 @@ import RoomEnrichmentService from '../services/roomEnrichmentService';
 import jwt from 'jsonwebtoken';
 import UserCreditWallet from '../models/UserCreditWallet';
 import CreditTransaction from '../models/CreditTransaction';
+import CreditCalculationService from '../services/CreditCalculationService';
+import SeasonalCalendar from '../models/SeasonalCalendar';
 import sequelize from '../config/database';
 
 const router = Router();
@@ -1055,6 +1057,128 @@ router.post('/bookings/confirm-payment-with-saved-card', authenticateToken, asyn
 });
 
 /**
+ * @route   POST /api/public/properties/:propertyId/rooms/:roomId/calculate-credit-cost
+ * @desc    Calculate credit cost for a booking WITHOUT creating it (for UI preview)
+ * @access  Authenticated (owner role)
+ */
+router.post('/properties/:propertyId/rooms/:roomId/calculate-credit-cost', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { propertyId, roomId } = req.params;
+    const { checkIn, checkOut } = req.body;
+
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: checkIn, checkOut'
+      });
+    }
+
+    // Validar property
+    const property = await Property.findByPk(propertyId);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found'
+      });
+    }
+
+    // Validar room
+    const room = await Room.findOne({
+      where: {
+        id: roomId,
+        propertyId: propertyId
+      }
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        error: 'Room not found'
+      });
+    }
+
+    // Calcular fechas y noches
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (nights <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid date range'
+      });
+    }
+
+    // Obtener pricing en EUR (para referencia)
+    const basePrice = room.customPrice || 100;
+    const guestPrice = await pricingService.calculateGuestPrice(basePrice);
+    const totalAmountEUR = guestPrice * nights;
+
+    // Enriquecer room para obtener el tipo desde PMS
+    let enrichedRoom;
+    try {
+      enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+    } catch (error: any) {
+      console.warn('Warning: Could not enrich room with PMS data:', error.message);
+      enrichedRoom = { name: `Room ${room.id}`, type: 'STANDARD' } as any;
+    }
+
+    // Determinar temporada (season) basado en la fecha de check-in
+    const seasonType = await SeasonalCalendar.getSeasonForDateWithDefault(parseInt(propertyId), checkInDate);
+
+    // Normalizar room type del PMS a los tipos estándar del sistema
+    const normalizeRoomType = (roomType: string): string => {
+      const type = roomType.toUpperCase();
+      if (type.includes('SUITE') || type.includes('PRESIDENTIAL')) return 'SUITE';
+      if (type.includes('DELUXE') || type.includes('JUNIOR')) return 'DELUXE';
+      if (type.includes('SUPERIOR') || type.includes('COMFORT')) return 'SUPERIOR';
+      return 'STANDARD';
+    };
+
+    const roomType = normalizeRoomType(enrichedRoom.type || 'STANDARD');
+
+    // Calcular créditos requeridos usando el Master Formula
+    const creditCalculation = await CreditCalculationService.calculateBookingCost(
+      parseInt(propertyId),
+      roomType,
+      seasonType,
+      nights,
+      checkInDate
+    );
+
+    // Obtener balance del usuario
+    const wallet = await UserCreditWallet.getOrCreateWallet(req.user.id);
+
+    res.json({
+      success: true,
+      data: {
+        creditsRequired: creditCalculation.totalCredits,
+        creditsPerNight: creditCalculation.creditsPerNight,
+        totalAmountEUR,
+        pricePerNightEUR: guestPrice,
+        nights,
+        season: seasonType,
+        roomType,
+        breakdown: creditCalculation.breakdown,
+        wallet: {
+          availableCredits: wallet.total_balance,
+          hasEnoughCredits: wallet.total_balance >= creditCalculation.totalCredits,
+          deficit: Math.max(0, creditCalculation.totalCredits - wallet.total_balance)
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error calculating credit cost:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate credit cost',
+      message: error.message
+    });
+  }
+});
+
+/**
  * @route   POST /api/public/properties/:propertyId/rooms/:roomId/book-with-credits
  * @desc    Create booking paid with credits (requires staff approval)
  * @access  Authenticated (owner role)
@@ -1115,17 +1239,54 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       });
     }
 
-    // Obtener pricing
+    // Obtener pricing en EUR (para referencia)
     const basePrice = room.customPrice || 100; // Default price if not set
     const guestPrice = await pricingService.calculateGuestPrice(basePrice);
-    const totalAmount = guestPrice * nights;
+    const totalAmountEUR = guestPrice * nights;
 
-    // TODO: Aquí debería calcularse el costo en créditos basado en:
-    // - Season (RED/WHITE/BLUE)
-    // - Property tier multiplier
-    // - Room type multiplier
-    // Por ahora usamos equivalencia 1:1 (1 credit = 1 EUR)
-    const creditsRequired = Math.round(totalAmount);
+    // Enriquecer room para obtener el nombre y tipo desde PMS
+    let enrichedRoom;
+    try {
+      enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
+    } catch (error: any) {
+      console.warn('Warning: Could not enrich room with PMS data:', error.message);
+      enrichedRoom = { name: `Room ${room.id}`, type: 'STANDARD' } as any;
+    }
+
+    // Determinar temporada (season) basado en la fecha de check-in
+    const seasonType = await SeasonalCalendar.getSeasonForDateWithDefault(parseInt(propertyId), checkInDate);
+
+    // Normalizar room type del PMS a los tipos estándar del sistema
+    const normalizeRoomType = (roomType: string): string => {
+      const type = roomType.toUpperCase();
+      if (type.includes('SUITE') || type.includes('PRESIDENTIAL')) return 'SUITE';
+      if (type.includes('DELUXE') || type.includes('JUNIOR')) return 'DELUXE';
+      if (type.includes('SUPERIOR') || type.includes('COMFORT')) return 'SUPERIOR';
+      return 'STANDARD';
+    };
+
+    const roomType = normalizeRoomType(enrichedRoom.type || 'STANDARD');
+
+    // Calcular créditos requeridos usando el Master Formula
+    const creditCalculation = await CreditCalculationService.calculateBookingCost(
+      parseInt(propertyId),
+      roomType,
+      seasonType,
+      nights,
+      checkInDate
+    );
+
+    const creditsRequired = creditCalculation.totalCredits;
+
+    console.log('Credit Calculation:', {
+      propertyId,
+      roomType,
+      seasonType,
+      nights,
+      creditsPerNight: creditCalculation.creditsPerNight,
+      totalCredits: creditsRequired,
+      breakdown: creditCalculation.breakdown
+    });
 
     // Verificar balance de créditos del usuario
     const wallet = await UserCreditWallet.getOrCreateWallet(userId);
@@ -1143,21 +1304,13 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       });
     }
 
-    // Enriquecer room para obtener el nombre desde PMS
-    let enrichedRoom;
-    try {
-      enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
-    } catch (error: any) {
-      console.warn('Warning: Could not enrich room with PMS data:', error.message);
-      enrichedRoom = { name: `Room ${room.id}` } as any;
-    }
-
     // Crear booking con status pending_approval
     const guestToken = `gt_credits_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     
     const booking = await Booking.create({
       property_id: parseInt(propertyId),
       room_id: parseInt(roomId),
+      room_type: enrichedRoom.name || `Room ${roomId}`, // Usar nombre del PMS enrichment
       guest_name: guestName,
       guest_email: guestEmail,
       guest_phone: guestPhone || null,
@@ -1166,13 +1319,18 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       status: 'pending_approval', // Requiere aprobación staff
       payment_status: 'pending',
       payment_method: 'CREDITS',
-      total_amount: totalAmount,
+      total_amount: totalAmountEUR,
       guest_token: guestToken,
       raw: JSON.stringify({
         nights,
-        price_per_night: guestPrice,
+        price_per_night_eur: guestPrice,
+        total_amount_eur: totalAmountEUR,
         booking_type: 'marketplace_credits',
         credits_required: creditsRequired,
+        credits_per_night: creditCalculation.creditsPerNight,
+        season_type: seasonType,
+        room_type_category: roomType,
+        calculation_breakdown: creditCalculation.breakdown,
         room_name: enrichedRoom.name,
         property_name: property.name
       })
@@ -1196,9 +1354,9 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       })
     }, { transaction });
 
-    // Actualizar wallet (bloquear créditos)
+    // Actualizar wallet (bloquear créditos pero NO incrementar total_spent aún)
+    // total_spent solo se incrementa cuando staff aprueba el booking
     wallet.total_balance -= creditsRequired;
-    wallet.total_spent += creditsRequired;
     wallet.last_transaction_at = new Date();
     await wallet.save({ transaction });
 

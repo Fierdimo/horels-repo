@@ -103,27 +103,27 @@ UserCreditWallet.init(
       },
     },
     total_balance: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
     },
     total_earned: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
     },
     total_spent: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
     },
     total_expired: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
     },
     pending_expiration: {
-      type: DataTypes.DECIMAL(10, 2),
+      type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
     },

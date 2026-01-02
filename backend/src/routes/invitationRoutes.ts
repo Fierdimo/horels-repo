@@ -761,6 +761,11 @@ router.post('/approve-booking/:bookingId', authenticateToken, requireStaffRole, 
         creditTx.description = creditTx.description?.replace('pending approval', 'approved');
         
         await creditTx.save({ transaction });
+        
+        // Ahora SÍ incrementar total_spent (créditos confirmados como gastados)
+        const wallet = await UserCreditWallet.getWalletWithLock(creditTx.user_id, transaction);
+        wallet.total_spent += Math.abs(creditTx.amount);
+        await wallet.save({ transaction });
 
         console.log('✅ Credits confirmed for approved booking:', {
           booking_id: booking.id,
@@ -914,9 +919,8 @@ router.post('/reject-booking/:bookingId', authenticateToken, requireStaffRole, a
             })
           }, { transaction });
 
-          // Actualizar wallet (devolver créditos)
+          // Actualizar wallet (devolver créditos - no tocar total_spent porque nunca se incrementó)
           wallet.total_balance += creditsToRefund;
-          wallet.total_spent -= creditsToRefund; // Restar del spent porque no se consumió
           wallet.last_transaction_at = new Date();
           await wallet.save({ transaction });
 

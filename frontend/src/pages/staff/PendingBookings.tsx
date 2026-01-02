@@ -42,6 +42,7 @@ interface Booking {
   check_in: string;
   check_out: string;
   room_type: string;
+  payment_method?: string; // 'STRIPE', 'CREDITS', 'HYBRID', 'P2P_SWAP'
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'pending_approval';
   created_at: string;
   Room?: Room;
@@ -201,12 +202,31 @@ export default function PendingBookings() {
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          Booking #{booking.id}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            Booking #{booking.id}
+                          </h3>
+                          {booking.payment_method === 'CREDITS' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+                              💳 CRÉDITOS
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500">
                           Solicitado el {format(parseISO(booking.created_at), 'dd/MM/yyyy HH:mm')}
                         </p>
+                        {booking.payment_method === 'CREDITS' && typeof booking.raw === 'string' && (() => {
+                          try {
+                            const rawData = JSON.parse(booking.raw);
+                            return rawData.credits_required ? (
+                              <p className="text-sm text-purple-600 font-medium mt-1">
+                                💰 {rawData.credits_required.toLocaleString()} créditos
+                              </p>
+                            ) : null;
+                          } catch {
+                            return null;
+                          }
+                        })()}
                         {metadata.estimated_credits && (
                           <p className="text-sm text-blue-600 font-medium mt-1">
                             Valor estimado: {metadata.estimated_credits} créditos

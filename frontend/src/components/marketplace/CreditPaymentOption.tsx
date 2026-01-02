@@ -18,6 +18,7 @@ interface CreditPaymentOptionProps {
   guestPhone?: string;
   totalAmount: number;
   nights: number;
+  acceptTerms: boolean;
 }
 
 export default function CreditPaymentOption({
@@ -30,7 +31,8 @@ export default function CreditPaymentOption({
   guestEmail,
   guestPhone,
   totalAmount,
-  nights
+  nights,
+  acceptTerms
 }: CreditPaymentOptionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -44,13 +46,42 @@ export default function CreditPaymentOption({
     staleTime: 30000 // 30 seconds
   });
 
+  // Calculate actual credits required using backend Master Formula
+  const { data: creditCalculation, isLoading: loadingCalculation } = useQuery({
+    queryKey: ['credit-calculation', propertyId, roomId, checkIn, checkOut],
+    queryFn: () => timeshareApi.calculateCreditCost({
+      propertyId: parseInt(propertyId),
+      roomId: parseInt(roomId),
+      checkIn,
+      checkOut
+    }),
+    enabled: !!(propertyId && roomId && checkIn && checkOut),
+    staleTime: 60000 // 1 minute
+  });
+
   const wallet = walletData || null;
   
-  // TODO: Calculate actual credits required based on season/tier/room type
-  // For now: 1 credit = 1 EUR
-  const creditsRequired = Math.round(totalAmount);
-  const hasEnoughCredits = wallet && wallet.total_balance >= creditsRequired;
-  const creditDeficit = creditsRequired - (wallet?.total_balance || 0);
+  // Use actual calculation from backend (Master Formula)
+  const creditsRequired = creditCalculation?.creditsRequired || 0;
+  const totalBalance = wallet?.wallet?.totalBalance ?? 0;
+  const hasEnoughCredits = totalBalance >= creditsRequired;
+  const creditDeficit = creditsRequired - totalBalance;
+
+  // Debug logging
+  console.log('CreditPaymentOption Debug:', {
+    totalAmount,
+    creditsRequired,
+    creditCalculation,
+    season: creditCalculation?.season,
+    roomType: creditCalculation?.roomType,
+    breakdown: creditCalculation?.breakdown,
+    walletData,
+    wallet: wallet?.wallet,
+    totalBalance,
+    nights,
+    checkIn,
+    checkOut
+  });
 
   // Mutation to create booking with credits
   const bookMutation = useMutation({
@@ -65,23 +96,31 @@ export default function CreditPaymentOption({
       guests
     }),
     onSuccess: (response) => {
+      console.log('Booking with credits success:', response);
       toast.success(t('marketplace.bookingCreatedPendingApproval'));
-      queryClient.invalidateQueries({ queryKey: ['credit-wallet'] });
-      queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['owner-bookings'] });
       
-      // Navigate to success/pending page
+      // Invalidate queries AFTER navigation to prevent auth issues
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['credit-wallet'] });
+        queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+      }, 100);
+      
+      // Navigate to bookings page
+      console.log('Navigating to /owner/bookings');
       navigate('/owner/bookings', {
         state: { message: 'Booking created. Awaiting staff approval.' }
       });
     },
     onError: (error: any) => {
+      console.error('Booking with credits error:', error);
+      console.error('Error response:', error.response);
       const message = error.response?.data?.error || error.message || t('marketplace.bookingError');
       toast.error(message);
     }
   });
 
-  if (loadingWallet) {
+  if (loadingWallet || loadingCalculation) {
     return (
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <LoadingSpinner size="sm" />
@@ -109,11 +148,18 @@ export default function CreditPaymentOption({
 
       {/* Credit Balance */}
       <div className="bg-white rounded-lg p-4 mb-4">
+        {/* Debug Info - Remove after testing */}
+        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+          <strong>Debug:</strong> totalAmount={totalAmount}, nights={nights}, 
+          wallet.totalBalance={wallet?.wallet?.totalBalance}, 
+          creditsRequired={creditsRequired}, totalBalance={totalBalance}
+        </div>
+        
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-gray-500 uppercase mb-1">{t('credits.available')}</p>
             <p className="text-2xl font-bold text-purple-600">
-              {wallet.total_balance.toLocaleString()}
+              {totalBalance.toLocaleString()}
             </p>
             <p className="text-xs text-gray-500">{t('credits.credits')}</p>
           </div>
@@ -149,8 +195,15 @@ export default function CreditPaymentOption({
       {hasEnoughCredits ? (
         <>
           <button
-            onClick={() => setShowConfirmation(true)}
-            disabled={bookMutation.isPending}
+            type="button"
+            onClick={() => {
+              if (!acceptTerms) {
+                toast.error(t('marketplace.acceptTermsRequired'));
+                return;
+              }
+              setShowConfirmation(true);
+            }}
+            disabled={bookMutation.isPending || !acceptTerms}
             className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-semibold"
           >
             {bookMutation.isPending ? (
@@ -177,13 +230,35 @@ export default function CreditPaymentOption({
                     <span className="text-gray-600">{t('marketplace.nights')}:</span>
                     <span className="font-medium">{nights}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">{t('credits.creditsToSpend')}:</span>
-                    <span className="font-bold text-purple-600">{creditsRequired}</span>
+                  
+                  {creditCalculation && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Temporada:</span>
+                        <span className="font-medium">
+                          {creditCalculation.season === 'RED' && '🔴 RED'}
+                          {creditCalculation.season === 'WHITE' && '⚪ WHITE'}
+                          {creditCalculation.season === 'BLUE' && '🔵 BLUE'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Tipo de habitación:</span>
+                        <span className="font-medium">{creditCalculation.roomType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Créditos por noche:</span>
+                        <span className="font-medium">{creditCalculation.creditsPerNight}</span>
+                      </div>
+                    </>
+                  )}
+                  
+                  <div className="border-t pt-3 flex justify-between">
+                    <span className="text-gray-600 font-semibold">{t('credits.creditsToSpend')}:</span>
+                    <span className="font-bold text-purple-600 text-lg">{creditsRequired.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">{t('credits.remainingBalance')}:</span>
-                    <span className="font-medium">{wallet.total_balance - creditsRequired}</span>
+                    <span className="font-medium">{(totalBalance - creditsRequired).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -193,12 +268,14 @@ export default function CreditPaymentOption({
 
                 <div className="flex gap-3">
                   <button
+                    type="button"
                     onClick={() => setShowConfirmation(false)}
                     className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
                   >
                     {t('common.cancel')}
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       setShowConfirmation(false);
                       bookMutation.mutate();

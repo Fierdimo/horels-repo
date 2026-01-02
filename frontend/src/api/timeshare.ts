@@ -14,6 +14,20 @@ import type {
 
 export const timeshareApi = {
   // ============================================================================
+  // BOOKINGS
+  // ============================================================================
+  
+  getMyBookings: async (): Promise<any[]> => {
+    try {
+      const { data } = await apiClient.get('/timeshare/bookings');
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch my bookings:', error);
+      return [];
+    }
+  },
+
+  // ============================================================================
   // WEEKS
   // ============================================================================
   
@@ -315,9 +329,18 @@ export const timeshareApi = {
   getCreditTransactions: async (): Promise<any[]> => {
     try {
       const { data } = await apiClient.get('/credits/transactions');
-      return Array.isArray(data.data) ? data.data : [];
+      console.log('📊 Credit transactions response:', data);
+      
+      // Backend returns data in data.data.transactions format
+      if (data?.data?.transactions) {
+        console.log('✅ Transactions found:', data.data.transactions.length);
+        return data.data.transactions;
+      }
+      
+      console.warn('⚠️ No transactions in response, data structure:', data);
+      return [];
     } catch (error) {
-      console.error('Failed to fetch credit transactions:', error);
+      console.error('❌ Failed to fetch credit transactions:', error);
       return [];
     }
   },
@@ -349,6 +372,38 @@ export const timeshareApi = {
   // ============================================================================
   // MARKETPLACE - PAY WITH CREDITS
   // ============================================================================
+
+  /**
+   * Calculate credit cost for a booking (without creating it)
+   * Returns the exact credits required based on Master Formula
+   */
+  calculateCreditCost: async (params: {
+    propertyId: number;
+    roomId: number;
+    checkIn: string;
+    checkOut: string;
+  }): Promise<{
+    creditsRequired: number;
+    creditsPerNight: number;
+    totalAmountEUR: number;
+    pricePerNightEUR: number;
+    nights: number;
+    season: string;
+    roomType: string;
+    breakdown: any;
+    wallet: {
+      availableCredits: number;
+      hasEnoughCredits: boolean;
+      deficit: number;
+    };
+  }> => {
+    const { propertyId, roomId, checkIn, checkOut } = params;
+    const { data } = await apiClient.post(
+      `/public/properties/${propertyId}/rooms/${roomId}/calculate-credit-cost`,
+      { checkIn, checkOut }
+    );
+    return data.data;
+  },
 
   bookRoomWithCredits: async (params: {
     propertyId: number;

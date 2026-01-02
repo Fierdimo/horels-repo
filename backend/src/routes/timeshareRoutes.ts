@@ -337,6 +337,77 @@ router.get('/weeks/:weekId', authenticateToken, requireOwnerRole, authorize(['vi
   }
 });
 
+// Get all bookings for the authenticated owner
+router.get('/bookings', authenticateToken, requireOwnerRole, logAction('view_my_bookings'), async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId, { attributes: ['email'] });
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Get all bookings where user is the guest
+    const bookings = await Booking.findAll({
+      where: {
+        guest_email: user.email
+      },
+      include: [
+        {
+          association: 'Property',
+          attributes: ['id', 'name', 'city', 'country', 'stars']
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    // Enrich with payment and rejection info
+    const enrichedBookings = bookings.map((booking: any) => {
+      let metadata = {};
+      let rejectionReason = null;
+      let creditsUsed = null;
+
+      if (booking.raw) {
+        try {
+          metadata = typeof booking.raw === 'string' ? JSON.parse(booking.raw) : booking.raw;
+          rejectionReason = (metadata as any).rejection_reason || null;
+          creditsUsed = (metadata as any).credits_required || null;
+        } catch (e) {
+          console.error('Failed to parse booking metadata:', e);
+        }
+      }
+
+      return {
+        id: booking.id,
+        propertyId: booking.property_id,
+        propertyName: booking.Property?.name || 'Unknown Property',
+        propertyCity: booking.Property?.city || '',
+        propertyCountry: booking.Property?.country || '',
+        roomType: booking.room_type,
+        checkIn: booking.check_in,
+        checkOut: booking.check_out,
+        guestName: booking.guest_name,
+        status: booking.status,
+        paymentStatus: booking.payment_status,
+        paymentMethod: booking.payment_method,
+        totalAmount: booking.total_amount,
+        creditsUsed,
+        rejectionReason,
+        createdAt: booking.created_at
+      };
+    });
+
+    res.json({
+      success: true,
+      data: enrichedBookings,
+      count: enrichedBookings.length
+    });
+  } catch (error) {
+    console.error('Error fetching owner bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
 // Get booking details for owner (marketplace booking)
 router.get('/bookings/:bookingId', authenticateToken, logAction('view_booking_details'), async (req: any, res: Response) => {
   try {
