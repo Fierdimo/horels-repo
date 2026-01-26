@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Mail, Link2, Calendar, User, Copy, Check, X, Plus, Building } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { QRCodeSVG } from 'qrcode.react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '@/api/client';
 
 interface Room {
@@ -31,15 +33,19 @@ interface Invitation {
   token: string;
   email: string;
   property_id: number;
+  rooms_data?: RoomData[] | string;
   rooms_count: number;
   expires_at: string;
   invitation_link: string;
   status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  first_name?: string;
+  last_name?: string;
 }
 
 export default function CreateOwnerInvitation() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -76,20 +82,44 @@ export default function CreateOwnerInvitation() {
     },
     onSuccess: (data) => {
       const invitation = data.data.invitation;
-      toast.success(t('staff.invitations.created'));
-      
-      // Show warning if email wasn't sent
-      if (!invitation.email_sent) {
-        toast.error('⚠️ Invitation created but email could not be sent. Please copy the link manually.', {
-          duration: 6000,
-        });
-      }
-      
       setCreatedInvitation(invitation);
+      toast.success(t('staff.invitations.createdSuccessfully'));
       queryClient.invalidateQueries({ queryKey: ['staffInvitations'] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || t('staff.invitations.createError'));
+    },
+  });
+
+  // Send email mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async (invitationId: number) => {
+      const response = await apiClient.post(`/staff/invitations/${invitationId}/send-email`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success(t('staff.invitations.emailSent'));
+      if (createdInvitation) {
+        setCreatedInvitation({ ...createdInvitation, status: 'pending' });
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || t('staff.invitations.emailError'));
+    },
+  });
+
+  // Cancel invitation mutation
+  const cancelMutation = useMutation({
+    mutationFn: async (invitationId: number) => {
+      const response = await apiClient.delete(`/staff/invitations/cancel-invitation/${invitationId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success(t('staff.invitations.cancelled'));
+      navigate('/staff/invitations');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || t('staff.invitations.cancelError'));
     },
   });
 
@@ -103,21 +133,6 @@ export default function CreateOwnerInvitation() {
   });
 
   const pendingInvitations = pendingInvitationsData?.data?.invitations || [];
-
-  // Cancel invitation mutation
-  const cancelMutation = useMutation({
-    mutationFn: async (invitationId: number) => {
-      const response = await apiClient.delete(`/staff/invitations/cancel-invitation/${invitationId}`);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success(t('staff.invitations.invitationCancelled'));
-      queryClient.invalidateQueries({ queryKey: ['staffInvitations'] });
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || t('staff.invitations.cancelError'));
-    },
-  });
 
   const addRoom = () => {
     setRooms([...rooms, { room_id: 0, start_date: '', end_date: '', room_type: 'STANDARD' }]);
@@ -203,18 +218,26 @@ export default function CreateOwnerInvitation() {
 
       const seasonType = seasonResponse.data.data?.season || 'WHITE';
 
-      // Calculate booking cost based on nights
-      const response = await apiClient.post('/api/credits/calculate-booking-cost', {
+      // Calculate DEPOSIT credits using Master Formula (not booking cost!)
+      const response = await apiClient.post('/hotel-staff/estimate-credits', {
         propertyId: room.propertyId,
         seasonType: seasonType,
+        roomType: roomData.room_type
+      });
+
+      console.log('💡 Credit estimation response:', {
+        propertyId: room.propertyId,
+        seasonType,
         roomType: roomData.room_type,
-        nights: nights
+        nights,
+        estimatedCredits: response.data.data?.estimatedCredits,
+        breakdown: response.data.data?.breakdown
       });
 
       if (response.data.success) {
         setRooms(prevRooms => {
           const newRooms = [...prevRooms];
-          newRooms[index].estimated_credits = response.data.data.totalCredits;
+          newRooms[index].estimated_credits = response.data.data.estimatedCredits;
           newRooms[index].season_type = seasonType;
           return newRooms;
         });
@@ -262,69 +285,126 @@ export default function CreateOwnerInvitation() {
     }
   };
 
-  const resetForm = () => {
-    setEmail('');
-    setFirstName('');
-    setLastName('');
-    setRooms([{ room_id: 0, start_date: '', end_date: '', room_type: 'STANDARD' }]);
-    setExpiresInDays(30);
-    setCreatedInvitation(null);
+  const handleCopyLink = () => {
+    if (createdInvitation?.invitation_link) {
+      copyToClipboard(createdInvitation.invitation_link);
+    }
   };
 
+  // Helper to get rooms data safely
+  const getRoomsData = (invitation: Invitation | null): RoomData[] => {
+    if (!invitation) return [];
+    const roomsData = (invitation as any).rooms_data;
+    if (Array.isArray(roomsData)) return roomsData;
+    if (typeof roomsData === 'string') {
+      try {
+        return JSON.parse(roomsData);
+      } catch (e) {
+        console.error('Error parsing rooms_data:', e);
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Show success screen after creation
   if (createdInvitation) {
+    const invitationRooms = getRoomsData(createdInvitation);
+    
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-3">
-              <Check className="h-8 w-8 text-green-500" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {t('staff.invitations.invitationCreated')}
-              </h1>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Success Header */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {t('staff.invitations.invitationCreated')}
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {t('staff.invitations.invitationCreatedDescription')}
+                </p>
+              </div>
             </div>
-            <button
-              onClick={resetForm}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              <X className="h-6 w-6" />
-            </button>
           </div>
 
-          <div className="space-y-6">
-            {/* Invitation Details */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                {t('staff.invitations.invitationDetails')}
+          {/* Invitation Details */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              {t('staff.invitations.invitationDetails')}
+            </h2>
+
+            {/* User Info */}
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center space-x-2">
+                <Mail className="h-5 w-5 text-gray-400" />
+                <span className="text-gray-600 dark:text-gray-400">{t('common.email')}:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{createdInvitation.email || ''}</span>
+              </div>
+              {((createdInvitation as any).first_name || (createdInvitation as any).last_name) && (
+                <div className="flex items-center space-x-2">
+                  <User className="h-5 w-5 text-gray-400" />
+                  <span className="text-gray-600 dark:text-gray-400">{t('common.name')}:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {String((createdInvitation as any).first_name || '')} {String((createdInvitation as any).last_name || '')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Room Cards */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                {t('staff.invitations.assignedRooms')} ({invitationRooms.length})
               </h3>
-              <div className="space-y-2 text-sm">
-                <p className="text-blue-800 dark:text-blue-200">
-                  <strong>{t('common.email')}:</strong> {createdInvitation.email}
-                </p>
-                <p className="text-blue-800 dark:text-blue-200">
-                  <strong>{t('staff.invitations.roomsIncluded')}:</strong> {createdInvitation.rooms_count}
-                </p>
-                <p className="text-blue-800 dark:text-blue-200">
-                  <strong>{t('staff.invitations.expiresAt')}:</strong>{' '}
-                  {new Date(createdInvitation.expires_at).toLocaleDateString()}
-                </p>
+              <div className="space-y-3">
+                {invitationRooms.map((room, index) => {
+                  const selectedRoom = availableRooms.find(r => r.id === room.room_id);
+                  return (
+                    <div key={index} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {selectedRoom?.name || `Room ${room.room_id}`} - {room.room_type}
+                            </span>
+                            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 text-xs rounded-full">
+                              #{room.room_id}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              {new Date(room.start_date).toLocaleDateString()} - {new Date(room.end_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Invitation Link */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {t('staff.invitations.invitationLink')}
               </label>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <input
                   type="text"
-                  value={createdInvitation.invitation_link}
                   readOnly
+                  value={createdInvitation.invitation_link || ''}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
                 <button
-                  onClick={() => copyToClipboard(createdInvitation.invitation_link)}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center space-x-2"
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2"
                 >
                   {copiedLink ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
                   <span>{copiedLink ? t('common.copied') : t('common.copy')}</span>
@@ -332,40 +412,73 @@ export default function CreateOwnerInvitation() {
               </div>
             </div>
 
-            {/* Email Instructions */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                    {t('staff.invitations.nextSteps')}
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {t('staff.invitations.nextStepsDesc')}
-                  </p>
+            {/* QR Code */}
+            {createdInvitation.invitation_link && (
+              <div className="flex justify-center py-4">
+                <div className="bg-white p-4 rounded-lg">
+                  <QRCodeSVG
+                    value={createdInvitation.invitation_link}
+                    size={200}
+                    level="H"
+                    includeMargin={true}
+                  />
                 </div>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Actions */}
-            <div className="flex justify-between pt-4">
+          {/* Action Buttons */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
-                onClick={resetForm}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                type="button"
+                onClick={() => sendEmailMutation.mutate(createdInvitation.id)}
+                disabled={sendEmailMutation.isPending}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               >
-                {t('staff.invitations.createAnother')}
+                {sendEmailMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    <span>{t('common.sending')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-5 w-5" />
+                    <span>{t('staff.invitations.sendEmail')}</span>
+                  </>
+                )}
               </button>
-              <a
-                href={`mailto:${createdInvitation.email}?subject=${encodeURIComponent(
-                  t('staff.invitations.emailSubject')
-                )}&body=${encodeURIComponent(
-                  t('staff.invitations.emailBody', { link: createdInvitation.invitation_link })
-                )}`}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center space-x-2"
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(t('staff.invitations.confirmCancel'))) {
+                    cancelMutation.mutate(createdInvitation.id);
+                  }
+                }}
+                disabled={cancelMutation.isPending}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               >
-                <Mail className="h-5 w-5" />
-                <span>{t('staff.invitations.sendEmail')}</span>
-              </a>
+                {cancelMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    <span>{t('common.cancelling')}</span>
+                  </>
+                ) : (
+                  <>
+                    <X className="h-5 w-5" />
+                    <span>{t('staff.invitations.cancel')}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/staff/invitations')}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>{t('staff.invitations.backToList')}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -375,33 +488,24 @@ export default function CreateOwnerInvitation() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      {/* Pending Invitations Section */}
-      {pendingInvitations && pendingInvitations.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 mb-3">
-            ⚠️ {t('staff.invitations.pendingInvitations')} ({pendingInvitations.length})
-          </h3>
-          <div className="space-y-2">
-            {pendingInvitations.map((inv: any) => (
-              <div key={inv.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">{inv.email}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {inv.rooms_count} {t('staff.invitations.rooms')} • {t('staff.invitations.expires')}: {new Date(inv.expires_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => cancelMutation.mutate(inv.id)}
-                  disabled={cancelMutation.isPending}
-                  className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                >
-                  {cancelMutation.isPending ? t('staff.invitations.cancelling') : t('staff.invitations.cancel')}
-                </button>
-              </div>
-            ))}
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {t('staff.invitations.createInvitation')}
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            {t('staff.invitations.createDescription')}
+          </p>
         </div>
-      )}
+        <button
+          onClick={() => navigate('/staff/invitations')}
+          className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+
+      
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">

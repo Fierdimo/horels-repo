@@ -1,19 +1,51 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { timeshareApi } from '@/api/timeshare';
+import { bookingsApi } from '@/api/bookings';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorMessage } from '@/components/common/ErrorMessage';
-import { Calendar, MapPin, CreditCard, XCircle, CheckCircle, Clock, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Calendar, MapPin, CreditCard, XCircle, CheckCircle, Clock, AlertCircle, ArrowLeft, Download, Ban } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 
 export default function MyBookings() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  
   const { data: bookings, isLoading, error } = useQuery({
     queryKey: ['myBookings'],
     queryFn: timeshareApi.getMyBookings
   });
+
+  const cancelMutation = useMutation({
+    mutationFn: (bookingId: number) => bookingsApi.cancelBooking(bookingId, 'User requested cancellation'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+      setCancellingId(null);
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.error || 'Failed to cancel booking');
+      setCancellingId(null);
+    },
+  });
+
+  const handleCancelBooking = (bookingId: number) => {
+    if (confirm(t('owner.bookings.confirmCancel'))) {
+      setCancellingId(bookingId);
+      cancelMutation.mutate(bookingId);
+    }
+  };
+
+  const handleDownloadInvoice = async (bookingId: number) => {
+    try {
+      await bookingsApi.downloadInvoice(bookingId);
+    } catch (error) {
+      alert('Failed to download invoice');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -142,12 +174,46 @@ export default function MyBookings() {
         <span className="text-xs text-gray-500">
           {t('owner.bookings.created')}: {format(parseISO(booking.createdAt), 'dd MMM yyyy HH:mm', { locale: es })}
         </span>
-        <Link
-          to={`/owner/bookings/${booking.id}`}
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          {t('owner.bookings.viewDetails')} →
-        </Link>
+        <div className="flex gap-2">
+          {/* Download Invoice Button */}
+          {booking.status === 'confirmed' && (
+            <button
+              onClick={() => handleDownloadInvoice(booking.id)}
+              className="text-sm font-medium text-green-600 hover:text-green-700 flex items-center gap-1"
+            >
+              <Download className="h-4 w-4" />
+              {t('owner.bookings.invoice')}
+            </button>
+          )}
+          
+          {/* Cancel Booking Button */}
+          {(booking.status === 'pending_approval' || booking.status === 'confirmed') && (
+            <button
+              onClick={() => handleCancelBooking(booking.id)}
+              disabled={cancellingId === booking.id}
+              className="text-sm font-medium text-red-600 hover:text-red-700 flex items-center gap-1 disabled:opacity-50"
+            >
+              {cancellingId === booking.id ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  {t('common.cancelling')}
+                </>
+              ) : (
+                <>
+                  <Ban className="h-4 w-4" />
+                  {t('owner.bookings.cancel')}
+                </>
+              )}
+            </button>
+          )}
+          
+          <Link
+            to={`/owner/bookings/${booking.id}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            {t('owner.bookings.viewDetails')} →
+          </Link>
+        </div>
       </div>
     </div>
   );

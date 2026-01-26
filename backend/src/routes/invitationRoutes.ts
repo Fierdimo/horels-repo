@@ -140,44 +140,28 @@ router.post(
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const invitationLink = invitation.getInvitationLink(frontendUrl);
 
-      // Send invitation email
-      const emailService = (await import('../services/emailService')).default;
-      const property = await Property.findByPk(property_id);
-      const propertyName = property ? property.name : 'Our Property';
-      
-      let emailSent = false;
-      try {
-        emailSent = await emailService.sendOwnerInvitation(
-          email,
-          first_name,
-          last_name,
-          invitationLink,
-          propertyName,
-          invitation.rooms_data.length
-        );
-        if (emailSent) {
-          console.log(`✅ Invitation email sent successfully to ${email}`);
-        } else {
-          console.log(`⚠️ Invitation email could not be sent to ${email} (email service issue)`);
-        }
-      } catch (emailError: any) {
-        console.error('❌ Failed to send invitation email:', emailError.message);
-        // Don't fail the request if email fails - invitation is still created
-      }
+      // NOTE: Email is NOT sent automatically anymore.
+      // Staff must manually click "Send Email" button after reviewing the invitation.
+      console.log(`📧 Invitation created for ${email}. Email NOT sent automatically.`);
 
       return res.status(201).json({
         success: true,
-        message: 'Owner invitation created successfully',
+        message: 'Owner invitation created successfully. Use "Send Email" button to send invitation.',
         data: {
           invitation: {
             id: invitation.id,
             token: invitation.token,
             email: invitation.email,
+            first_name: invitation.first_name,
+            last_name: invitation.last_name,
             property_id: invitation.property_id,
+            rooms_data: invitation.rooms_data,
             rooms_count: invitation.rooms_data.length,
             expires_at: invitation.expires_at,
             invitation_link: invitationLink,
-            email_sent: emailSent,
+            email_sent: false,
+            created_at: invitation.created_at,
+            status: invitation.status,
           },
         },
       });
@@ -257,6 +241,106 @@ router.delete(
   }
 );
 
+// Send invitation email manually
+router.post(
+  '/:invitationId/send-email',
+  authenticateToken,
+  requireStaffRole,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { invitationId } = req.params;
+      const staffUser = req.user;
+
+      if (!staffUser?.property_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Staff user must be associated with a property',
+        });
+      }
+
+      // Find invitation
+      const invitation = await OwnerInvitation.findByPk(invitationId);
+
+      if (!invitation) {
+        return res.status(404).json({
+          success: false,
+          message: 'Invitation not found',
+        });
+      }
+
+      // Verify invitation belongs to staff's property
+      if (invitation.property_id !== staffUser.property_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only send emails for invitations from your property',
+        });
+      }
+
+      // Only send email for pending invitations
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot send email for invitation with status: ${invitation.status}`,
+        });
+      }
+
+      // Generate invitation link
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const invitationLink = invitation.getInvitationLink(frontendUrl);
+
+      // Send invitation email
+      const emailService = (await import('../services/emailService')).default;
+      const property = await Property.findByPk(invitation.property_id);
+      const propertyName = property ? property.name : 'Our Property';
+      
+      let emailSent = false;
+      try {
+        emailSent = await emailService.sendOwnerInvitation(
+          invitation.email,
+          invitation.first_name,
+          invitation.last_name,
+          invitationLink,
+          propertyName,
+          invitation.rooms_data.length
+        );
+        
+        if (emailSent) {
+          console.log(`✅ Invitation email sent successfully to ${invitation.email}`);
+          return res.json({
+            success: true,
+            message: 'Invitation email sent successfully',
+            data: {
+              invitation_id: invitation.id,
+              email: invitation.email,
+              email_sent: true,
+            },
+          });
+        } else {
+          console.log(`⚠️ Invitation email could not be sent to ${invitation.email} (email service issue)`);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to send invitation email. Email service may be unavailable.',
+          });
+        }
+      } catch (emailError: any) {
+        console.error('❌ Failed to send invitation email:', emailError.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send invitation email',
+          error: emailError.message,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error sending invitation email:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error sending invitation email',
+        error: error.message,
+      });
+    }
+  }
+);
+
 // Get invitation by token (public endpoint for registration)
 router.get('/invitation/:token', async (req: AuthRequest, res: Response) => {
   try {
@@ -322,6 +406,94 @@ router.get('/invitation/:token', async (req: AuthRequest, res: Response) => {
     });
   }
 });
+
+// OBSOLETE: Moved to publicInvitationRoutes (no auth required)
+// Validate invitation token (for registration page)
+/*
+router.get('/validate-token', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required',
+      });
+    }
+
+    const { Op } = await import('sequelize');
+    const invitation = await OwnerInvitation.findOne({
+      where: {
+        token,
+        status: 'pending',
+        expires_at: { [Op.gt]: new Date() }
+      },
+      include: [
+        {
+          model: Property,
+          as: 'property',
+          attributes: ['id', 'name', 'location', 'tier'],
+        }
+      ],
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid or expired invitation token',
+      });
+    }
+
+    // Parse rooms_data if it's a string
+    let roomsData = invitation.rooms_data;
+    if (typeof roomsData === 'string') {
+      roomsData = JSON.parse(roomsData);
+    }
+
+    // Calculate estimated credits for each room
+    const roomsWithEstimates = roomsData.map((room: any) => {
+      const startDate = new Date(room.start_date);
+      const endDate = new Date(room.end_date);
+      const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Simple estimation (actual calculation happens on acceptance)
+      const estimatedCredits = Math.round(nights * 1.2); // Rough estimate
+
+      return {
+        ...room,
+        nights,
+        estimated_credits: estimatedCredits
+      };
+    });
+
+    const totalNights = roomsWithEstimates.reduce((sum: number, room: any) => sum + room.nights, 0);
+    const totalEstimatedCredits = roomsWithEstimates.reduce((sum: number, room: any) => sum + room.estimated_credits, 0);
+
+    return res.json({
+      success: true,
+      data: {
+        invitation: {
+          email: invitation.email,
+          first_name: invitation.first_name,
+          last_name: invitation.last_name,
+          property: invitation.property,
+          rooms: roomsWithEstimates,
+          total_nights: totalNights,
+          total_estimated_credits: totalEstimatedCredits,
+          expires_at: invitation.expires_at,
+        }
+      },
+    });
+  } catch (error: any) {
+    console.error('Error validating invitation token:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error validating invitation token',
+      error: error.message,
+    });
+  }
+});
+*/
 
 // Accept invitation and create owner account (called during registration)
 router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
@@ -395,7 +567,7 @@ router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
       console.log('📦 Processing rooms data:', JSON.stringify(roomsData, null, 2));
       
       for (const roomData of roomsData) {
-        console.log('🏠 Creating pending booking for room:', roomData);
+        console.log('🏠 Creating confirmed booking for room:', roomData);
         
         // Generate unique guest token for the booking
         const guestToken = `owner-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -409,14 +581,14 @@ router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
           check_in: new Date(roomData.start_date),
           check_out: new Date(roomData.end_date),
           room_type: roomData.room_type || 'standard',
-          status: 'pending', // Pending owner decision
+          status: 'confirmed', // Automatically confirmed since staff already approved these dates
           guest_token: guestToken,
           total_amount: 0, // No payment needed for owner invitations
           currency: 'EUR',
           payment_status: 'completed',
           raw: {
             source: 'staff_invitation',
-            booking_type: 'owner_invitation',
+            booking_type: 'owner_invitation_auto_confirmed',
             user_id: user_id,
             invitation_id: invitation.id
           }
@@ -435,7 +607,7 @@ router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
 
       return res.json({
         success: true,
-        message: 'Invitation accepted. Please confirm or convert your bookings.',
+        message: 'Invitation accepted. Your bookings have been automatically confirmed.',
         data: {
           acceptance_type: 'booking',
           bookings_created: createdBookings.length,
@@ -451,12 +623,17 @@ router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
       });
 
     } else {
-      // FLOW B: Convert to Credits (deposit in wallet)
-      // FLOW B: Convert to Credits (deposit in wallet)
+      // FLOW B: Convert to Credits (deposit in wallet using NEW system)
+      const { default: UserCreditWallet } = await import('../models/UserCreditWallet');
+      const { default: CreditTransaction } = await import('../models/CreditTransaction');
+      
       const createdWeeks = [];
-      const createdCredits = [];
+      const createdTransactions = [];
       let totalNights = 0;
       let totalCredits = 0;
+
+      // Get or create wallet for user
+      const wallet = await UserCreditWallet.getOrCreateWallet(user_id);
 
       for (const roomData of invitation.rooms_data) {
         // Calculate nights from dates
@@ -488,44 +665,77 @@ router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
           season_type: seasonType,
           nights: nights,
           status: 'converted',
+          deposited_for_credits: true,
+          deposited_at: new Date(),
         });
         createdWeeks.push(week);
 
         // Calculate credits using Master Formula
-        let totalWeekCredits = 0;
+        let weekCredits = 0;
+        let calculationBreakdown = null;
+        
         try {
           const creditResult = await CreditCalculationService.calculateDepositCredits(week.id);
-          totalWeekCredits = creditResult.credits;
+          weekCredits = creditResult.credits;
+          calculationBreakdown = creditResult.breakdown;
           
-          console.log(`Credits calculated for week ${week.id}:`, {
+          console.log(`✅ Credits calculated for week ${week.id}:`, {
             credits: creditResult.credits,
             property: creditResult.breakdown.propertyName,
             tier: creditResult.breakdown.propertyTier,
             season: creditResult.breakdown.seasonType,
             roomType: creditResult.breakdown.roomType,
+            formula: `${creditResult.breakdown.baseValue} × ${creditResult.breakdown.tierMultiplier} × ${creditResult.breakdown.locationMultiplier} × ${creditResult.breakdown.roomTypeMultiplier} = ${creditResult.credits}`,
             breakdown: creditResult.breakdown
           });
+          
+          // Update week with calculation details
+          await week.update({
+            credits_generated: weekCredits,
+            deposit_calculation: calculationBreakdown
+          });
         } catch (error: any) {
-          console.error('Error calculating credits with Master Formula:', error);
-          totalWeekCredits = nights;
+          console.error('❌ Error calculating credits with Master Formula:', error);
+          weekCredits = nights; // Fallback to nights only
         }
 
-        // Create night credits
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 18);
+        // Calculate expiration date (6 months)
+        const expiryDate = CreditCalculationService.calculateExpirationDate(new Date());
 
-        const nightCredit = await NightCredit.create({
-          owner_id: user_id,
-          original_week_id: week.id,
-          total_nights: totalWeekCredits,
-          remaining_nights: totalWeekCredits,
-          expiry_date: expiryDate,
-          status: 'active',
+        // Create credit transaction (DEPOSIT)
+        const transaction = await CreditTransaction.create({
+          user_id: user_id,
+          transaction_type: 'DEPOSIT',
+          amount: weekCredits,
+          balance_after: parseFloat(wallet.total_balance.toString()) + weekCredits,
+          status: 'ACTIVE',
+          week_id: week.id,
+          description: `Deposit from invitation: ${nights} nights at ${invitation.property?.name || 'property'} (${seasonType} season, ${roomData.room_type})`,
+          expires_at: expiryDate,
+          deposited_at: new Date(),
+          metadata: JSON.stringify({
+            invitation_id: invitation.id,
+            property_id: invitation.property_id,
+            season_type: seasonType,
+            nights: nights,
+            room_type: roomData.room_type,
+            calculation: calculationBreakdown
+          })
         });
-          createdCredits.push(nightCredit);
+
+        createdTransactions.push(transaction);
+        
+        // Update wallet balance
+        wallet.total_balance = parseFloat(wallet.total_balance.toString()) + weekCredits;
+        wallet.total_earned = parseFloat(wallet.total_earned.toString()) + weekCredits;
+        wallet.last_transaction_at = new Date();
+        
         totalNights += nights;
-        totalCredits += totalWeekCredits;
+        totalCredits += weekCredits;
       }
+
+      // Save wallet updates
+      await wallet.save();
 
       // Mark invitation as accepted
       await invitation.update({
@@ -535,15 +745,25 @@ router.post('/accept-invitation', async (req: AuthRequest, res: Response) => {
         created_user_id: user_id,
       });
 
+      console.log(`✅ Invitation accepted with NEW credit system:`, {
+        user_id,
+        weeks_created: createdWeeks.length,
+        transactions_created: createdTransactions.length,
+        total_credits: totalCredits,
+        wallet_balance: wallet.total_balance
+      });
+
       return res.json({
         success: true,
-        message: 'Invitation accepted and converted to credits',
+        message: `Invitation accepted! ${totalCredits} credits deposited to your wallet (expires in 6 months)`,
         data: {
           acceptance_type: 'credits',
           weeks_created: createdWeeks.length,
-          credits_created: createdCredits.length,
+          transactions_created: createdTransactions.length,
           total_nights: totalNights,
-          total_night_credits: totalCredits,
+          total_credits: totalCredits,
+          wallet_balance: parseFloat(wallet.total_balance.toString()),
+          expiration_date: createdTransactions[0]?.expires_at,
           user_role: 'owner',
         },
       });
@@ -598,9 +818,20 @@ router.get('/my-invitations', authenticateToken, requireStaffRole, async (req: A
       order: [['created_at', 'DESC']],
     });
 
+    // Add invitation_link to each invitation
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const invitationsWithLinks = invitations.map((invitation) => {
+      const invitationJson = invitation.toJSON();
+      return {
+        ...invitationJson,
+        invitation_link: invitation.getInvitationLink(frontendUrl),
+        rooms_count: invitation.rooms_data?.length || 0,
+      };
+    });
+
     return res.json({
       success: true,
-      data: { invitations },
+      data: { invitations: invitationsWithLinks },
     });
   } catch (error: any) {
     console.error('Error listing invitations:', error);
@@ -1260,6 +1491,121 @@ router.post('/convert-booking-to-credits/:bookingId', authenticateToken, async (
 // Public routes (no authentication required)
 export const publicInvitationRoutes = Router();
 
+// Validate invitation token for registration page (public - no auth required)
+publicInvitationRoutes.get('/validate-token', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required',
+      });
+    }
+
+    const { Op } = await import('sequelize');
+    const invitation = await OwnerInvitation.findOne({
+      where: {
+        token,
+        status: 'pending',
+        expires_at: { [Op.gt]: new Date() }
+      },
+      include: [
+        {
+          model: Property,
+          as: 'property',
+          attributes: ['id', 'name', 'location', 'tier'],
+        }
+      ],
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid or expired invitation token',
+      });
+    }
+
+    // Parse rooms_data if it's a string
+    let roomsData = invitation.rooms_data;
+    if (typeof roomsData === 'string') {
+      roomsData = JSON.parse(roomsData);
+    }
+
+    // Import necessary services
+    const { default: SeasonalCalendar } = await import('../models/SeasonalCalendar');
+
+    // Calculate estimated credits for each room using REAL Master Formula
+    const roomsWithEstimates = await Promise.all(roomsData.map(async (room: any) => {
+      const startDate = new Date(room.start_date);
+      const endDate = new Date(room.end_date);
+      const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Auto-detect season type
+      let seasonType: 'RED' | 'WHITE' | 'BLUE' = 'WHITE';
+      try {
+        seasonType = await SeasonalCalendar.getSeasonForDateWithDefault(invitation.property_id, startDate);
+      } catch (error) {
+        console.error('Error detecting season, using WHITE fallback:', error);
+      }
+
+      // Use Master Formula to estimate credits
+      let estimatedCredits = nights;
+      try {
+        const estimate = await CreditCalculationService.estimateCreditsForWeek(
+          invitation.property_id,
+          room.room_type,
+          seasonType
+        );
+        estimatedCredits = estimate.estimatedCredits;
+        
+        console.log(`💡 Credit estimate for room:`, {
+          room_type: room.room_type,
+          season: seasonType,
+          nights,
+          credits: estimatedCredits,
+          formula: `${estimate.breakdown.baseValue} × ${estimate.breakdown.tierMultiplier} × ${estimate.breakdown.locationMultiplier} × ${estimate.breakdown.roomTypeMultiplier} = ${estimatedCredits}`
+        });
+      } catch (error) {
+        console.error('Error estimating credits, using fallback:', error);
+      }
+
+      return {
+        ...room,
+        nights,
+        season_type: seasonType,
+        estimated_credits: estimatedCredits
+      };
+    }));
+
+    const totalNights = roomsWithEstimates.reduce((sum: number, room: any) => sum + room.nights, 0);
+    const totalEstimatedCredits = roomsWithEstimates.reduce((sum: number, room: any) => sum + room.estimated_credits, 0);
+
+    return res.json({
+      success: true,
+      data: {
+        invitation: {
+          email: invitation.email,
+          first_name: invitation.first_name,
+          last_name: invitation.last_name,
+          property: invitation.property,
+          rooms: roomsWithEstimates,
+          total_nights: totalNights,
+          total_estimated_credits: totalEstimatedCredits,
+          expires_at: invitation.expires_at,
+        }
+      },
+    });
+  } catch (error: any) {
+    console.error('Error validating invitation token:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error validating invitation token',
+      error: error.message,
+    });
+  }
+});
+
 // Validate invitation token (public - no auth required)
 publicInvitationRoutes.get('/invitation/:token', async (req: Request, res: Response) => {
   try {
@@ -1326,5 +1672,382 @@ publicInvitationRoutes.get('/invitation/:token', async (req: Request, res: Respo
     });
   }
 });
+
+/* DEPRECATED: These endpoints were for the old flow where invitation acceptance 
+   happened AFTER registration. The new flow processes everything during registration.
+   Keeping them commented for reference but they are no longer used.
+
+// NEW: Owner accepts invitation AFTER registration and login
+// This replaces the old auto-acceptance during registration
+router.post(
+  '/owner/accept-invitation',
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    const transaction = await sequelize.transaction();
+
+    try {
+      const { acceptance_type } = req.body; // 'booking' or 'credits'
+      const userId = req.user?.id;
+
+      if (!userId) {
+        await transaction.rollback();
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated',
+        });
+      }
+
+      // Validate acceptance_type
+      if (!acceptance_type || !['booking', 'credits'].includes(acceptance_type)) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'acceptance_type must be either "booking" or "credits"',
+        });
+      }
+
+      // Get user with pending invitation token
+      const user = await User.findByPk(userId, { transaction });
+      if (!user) {
+        await transaction.rollback();
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Get invitation token from user's metadata
+      let userRaw = user.metadata;
+      if (typeof userRaw === 'string') {
+        try {
+          userRaw = JSON.parse(userRaw);
+        } catch (e) {
+          userRaw = {};
+        }
+      }
+
+      const invitationToken = (userRaw as any)?.pending_invitation_token;
+      if (!invitationToken) {
+        await transaction.rollback();
+        return res.status(404).json({
+          success: false,
+          message: 'No pending invitation found for this user',
+        });
+      }
+
+      // Find the invitation
+      const invitation = await OwnerInvitation.findOne({
+        where: {
+          token: invitationToken,
+          status: 'pending',
+          expires_at: { [Op.gt]: new Date() },
+        },
+        include: [{ model: Property, as: 'property' }],
+        transaction,
+      });
+
+      if (!invitation) {
+        await transaction.rollback();
+        return res.status(404).json({
+          success: false,
+          message: 'Invitation not found or expired',
+        });
+      }
+
+      // Verify email matches
+      if (invitation.email !== user.email) {
+        await transaction.rollback();
+        return res.status(403).json({
+          success: false,
+          message: 'This invitation was not sent to your email',
+        });
+      }
+
+      // Parse rooms_data
+      const roomsData = typeof invitation.rooms_data === 'string' 
+        ? JSON.parse(invitation.rooms_data) 
+        : invitation.rooms_data;
+
+      let result: any = {};
+
+      // Process based on acceptance type
+      if (acceptance_type === 'booking') {
+        // Create bookings (owner wants to use the specific dates)
+        const { default: Booking } = await import('../models/Booking');
+        const bookings = [];
+
+        for (const roomData of roomsData) {
+          const booking = await Booking.create({
+            property_id: invitation.property_id,
+            room_id: roomData.room_id,
+            guest_name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            guest_email: user.email,
+            guest_phone: user.phone || null,
+            check_in: new Date(roomData.start_date),
+            check_out: new Date(roomData.end_date),
+            room_type: roomData.room_type,
+            status: 'pending_approval', // Staff must approve
+            guest_token: `owner-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            total_amount: 0,
+            currency: 'EUR',
+            payment_status: 'completed',
+            pms_transfer_status: 'pending',
+            raw: {
+              source: 'owner_invitation_acceptance',
+              booking_type: 'owner_invitation',
+              user_id: user.id,
+              invitation_id: invitation.id,
+              estimated_credits: roomData.estimated_credits,
+              season_type: roomData.season_type,
+              acceptance_type: 'booking',
+              accepted_at: new Date()
+            }
+          }, { transaction });
+
+          bookings.push(booking);
+        }
+
+        result = {
+          acceptance_type: 'booking',
+          bookings: bookings.map(b => ({
+            id: b.id,
+            room_id: b.room_id,
+            check_in: b.check_in,
+            check_out: b.check_out,
+            status: b.status
+          })),
+          message: 'Bookings created successfully. Waiting for staff approval.'
+        };
+
+        console.log('📅 Owner accepted invitation as BOOKING:', bookings.length, 'bookings created');
+
+      } else if (acceptance_type === 'credits') {
+        // Convert to credits (owner doesn't want specific dates)
+        const weeks = [];
+        const credits = [];
+
+        for (const roomData of roomsData) {
+          const startDate = new Date(roomData.start_date);
+          const endDate = new Date(roomData.end_date);
+          const nights = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          // Determine season type
+          const SeasonalCalendar = (await import('../models/SeasonalCalendar')).default;
+          const seasonEntry = await SeasonalCalendar.findOne({
+            where: {
+              property_id: invitation.property_id,
+              start_date: { [Op.lte]: startDate },
+              end_date: { [Op.gte]: startDate }
+            },
+            transaction
+          });
+          
+          const seasonType = seasonEntry?.season_type || roomData.season_type || 'medium';
+
+          // Create Week record first
+          const week = await Week.create({
+            owner_id: user.id,
+            property_id: invitation.property_id,
+            start_date: startDate,
+            end_date: endDate,
+            nights: nights,
+            accommodation_type: roomData.room_type,
+            season_type: seasonType as 'RED' | 'WHITE' | 'BLUE',
+            status: 'converted'
+          }, { transaction });
+
+          weeks.push(week);
+
+          // Calculate credits using Master Formula
+          const creditResult = await CreditCalculationService.calculateDepositCredits(week.id);
+
+          // Create NightCredit record
+          const expiryDate = new Date();
+          expiryDate.setMonth(expiryDate.getMonth() + 18); // 18 months expiry
+
+          const nightCredit = await NightCredit.create({
+            owner_id: user.id,
+            original_week_id: week.id,
+            total_nights: creditResult.credits,
+            remaining_nights: creditResult.credits,
+            expiry_date: expiryDate,
+            status: 'active',
+            property_id: invitation.property_id,
+            used_nights: 0,
+            last_used_date: null
+          }, { transaction });
+
+          credits.push(nightCredit);
+        }
+
+        const totalCredits = credits.reduce((sum, c) => sum + c.total_nights, 0);
+
+        result = {
+          acceptance_type: 'credits',
+          total_credits: totalCredits,
+          weeks: weeks.length,
+          credits: credits.map(c => ({
+            id: c.id,
+            nights: c.total_nights,
+            expiry_date: c.expiry_date,
+            status: c.status
+          })),
+          message: `Successfully converted invitation to ${totalCredits} night credits`
+        };
+
+        console.log('💰 Owner accepted invitation as CREDITS:', totalCredits, 'credits created');
+      }
+
+      // Mark invitation as accepted with acceptance type
+      await invitation.update({
+        status: 'accepted',
+        created_user_id: user.id,
+        accepted_at: new Date(),
+        metadata: {
+          ...(typeof invitation.metadata === 'string' ? JSON.parse(invitation.metadata) : invitation.metadata || {}),
+          acceptance_type,
+          accepted_at: new Date()
+        }
+      }, { transaction });
+
+      // Remove pending invitation token from user
+      const updatedRaw = { ...(userRaw as any) };
+      delete updatedRaw.pending_invitation_token;
+      updatedRaw.invitation_accepted_at = new Date();
+      updatedRaw.invitation_acceptance_type = acceptance_type;
+      
+      await user.update({ metadata: updatedRaw }, { transaction });
+
+      // TODO: Send notification to staff about owner's decision
+
+      await transaction.commit();
+
+      return res.json({
+        success: true,
+        data: result
+      });
+
+    } catch (error: any) {
+      await transaction.rollback();
+      console.error('❌ Error accepting invitation:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error accepting invitation',
+        error: error.message,
+      });
+    }
+  }
+);
+
+// Get pending invitation details for logged-in owner
+router.get(
+  '/owner/pending-invitation',
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated',
+        });
+      }
+
+      // Get user with pending invitation token
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Get invitation token from user's metadata
+      let userRaw = user.metadata;
+      if (typeof userRaw === 'string') {
+        try {
+          userRaw = JSON.parse(userRaw);
+        } catch (e) {
+          userRaw = {};
+        }
+      }
+
+      const invitationToken = (userRaw as any)?.pending_invitation_token;
+      if (!invitationToken) {
+        return res.json({
+          success: true,
+          data: null,
+          message: 'No pending invitation found'
+        });
+      }
+
+      // Find the invitation
+      const invitation = await OwnerInvitation.findOne({
+        where: {
+          token: invitationToken,
+          status: 'pending',
+          expires_at: { [Op.gt]: new Date() },
+        },
+        include: [{ model: Property, as: 'property' }],
+      });
+
+      if (!invitation) {
+        return res.json({
+          success: true,
+          data: null,
+          message: 'Invitation not found or expired'
+        });
+      }
+
+      // Calculate estimated credits for each room
+      const roomsData = typeof invitation.rooms_data === 'string' 
+        ? JSON.parse(invitation.rooms_data) 
+        : invitation.rooms_data;
+
+      const enrichedRoomsData = await Promise.all(roomsData.map(async (room: any) => {
+        const startDate = new Date(room.start_date);
+        const endDate = new Date(room.end_date);
+        const nights = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Simple estimation - we can't call calculateDepositCredits without a week ID
+        // So we'll use a simplified calculation based on nights
+        // The actual credits will be calculated when the week is created
+        const estimatedCredits = nights; // Simplificado - será más preciso al crear el week
+
+        return {
+          ...room,
+          nights,
+          estimated_credits: estimatedCredits
+        };
+      }));
+
+      const totalEstimatedCredits = enrichedRoomsData.reduce((sum: number, r: any) => sum + r.estimated_credits, 0);
+
+      return res.json({
+        success: true,
+        data: {
+          invitation_id: invitation.id,
+          property: invitation.property,
+          rooms_data: enrichedRoomsData,
+          total_rooms: enrichedRoomsData.length,
+          total_estimated_credits: totalEstimatedCredits,
+          expires_at: invitation.expires_at,
+          email: invitation.email,
+          first_name: invitation.first_name,
+          last_name: invitation.last_name
+        }
+      });
+
+    } catch (error: any) {
+      console.error('❌ Error fetching pending invitation:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error fetching pending invitation',
+        error: error.message,
+      });
+    }
+  }
+);
+*/
 
 export default router;

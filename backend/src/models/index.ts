@@ -16,6 +16,8 @@ import Room from './room';
 import RoomType from './RoomType';
 import OwnerInvitation from './OwnerInvitation';
 import CreditBookingCost from './CreditBookingCost';
+import UserPreference from './UserPreference';
+import InventoryItem from './InventoryItem';
 
 // Asociaciones existentes (guardadas con comprobaciones para evitar errores durante el arranque de tests)
 try {
@@ -92,6 +94,24 @@ try {
     // Asociaciones para Credit Booking Costs
     CreditBookingCost.belongsTo(Property, { foreignKey: 'property_id', as: 'property' });
     Property.hasMany(CreditBookingCost, { foreignKey: 'property_id', as: 'creditCosts' });
+
+    // Asociaciones para User Preferences
+    UserPreference.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+    User.hasOne(UserPreference, { foreignKey: 'user_id', as: 'preferences' });
+
+    // Asociaciones para Inventory Items (Marketplace Unificado)
+    InventoryItem.belongsTo(Week, { foreignKey: 'week_id', as: 'week' });
+    Week.hasOne(InventoryItem, { foreignKey: 'week_id', as: 'inventoryItem' });
+
+    InventoryItem.belongsTo(User, { foreignKey: 'owner_id', as: 'owner' });
+    User.hasMany(InventoryItem, { foreignKey: 'owner_id', as: 'inventoryItems' });
+
+    InventoryItem.belongsTo(Property, { foreignKey: 'property_id', as: 'property' });
+    Property.hasMany(InventoryItem, { foreignKey: 'property_id', as: 'inventoryItems' });
+
+    InventoryItem.belongsTo(User, { foreignKey: 'reserved_by', as: 'reservedBy' });
+    InventoryItem.belongsTo(User, { foreignKey: 'booked_by', as: 'bookedBy' });
+    InventoryItem.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
   }
 } catch (e) {
   // Log and continue — tests will surface issues if associations are required
@@ -118,4 +138,6 @@ export {
   RoomType,
   OwnerInvitation,
   CreditBookingCost,
+  UserPreference,
+  InventoryItem,
 };

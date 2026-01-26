@@ -135,6 +135,79 @@ class EmailService {
   }
 
   /**
+   * Send password reset email
+   */
+  async sendPasswordResetEmail(
+    email: string,
+    firstName: string | undefined,
+    resetUrl: string
+  ): Promise<boolean> {
+    const recipientName = firstName || 'Usuario';
+
+    const subject = 'Recuperación de contraseña - Timeshare Exchange';
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .button { display: inline-block; padding: 12px 30px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+          .warning-box { background-color: #fef3c7; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔒 Recuperación de Contraseña</h1>
+          </div>
+          <div class="content">
+            <p>Hola ${recipientName},</p>
+            
+            <p>Has solicitado restablecer tu contraseña en Timeshare Exchange.</p>
+            
+            <p>Haz clic en el siguiente botón para crear una nueva contraseña:</p>
+            
+            <center>
+              <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
+            </center>
+            
+            <p><small>O copia y pega este enlace en tu navegador:</small><br>
+            <a href="${resetUrl}">${resetUrl}</a></p>
+            
+            <div class="warning-box">
+              <strong>⚠️ Importante:</strong>
+              <ul style="margin: 10px 0;">
+                <li>Este enlace expirará en <strong>1 hora</strong></li>
+                <li>Solo puedes usar este enlace una vez</li>
+                <li>Si no solicitaste este cambio, ignora este correo</li>
+              </ul>
+            </div>
+            
+            <p><em>Por seguridad, tu contraseña actual seguirá funcionando hasta que establezcas una nueva.</em></p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Timeshare Exchange Platform</p>
+            <p>Este es un correo automático, por favor no respondas.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+    });
+  }
+
+  /**
    * Send owner invitation email
    */
   async sendOwnerInvitation(

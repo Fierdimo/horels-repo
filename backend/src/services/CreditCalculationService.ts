@@ -80,14 +80,14 @@ class CreditCalculationService {
   }> {
     // Get week details with property
     const week = await Week.findByPk(weekId, {
-      include: [{ model: Property, as: 'property' }]
+      include: [{ model: Property, as: 'Property' }]
     });
 
     if (!week) {
       throw new Error(`Week #${weekId} not found`);
     }
 
-    const property = (week as any).property;
+    const property = (week as any).Property;
     if (!property) {
       throw new Error(`Week #${weekId} has no associated property`);
     }

@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, Loader2, Lock } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import PaymentMethodSetup from '@/components/owner/PaymentMethodSetup';
+import ChangePasswordModal from '@/components/owner/ChangePasswordModal';
 import toast from 'react-hot-toast';
 
 export default function GuestProfile() {
@@ -11,6 +12,7 @@ export default function GuestProfile() {
   const { user } = useAuthStore();
   const { profile, updateProfile, isUpdating } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: profile?.firstName || user?.firstName || '',
@@ -207,6 +209,22 @@ export default function GuestProfile() {
           {/* Payment Methods Section */}
           <PaymentMethodSetup />
 
+          {/* Security Section */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Lock className="h-6 w-6 text-blue-600" />
+              {t('userSettings.security')}
+            </h2>
+            
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Lock className="h-5 w-5" />
+              {t('userSettings.changePassword')}
+            </button>
+          </div>
+
           {/* Language Preferences */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">
@@ -231,6 +249,12 @@ export default function GuestProfile() {
           </div>
         </div>
       </main>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
     </div>
   );
 }

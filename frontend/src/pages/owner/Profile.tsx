@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useProfile } from '@/hooks/useProfile';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { User, Mail, Phone, MapPin, Building, CreditCard, Save, X } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Building, CreditCard, Save, X, Lock } from 'lucide-react';
 import PaymentMethodSetup from '@/components/owner/PaymentMethodSetup';
+import ChangePasswordModal from '@/components/owner/ChangePasswordModal';
 
 export default function Profile() {
   const { t } = useTranslation();
   const { profile, isLoading, updateProfile, isUpdating } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -337,7 +339,29 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        {/* Security Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Lock className="h-6 w-6 text-blue-600" />
+            {t('userSettings.security')}
+          </h2>
+          
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Lock className="h-5 w-5" />
+            {t('userSettings.changePassword')}
+          </button>
+        </div>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
     </div>
   );
 }

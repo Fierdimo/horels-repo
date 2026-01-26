@@ -534,6 +534,112 @@ class CreditWalletService {
       shortfall
     };
   }
+
+  /**
+   * Get wallet info for a user
+   */
+  async getWallet(userId: number): Promise<UserCreditWallet> {
+    return await UserCreditWallet.getOrCreateWallet(userId);
+  }
+
+  /**
+   * Generic deposit method (wrapper for marketplace)
+   */
+  async deposit(
+    userId: number,
+    amount: number,
+    type: string,
+    description: string,
+    transaction?: any,
+    metadata?: any
+  ): Promise<UserCreditWallet> {
+    const tx = transaction || await sequelize.transaction();
+    const shouldCommit = !transaction;
+
+    try {
+      const wallet = await UserCreditWallet.getWalletWithLock(userId, tx);
+      
+      const newBalance = Number(wallet.total_balance) + amount;
+      await wallet.update({
+        total_balance: newBalance,
+        total_earned: Number(wallet.total_earned) + amount
+      }, { transaction: tx });
+
+      // Create transaction record
+      await CreditTransaction.create({
+        user_id: userId,
+        transaction_type: 'ADJUSTMENT',
+        amount: amount,
+        balance_after: newBalance,
+        status: 'ACTIVE',
+        description: description,
+        metadata: metadata
+      }, { transaction: tx });
+
+      if (shouldCommit) {
+        await tx.commit();
+      }
+
+      return wallet;
+    } catch (error) {
+      if (shouldCommit) {
+        await tx.rollback();
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generic deduct method (wrapper for marketplace)
+   */
+  async deduct(
+    userId: number,
+    amount: number,
+    type: string,
+    description: string,
+    transaction?: any,
+    metadata?: any
+  ): Promise<UserCreditWallet> {
+    const tx = transaction || await sequelize.transaction();
+    const shouldCommit = !transaction;
+
+    try {
+      const wallet = await UserCreditWallet.getWalletWithLock(userId, tx);
+      
+      const availableBalance = Number(wallet.total_balance);
+      if (availableBalance < amount) {
+        throw new Error(`Insufficient credits. Available: ${availableBalance}, Required: ${amount}`);
+      }
+
+      const newBalance = availableBalance - amount;
+      await wallet.update({
+        total_balance: newBalance,
+        total_spent: Number(wallet.total_spent) + amount
+      }, { transaction: tx });
+
+      // Create transaction record
+      await CreditTransaction.create({
+        user_id: userId,
+        transaction_type: 'ADJUSTMENT',
+        amount: -amount,
+        balance_after: newBalance,
+        status: 'SPENT',
+        description: description,
+        metadata: metadata
+      }, { transaction: tx });
+
+      if (shouldCommit) {
+        await tx.commit();
+      }
+
+      return wallet;
+    } catch (error) {
+      if (shouldCommit) {
+        await tx.rollback();
+      }
+      throw error;
+    }
+  }
 }
 
 export default new CreditWalletService();

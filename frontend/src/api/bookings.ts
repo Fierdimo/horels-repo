@@ -141,13 +141,26 @@ export const bookingsApi = {
     };
   },
 
-  // Cancel booking - uses PMS endpoint
-  cancelBooking: async (bookingId: number, reason?: string): Promise<{ success: boolean }> => {
-    const { data } = await apiClient.delete(`/pms/bookings/${bookingId}`, {
-      data: { reason }
+  // Cancel booking - uses new dedicated endpoint with refund support
+  cancelBooking: async (bookingId: number, reason?: string): Promise<{ success: boolean; message: string; data: any }> => {
+    const { data } = await apiClient.post(`/api/bookings/${bookingId}/cancel`, { reason });
+    return data;
+  },
+
+  // Download invoice as PDF
+  downloadInvoice: async (bookingId: number) => {
+    const response = await apiClient.get(`/api/bookings/${bookingId}/invoice`, {
+      responseType: 'blob',
     });
-    return {
-      success: data.success
-    };
+    
+    // Create a blob URL and trigger download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `invoice-${bookingId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 };

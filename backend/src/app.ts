@@ -29,6 +29,8 @@ import adminCreditConfigRoutes from './routes/adminCreditConfigRoutes';
 import creditEstimationRoutes from './routes/creditEstimationRoutes';
 import invitationRoutes, { publicInvitationRoutes } from './routes/invitationRoutes';
 import roomAvailabilityRoutes from './routes/roomAvailabilityRoutes';
+import bookingRoutes from './routes/bookingRoutes';
+import marketplaceRoutes from './routes/marketplaceRoutes';
 import { authenticateToken } from './middleware/authMiddleware';
 import { authorize } from './middleware/authorizationMiddleware';
 import { logAction } from './middleware/loggingMiddleware';
@@ -98,6 +100,8 @@ app.use('/hotels/api/credits/admin', authenticateToken, creditAdminRoutes); // C
 app.use('/hotels/api/credits/estimate', authenticateToken, creditEstimationRoutes); // Credit estimation tools
 app.use('/hotels/api/admin/credit-config', authenticateToken, adminCreditConfigRoutes); // Credit configuration panel (admin)
 app.use('/hotels/api/rooms', roomAvailabilityRoutes); // Room availability with correct types from PMS
+app.use('/hotels/api/bookings', authenticateToken, bookingRoutes); // User booking management (cancel, invoice, etc.)
+app.use('/hotels/api/marketplace', authenticateToken, marketplaceRoutes); // Unified credit marketplace (release, search, book)
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);
 app.use('/hotels', healthRoutes);

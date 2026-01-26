@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Hotel, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LanguageSelector } from '@/components/common/LanguageSelector';
+import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
 
 export default function LoginNew() {
   const { t } = useTranslation();
@@ -15,6 +16,7 @@ export default function LoginNew() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +136,7 @@ export default function LoginNew() {
               </label>
               <button
                 type="button"
+                onClick={() => setShowForgotPassword(true)}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
                 {t('auth.forgotPasswordQuestion')}
@@ -221,6 +224,12 @@ export default function LoginNew() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
     </div>
   );
 }

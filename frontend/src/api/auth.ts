@@ -65,5 +65,46 @@ export const authApi = {
   }): Promise<{ success: boolean; user: User }> => {
     const { data } = await apiClient.put('/auth/profile', profileData);
     return data;
-  }
+  },
+
+  // Change password
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const { data } = await apiClient.post('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    return data;
+  },
+
+  // Get login sessions
+  getSessions: async (page = 1, limit = 20) => {
+    const { data } = await apiClient.get('/auth/sessions', {
+      params: { page, limit },
+    });
+    return data;
+  },
+
+  // Get user preferences
+  getPreferences: async () => {
+    const { data } = await apiClient.get('/auth/preferences');
+    return data.data;
+  },
+
+  // Update user preferences
+  updatePreferences: async (preferences: any) => {
+    const { data } = await apiClient.put('/auth/preferences', preferences);
+    return data.data;
+  },
+
+  // Forgot password - Request reset token
+  forgotPassword: async (email: string) => {
+    const { data } = await apiClient.post('/auth/forgot-password', { email });
+    return data;
+  },
+
+  // Reset password - Submit new password with token
+  resetPassword: async (token: string, password: string) => {
+    const { data } = await apiClient.post('/auth/reset-password', { token, password });
+    return data;
+  },
 };

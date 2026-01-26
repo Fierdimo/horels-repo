@@ -1,9 +1,11 @@
 import { Router, Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
 import { User, Role } from '../models';
 import { authenticateToken } from '../middleware/authMiddleware';
 import LoggingService from '../services/loggingService';
+import emailService from '../services/emailService';
 import { validateRegistration, validateLogin, validateRequest } from '../middleware/securityMiddleware';
 
 interface AuthRequest extends Request {
@@ -188,11 +190,13 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
     // Log successful registration
     await LoggingService.logRegistration(user.id, req);
 
-    // If owner is registering with an invitation token, accept it automatically
+    // If owner is registering with an invitation token, process the invitation
+    let invitationResult: any = null;
     if (invitationToken && role.name === 'owner') {
       try {
-        const { OwnerInvitation } = await import('../models');
-        const { Booking } = await import('../models');
+        const { OwnerInvitation, Week, NightCredit, Booking } = await import('../models');
+        const { default: CreditCalculationService } = await import('../services/CreditCalculationService');
+        const { default: SeasonalCalendar } = await import('../models/SeasonalCalendar');
         const { Op } = await import('sequelize');
         
         // Find the invitation
@@ -204,54 +208,267 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
           }
         });
 
-        if (invitation && (invitation as any).email === email) {
-          // Parse rooms_data
-          const roomsData = typeof (invitation as any).rooms_data === 'string' 
-            ? JSON.parse((invitation as any).rooms_data) 
-            : (invitation as any).rooms_data;
+        if (!invitation) {
+          console.log('⚠️ Invalid invitation token:', invitationToken);
+          return res.status(400).json({ 
+            error: 'Invalid or expired invitation token' 
+          });
+        }
 
-          // Create bookings for each room
+        // Compare emails case-insensitively (validation middleware lowercases email)
+        const invitationEmail = ((invitation as any).email || '').toLowerCase().trim();
+        const requestEmail = (email || '').toLowerCase().trim();
+        
+        console.log('📧 Email validation:', {
+          invitation_email: (invitation as any).email,
+          request_email: email,
+          normalized_match: invitationEmail === requestEmail
+        });
+
+        if (invitationEmail !== requestEmail) {
+          console.log('⚠️ Email mismatch with invitation');
+          return res.status(400).json({ 
+            error: 'Email does not match invitation',
+            debug: {
+              invitation_email: (invitation as any).email,
+              request_email: email
+            }
+          });
+        }
+
+        // Get acceptance_type from request
+        const { acceptance_type } = req.body;
+
+        if (!acceptance_type || !['booking', 'credits'].includes(acceptance_type)) {
+          console.log('⚠️ Missing or invalid acceptance_type');
+          return res.status(400).json({ 
+            error: 'acceptance_type is required (must be "booking" or "credits")' 
+          });
+        }
+
+        console.log(`✅ Processing invitation with acceptance_type: ${acceptance_type}`);
+
+        // Parse rooms_data if it's a string
+        let roomsData = (invitation as any).rooms_data;
+        if (typeof roomsData === 'string') {
+          roomsData = JSON.parse(roomsData);
+        }
+
+        if (acceptance_type === 'booking') {
+          // FLOW A: Create Bookings - Automatically confirmed since staff already approved these dates
+          const createdBookings = [];
+          
           for (const roomData of roomsData) {
+            const guestToken = `owner-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+            
             const booking = await Booking.create({
               property_id: (invitation as any).property_id,
               room_id: roomData.room_id,
-              guest_name: `${firstName || ''} ${lastName || ''}`.trim(),
+              guest_name: `${firstName || ''} ${lastName || ''}`.trim() || email,
               guest_email: email,
               guest_phone: phone || null,
               check_in: new Date(roomData.start_date),
               check_out: new Date(roomData.end_date),
-              room_type: roomData.room_type,
-              status: 'pending',
-              guest_token: `owner-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+              room_type: roomData.room_type || 'standard',
+              status: 'confirmed', // Automatically confirmed since staff already approved these dates
+              guest_token: guestToken,
               total_amount: 0,
               currency: 'EUR',
               payment_status: 'completed',
-              pms_transfer_status: 'pending',
               raw: {
                 source: 'staff_invitation',
-                booking_type: 'owner_invitation',
+                booking_type: 'owner_invitation_auto_confirmed',
                 user_id: user.id,
-                invitation_id: (invitation as any).id,
-                estimated_credits: roomData.estimated_credits,
-                season_type: roomData.season_type
+                invitation_id: (invitation as any).id
               }
             });
             
-            console.log('📦 Created booking with status:', booking.status, 'for room:', roomData.room_id);
+            createdBookings.push(booking);
           }
 
-          // Mark invitation as accepted
-          await invitation.update({
-            status: 'accepted',
-            created_user_id: user.id,
-            accepted_at: new Date()
-          });
+          invitationResult = {
+            acceptance_type: 'booking',
+            bookings_created: createdBookings.length,
+            bookings: createdBookings.map((b: any) => ({
+              id: b.id,
+              check_in: b.check_in,
+              check_out: b.check_out,
+              status: b.status
+            }))
+          };
 
-          console.log('✅ Invitation accepted automatically during registration');
+          console.log(`✅ Created ${createdBookings.length} booking(s) with status confirmed (auto-approved)`);
+
+        } else if (acceptance_type === 'credits') {
+          // FLOW B: Convert to Credits (using NEW system)
+          const { default: UserCreditWallet } = await import('../models/UserCreditWallet');
+          const { default: CreditTransaction } = await import('../models/CreditTransaction');
+          
+          const createdWeeks = [];
+          const createdTransactions = [];
+          let totalNights = 0;
+          let totalCredits = 0;
+
+          // Get or create wallet for user
+          const wallet = await UserCreditWallet.getOrCreateWallet(user.id);
+
+          for (const roomData of roomsData) {
+            const startDate = new Date(roomData.start_date);
+            const endDate = new Date(roomData.end_date);
+            const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (nights < 1) {
+              console.warn(`Invalid period: ${roomData.start_date} to ${roomData.end_date}`);
+              continue;
+            }
+
+            // Auto-detect season type
+            let seasonType: 'RED' | 'WHITE' | 'BLUE' = 'WHITE';
+            try {
+              seasonType = await SeasonalCalendar.getSeasonForDateWithDefault((invitation as any).property_id, startDate);
+            } catch (error) {
+              console.error('Error detecting season, using WHITE fallback:', error);
+            }
+
+            console.log('📦 Creating week record:', {
+              owner_id: user.id,
+              property_id: (invitation as any).property_id,
+              room_type: roomData.room_type,
+              season_type: seasonType,
+              nights: nights
+            });
+
+            // Create week record
+            const week = await Week.create({
+              owner_id: user.id,
+              property_id: (invitation as any).property_id,
+              start_date: roomData.start_date,
+              end_date: roomData.end_date,
+              accommodation_type: roomData.room_type,
+              season_type: seasonType,
+              nights: nights,
+              status: 'converted',
+              deposited_for_credits: true,
+              deposited_at: new Date(),
+            });
+            createdWeeks.push(week);
+            console.log(`✅ Week created with ID: ${week.id}`);
+
+            // Calculate credits using Master Formula
+            let weekCredits = nights;
+            let calculationBreakdown = null;
+            
+            console.log(`🧮 Calling CreditCalculationService.calculateDepositCredits(${week.id})...`);
+            
+            try {
+              const creditResult = await CreditCalculationService.calculateDepositCredits(week.id);
+              weekCredits = creditResult.credits;
+              calculationBreakdown = creditResult.breakdown;
+              
+              console.log(`✅ Credits calculated for week ${week.id}:`, {
+                credits: creditResult.credits,
+                formula: `${creditResult.breakdown.baseValue} × ${creditResult.breakdown.tierMultiplier} × ${creditResult.breakdown.locationMultiplier} × ${creditResult.breakdown.roomTypeMultiplier} = ${creditResult.credits}`,
+                breakdown: creditResult.breakdown
+              });
+              
+              // Update week with calculation details
+              await week.update({
+                credits_generated: weekCredits,
+                deposit_calculation: calculationBreakdown
+              });
+            } catch (error) {
+              console.error('❌ CRITICAL ERROR calculating credits with Master Formula:', error);
+              console.error('❌ Error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                week_id: week.id,
+                property_id: (invitation as any).property_id
+              });
+              console.warn(`⚠️ Using fallback: ${nights} credits (should be using Master Formula!)`);
+            }
+
+            // Calculate expiration date (6 months)
+            const expiryDate = CreditCalculationService.calculateExpirationDate(new Date());
+
+            console.log(`💳 Creating transaction: ${weekCredits} credits for user ${user.id}`);
+            
+            // Create credit transaction (DEPOSIT)
+            const transaction = await CreditTransaction.create({
+              user_id: user.id,
+              transaction_type: 'DEPOSIT',
+              amount: weekCredits,
+              balance_after: parseFloat(wallet.total_balance.toString()) + weekCredits,
+              status: 'ACTIVE',
+              week_id: week.id,
+              description: `Deposit from invitation: ${nights} nights at ${roomData.room_type}`,
+              expires_at: expiryDate,
+              deposited_at: new Date(),
+              metadata: JSON.stringify({
+                invitation_id: (invitation as any).id,
+                property_id: (invitation as any).property_id,
+                season_type: seasonType,
+                nights: nights,
+                room_type: roomData.room_type,
+                calculation: calculationBreakdown
+              })
+            });
+
+            console.log(`✅ Transaction created: ID ${transaction.id}, Amount: ${weekCredits}`);
+            createdTransactions.push(transaction);
+            
+            // Update wallet balance
+            const oldBalance = parseFloat(wallet.total_balance.toString());
+            wallet.total_balance = oldBalance + weekCredits;
+            wallet.total_earned = parseFloat(wallet.total_earned.toString()) + weekCredits;
+            wallet.last_transaction_at = new Date();
+            
+            console.log(`💰 Wallet updated: ${oldBalance} → ${wallet.total_balance}`);
+            
+            totalNights += nights;
+            totalCredits += weekCredits;
+          }
+
+          // Save wallet updates
+          console.log(`💾 Saving wallet for user ${user.id}...`);
+          await wallet.save();
+          console.log(`✅ Wallet saved successfully. Final balance: ${wallet.total_balance}`);
+
+          invitationResult = {
+            acceptance_type: 'credits',
+            weeks_created: createdWeeks.length,
+            transactions_created: createdTransactions.length,
+            total_nights: totalNights,
+            total_credits: totalCredits,
+            wallet_balance: parseFloat(wallet.total_balance.toString()),
+            expiration_date: createdTransactions[0]?.expires_at
+          };
+
+          console.log(`✅ COMPLETED: Created ${totalCredits} credits for new owner using NEW system`);
+          console.log(`📊 Summary:`, {
+            user_id: user.id,
+            weeks: createdWeeks.length,
+            transactions: createdTransactions.length,
+            total_credits: totalCredits,
+            wallet_balance: parseFloat(wallet.total_balance.toString())
+          });
         }
+
+        // Mark invitation as accepted
+        await invitation.update({
+          status: 'accepted',
+          acceptance_type: acceptance_type,
+          accepted_at: new Date(),
+          created_user_id: user.id,
+        });
+
+        console.log('✅ Invitation marked as accepted');
+
       } catch (invError) {
-        console.error('⚠️ Failed to auto-accept invitation during registration:', invError);
-        // Don't fail the registration if invitation acceptance fails
+        console.error('❌ Failed to process invitation during registration:', invError);
+        return res.status(500).json({ 
+          error: 'Failed to process invitation',
+          details: invError instanceof Error ? invError.message : 'Unknown error'
+        });
       }
     }
 
@@ -267,13 +484,23 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       { expiresIn: '24h' }
     );
 
-    const message = userStatus === 'pending' 
+    let message = userStatus === 'pending' 
       ? 'Registration submitted. Waiting for admin approval.'
       : 'User created successfully';
+
+    // Add invitation-specific message
+    if (invitationResult) {
+      if (invitationResult.acceptance_type === 'booking') {
+        message = `Account created successfully. ${invitationResult.bookings_created} booking(s) pending staff approval.`;
+      } else if (invitationResult.acceptance_type === 'credits') {
+        message = `Account created successfully. ${invitationResult.total_credits} credits added to your wallet.`;
+      }
+    }
 
     res.status(201).json({ 
       message, 
       token,
+      invitation_result: invitationResult,
       user: {
         id: user.id,
         email: user.email,
@@ -613,6 +840,360 @@ router.get('/payment-methods', authenticateToken, async (req: AuthRequest, res: 
   } catch (error) {
     console.error('Error fetching payment methods:', error);
     res.status(500).json({ error: 'Failed to fetch payment methods' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.post('/change-password', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    const user = await User.findByPk(req.user!.id);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    
+    if (!isValidPassword) {
+      await LoggingService.logAction({
+        user_id: user.id,
+        action: 'failed_password_change',
+        req,
+        details: { reason: 'invalid_current_password' }
+      });
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash and update new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await user.update({ password: hashedPassword });
+
+    await LoggingService.logAction({
+      user_id: user.id,
+      action: 'password_changed',
+      req,
+      details: { success: true }
+    });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+/**
+ * @route   GET /api/auth/sessions
+ * @desc    Get active sessions / login history
+ * @access  Private
+ */
+router.get('/sessions', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const { ActionLog } = await import('../models');
+    
+    // Get login history
+    const { count, rows: sessions } = await ActionLog.findAndCountAll({
+      where: {
+        user_id: req.user!.id,
+        action: 'login'
+      },
+      order: [['createdAt', 'DESC']],
+      limit: Number(limit),
+      offset,
+      attributes: ['id', 'createdAt', 'ip_address', 'user_agent', 'details']
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sessions: sessions.map((session: any) => ({
+          id: session.id,
+          loginAt: session.createdAt,
+          ipAddress: session.ip_address,
+          userAgent: session.user_agent,
+          location: session.details?.location || 'Unknown',
+          device: parseUserAgent(session.user_agent)
+        })),
+        pagination: {
+          total: count,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(count / Number(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching sessions:', error);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+/**
+ * @route   GET /api/auth/preferences
+ * @desc    Get user notification preferences
+ * @access  Private
+ */
+router.get('/preferences', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { UserPreference } = await import('../models');
+    
+    let preferences = await UserPreference.findOne({
+      where: { user_id: req.user!.id }
+    });
+
+    // If no preferences exist, create default ones
+    if (!preferences) {
+      preferences = await UserPreference.create({
+        user_id: req.user!.id,
+        email_notifications: true,
+        swap_notifications: true,
+        booking_notifications: true,
+        marketing_emails: false,
+        credit_expiry_alerts: true,
+        weekly_summary: true
+      });
+    }
+
+    res.json({
+      success: true,
+      data: preferences
+    });
+  } catch (error) {
+    console.error('Error fetching preferences:', error);
+    res.status(500).json({ error: 'Failed to fetch preferences' });
+  }
+});
+
+/**
+ * @route   PUT /api/auth/preferences
+ * @desc    Update user notification preferences
+ * @access  Private
+ */
+router.put('/preferences', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      email_notifications,
+      swap_notifications,
+      booking_notifications,
+      marketing_emails,
+      credit_expiry_alerts,
+      weekly_summary
+    } = req.body;
+
+    const { UserPreference } = await import('../models');
+    
+    let preferences = await UserPreference.findOne({
+      where: { user_id: req.user!.id }
+    });
+
+    if (!preferences) {
+      preferences = await UserPreference.create({
+        user_id: req.user!.id,
+        email_notifications: email_notifications ?? true,
+        swap_notifications: swap_notifications ?? true,
+        booking_notifications: booking_notifications ?? true,
+        marketing_emails: marketing_emails ?? false,
+        credit_expiry_alerts: credit_expiry_alerts ?? true,
+        weekly_summary: weekly_summary ?? true
+      });
+    } else {
+      await preferences.update({
+        email_notifications: email_notifications ?? preferences.email_notifications,
+        swap_notifications: swap_notifications ?? preferences.swap_notifications,
+        booking_notifications: booking_notifications ?? preferences.booking_notifications,
+        marketing_emails: marketing_emails ?? preferences.marketing_emails,
+        credit_expiry_alerts: credit_expiry_alerts ?? preferences.credit_expiry_alerts,
+        weekly_summary: weekly_summary ?? preferences.weekly_summary
+      });
+    }
+
+    await LoggingService.logAction({
+      user_id: req.user!.id,
+      action: 'update_preferences',
+      req,
+      details: { updatedFields: Object.keys(req.body) }
+    });
+
+    res.json({
+      success: true,
+      data: preferences
+    });
+  } catch (error) {
+    console.error('Error updating preferences:', error);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
+// Helper function to parse user agent
+function parseUserAgent(userAgent: string): string {
+  if (!userAgent) return 'Unknown Device';
+  
+  if (userAgent.includes('Mobile')) {
+    if (userAgent.includes('iPhone')) return 'iPhone';
+    if (userAgent.includes('Android')) return 'Android Phone';
+    return 'Mobile Device';
+  }
+  
+  if (userAgent.includes('iPad')) return 'iPad';
+  if (userAgent.includes('Tablet')) return 'Tablet';
+  
+  if (userAgent.includes('Windows')) return 'Windows PC';
+  if (userAgent.includes('Macintosh')) return 'Mac';
+  if (userAgent.includes('Linux')) return 'Linux PC';
+  
+  return 'Desktop Browser';
+}
+
+// Forgot Password - Generate reset token and send email
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    // Always return success even if user doesn't exist (security best practice)
+    if (!user) {
+      return res.json({ 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      });
+    }
+
+    // Generate secure random token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    
+    // Token expires in 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Save hashed token to database
+    await user.update({
+      password_reset_token: hashedToken,
+      password_reset_expires: expiresAt,
+    });
+
+    // Send password reset email
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    
+    const emailSent = await emailService.sendPasswordResetEmail(
+      user.email,
+      user.firstName ?? undefined,
+      resetUrl
+    );
+
+    if (emailSent) {
+      console.log('✅ Password reset email sent to:', user.email);
+    } else {
+      console.error('❌ Failed to send password reset email to:', user.email);
+      // In development, log the URL for manual testing
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Password reset URL (for testing):', resetUrl);
+        console.log('Token expires at:', expiresAt);
+      }
+    }
+
+    // Log the action
+    await LoggingService.logAction({
+      user_id: user.id,
+      action: 'password_reset_requested',
+      details: {
+        ip: req.ip || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown',
+        email_sent: emailSent
+      }
+    });
+
+    res.json({ 
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      // Include resetUrl in development only if email failed
+      ...(process.env.NODE_ENV === 'development' && !emailSent && { resetUrl })
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+});
+
+// Reset Password - Validate token and update password
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    // Hash the token to compare with database
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with valid token
+    const user = await User.findOne({
+      where: {
+        password_reset_token: hashedToken,
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Check if token is expired
+    if (user.password_reset_expires && new Date() > user.password_reset_expires) {
+      return res.status(400).json({ error: 'Reset token has expired' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Update password and clear reset token
+    await user.update({
+      password: hashedPassword,
+      password_reset_token: null,
+      password_reset_expires: null,
+    });
+
+    // Log the action
+    await LoggingService.logAction({
+      user_id: user.id,
+      action: 'password_reset_completed',
+      details: {
+        ip: req.ip || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown'
+      }
+    });
+
+    res.json({ message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

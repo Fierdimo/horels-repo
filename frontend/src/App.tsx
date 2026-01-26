@@ -15,16 +15,18 @@ import { MainLayout } from '@/components/layout/MainLayout';
 const Welcome = lazy(() => import('@/pages/auth/Welcome'));
 const Login = lazy(() => import('@/pages/auth/LoginNew'));
 const Register = lazy(() => import('@/pages/auth/RegisterWizard'));
+const RegisterOwner = lazy(() => import('@/pages/auth/RegisterOwner'));
+const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
 const PendingApproval = lazy(() => import('@/pages/auth/PendingApproval'));
 const AccountSuspended = lazy(() => import('@/pages/auth/AccountSuspended'));
-const OwnerDashboard = lazy(() => import('@/pages/owner/Dashboard'));
+const OwnerDashboard = lazy(() => import('@/pages/owner/UnifiedDashboard'));
 const Weeks = lazy(() => import('@/pages/owner/Weeks'));
 const ConvertWeek = lazy(() => import('@/pages/owner/ConvertWeek'));
 const MyBookings = lazy(() => import('@/pages/owner/MyBookings'));
 const BookingDetails = lazy(() => import('@/pages/owner/BookingDetails'));
 const Swaps = lazy(() => import('@/pages/owner/Swaps'));
 const Credits = lazy(() => import('@/pages/owner/Credits'));
-const OwnerProfile = lazy(() => import('@/pages/owner/Profile'));
+const OwnerProfile = lazy(() => import('@/pages/owner/MyAccount'));
 const CreateNightCreditRequest = lazy(() => import('@/pages/owner/NightCreditRequests'));
 const MyNightCreditRequests = lazy(() => import('@/pages/owner/MyNightCreditRequests'));
 const GuestBooking = lazy(() => import('@/pages/guest/BookingAccess'));
@@ -37,31 +39,19 @@ const GuestPayments = lazy(() => import('@/pages/guest/GuestPayments'));
 const GuestProfile = lazy(() => import('@/pages/guest/GuestProfile'));
 const GuestDestinations = lazy(() => import('@/pages/guest/GuestDestinations'));
 const GuestInfo = lazy(() => import('@/pages/guest/GuestInfo'));
-const StaffDashboard = lazy(() => import('@/pages/staff/Dashboard'));
-const StaffServices = lazy(() => import('@/pages/staff/Services'));
-const StaffRooms = lazy(() => import('@/pages/staff/Rooms'));
-const StaffProducts = lazy(() => import('@/pages/staff/Products'));
-const StaffPendingBookings = lazy(() => import('@/pages/staff/PendingBookings'));
-const StaffHistory = lazy(() => import('@/pages/staff/History'));
-const StaffAvailability = lazy(() => import('@/pages/staff/Availability'));
+const StaffDashboard = lazy(() => import('@/pages/staff/UnifiedDashboard'));
 const StaffProfile = lazy(() => import('@/pages/staff/Profile'));
-const StaffMarketplaceSettings = lazy(() => import('@/pages/staff/MarketplaceSettings'));
-const StaffSwapApprovals = lazy(() => import('@/pages/staff/SwapApprovals'));
-const StaffAssignPeriod = lazy(() => import('@/pages/staff/AssignPeriod'));
+const StaffInvitationsList = lazy(() => import('@/pages/staff/StaffInvitationsList'));
+const CreateOwnerInvitation = lazy(() => import('@/pages/staff/CreateOwnerInvitation'));
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
 const AdminPendingApprovals = lazy(() => import('@/pages/admin/PendingApprovals'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminLogs = lazy(() => import('@/pages/admin/ActivityLogs'));
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'));
 const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
-const StaffCreateOwnerInvitation = lazy(() => import('@/pages/staff/CreateOwnerInvitation'));
 const CreditConfiguration = lazy(() => import('@/pages/admin/CreditConfiguration'));
 // Marketplace pages
-const MarketplaceHome = lazy(() => import('@/pages/marketplace/MarketplaceHome'));
-const PropertyDetails = lazy(() => import('@/pages/marketplace/PropertyDetails'));
-const BookingForm = lazy(() => import('@/pages/marketplace/BookingForm'));
-const MarketplaceCheckout = lazy(() => import('@/pages/marketplace/MarketplaceCheckout'));
-const BookingSuccess = lazy(() => import('@/pages/marketplace/BookingSuccess'));
+const MarketplacePage = lazy(() => import('@/pages/marketplace/MarketplacePage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +71,8 @@ function AppRoutes() {
         <Route path="/" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/register-owner" element={<RegisterOwner />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/account-suspended" element={<AccountSuspended />} />
         <Route path="/guest/:token" element={<GuestBooking />} />
@@ -154,47 +146,7 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['guest']}>
               <MainLayout>
-                <MarketplaceHome />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/guest/marketplace/properties/:id"
-          element={
-            <ProtectedRoute allowedRoles={['guest']}>
-              <MainLayout>
-                <PropertyDetails />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/guest/marketplace/properties/:propertyId/rooms/:roomId/book"
-          element={
-            <ProtectedRoute allowedRoles={['guest']}>
-              <MainLayout>
-                <BookingForm />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/guest/marketplace/properties/:propertyId/rooms/:roomId/checkout"
-          element={
-            <ProtectedRoute allowedRoles={['guest']}>
-              <MainLayout>
-                <MarketplaceCheckout />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/guest/marketplace/booking-success"
-          element={
-            <ProtectedRoute allowedRoles={['guest']}>
-              <MainLayout>
-                <BookingSuccess />
+                <MarketplacePage />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -306,47 +258,7 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['owner']}>
               <MainLayout>
-                <MarketplaceHome />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/owner/marketplace/properties/:id"
-          element={
-            <ProtectedRoute allowedRoles={['owner']}>
-              <MainLayout>
-                <PropertyDetails />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/owner/marketplace/properties/:propertyId/rooms/:roomId/book"
-          element={
-            <ProtectedRoute allowedRoles={['owner']}>
-              <MainLayout>
-                <BookingForm />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/owner/marketplace/properties/:propertyId/rooms/:roomId/checkout"
-          element={
-            <ProtectedRoute allowedRoles={['owner']}>
-              <MainLayout>
-                <MarketplaceCheckout />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/owner/marketplace/booking-success"
-          element={
-            <ProtectedRoute allowedRoles={['owner']}>
-              <MainLayout>
-                <BookingSuccess />
+                <MarketplacePage />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -363,22 +275,12 @@ function AppRoutes() {
           }
         >
           <Route path="dashboard" element={<StaffDashboard />} />
-          <Route path="services" element={<StaffServices />} />
-          <Route path="rooms" element={<StaffRooms />} />
-          <Route path="products" element={<StaffProducts />} />
-          <Route path="bookings" element={<StaffPendingBookings />} />
-          <Route path="history" element={<StaffHistory />} />
-          <Route path="availability" element={<StaffAvailability />} />
+          <Route path="invitations" element={<StaffInvitationsList />} />
+          <Route path="invitations/create" element={<CreateOwnerInvitation />} />
+          <Route path="property" element={<div className="p-6"><h1 className="text-2xl font-bold">Property Management</h1><p className="text-gray-600">Próximamente...</p></div>} />
+          <Route path="owners" element={<div className="p-6"><h1 className="text-2xl font-bold">Owner Management</h1><p className="text-gray-600">Próximamente...</p></div>} />
           <Route path="profile" element={<StaffProfile />} />
-          <Route path="marketplace-settings" element={<StaffMarketplaceSettings />} />
-          <Route path="swaps" element={<StaffSwapApprovals />} />
-          <Route path="assign-period" element={<StaffAssignPeriod />} />
-          <Route path="create-owner-invitation" element={<StaffCreateOwnerInvitation />} />
-          <Route path="marketplace" element={<MarketplaceHome />} />
-          <Route path="marketplace/properties/:id" element={<PropertyDetails />} />
-          <Route path="marketplace/properties/:propertyId/rooms/:roomId/book" element={<BookingForm />} />
-          <Route path="marketplace/properties/:propertyId/rooms/:roomId/checkout" element={<MarketplaceCheckout />} />
-          <Route path="marketplace/booking-success" element={<BookingSuccess />} />
+          <Route path="marketplace" element={<MarketplacePage />} />
         </Route>
         
         {/* Admin routes */}
@@ -458,47 +360,7 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout>
-                <MarketplaceHome />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/marketplace/properties/:id"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MainLayout>
-                <PropertyDetails />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/marketplace/properties/:propertyId/rooms/:roomId/book"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MainLayout>
-                <BookingForm />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/marketplace/properties/:propertyId/rooms/:roomId/checkout"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MainLayout>
-                <MarketplaceCheckout />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/marketplace/booking-success"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MainLayout>
-                <BookingSuccess />
+                <MarketplacePage />
               </MainLayout>
             </ProtectedRoute>
           }

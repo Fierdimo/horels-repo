@@ -62,7 +62,7 @@ class OwnerInvitation extends Model<OwnerInvitationAttributes, OwnerInvitationCr
 
   // Generate invitation link
   public getInvitationLink(frontendUrl: string): string {
-    return `${frontendUrl}/register?invitation=${this.token}`;
+    return `${frontendUrl}/register-owner?token=${this.token}`;
   }
 }
 
