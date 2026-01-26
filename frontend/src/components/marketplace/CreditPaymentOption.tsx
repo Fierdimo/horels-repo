@@ -18,7 +18,6 @@ interface CreditPaymentOptionProps {
   guestPhone?: string;
   totalAmount: number;
   nights: number;
-  acceptTerms: boolean;
 }
 
 export default function CreditPaymentOption({
@@ -31,8 +30,7 @@ export default function CreditPaymentOption({
   guestEmail,
   guestPhone,
   totalAmount,
-  nights,
-  acceptTerms
+  nights
 }: CreditPaymentOptionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -196,14 +194,8 @@ export default function CreditPaymentOption({
         <>
           <button
             type="button"
-            onClick={() => {
-              if (!acceptTerms) {
-                toast.error(t('marketplace.acceptTermsRequired'));
-                return;
-              }
-              setShowConfirmation(true);
-            }}
-            disabled={bookMutation.isPending || !acceptTerms}
+            onClick={() => setShowConfirmation(true)}
+            disabled={bookMutation.isPending}
             className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-semibold"
           >
             {bookMutation.isPending ? (

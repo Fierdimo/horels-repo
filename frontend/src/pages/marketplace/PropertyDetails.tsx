@@ -307,7 +307,7 @@ export default function PropertyDetails() {
               >
                 {[1, 2, 3, 4, 5, 6].map((num) => (
                   <option key={num} value={num}>
-                    {num} {t('marketplace.guestsLabel', { count: num })}
+                    {num} {num === 1 ? 'huésped' : 'huéspedes'}
                   </option>
                 ))}
               </select>
@@ -362,7 +362,7 @@ export default function PropertyDetails() {
                         <div className="flex items-center gap-2 text-gray-600">
                           <Users className="h-4 w-4" />
                           <span className="text-sm">
-                            {t('marketplace.maxGuests', { count: room.capacity })}
+                            Hasta {room.capacity} {room.capacity === 1 ? 'huésped' : 'huéspedes'}
                           </span>
                         </div>
                       </div>

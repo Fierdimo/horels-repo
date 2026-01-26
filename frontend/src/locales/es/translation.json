@@ -1721,7 +1721,8 @@
     "confirmBooking": "Confirmar Reserva",
     "bookingSummary": "Resumen de Reserva",
     "total": "Total",
-    "nights": "{{count}} noche | {{count}} noches",
+    "nights": "{{count}} noche",
+    "nights_plural": "{{count}} noches",
     "awaitingApproval": "En Espera de Aprobación del Personal",
     "awaitingApprovalDesc": "Tu reserva será revisada por el personal del hotel",
     "bookingSuccess": "¡Solicitud de reserva creada con éxito!",
@@ -1757,7 +1758,8 @@
     "acceptTermsRequired": "Debes aceptar los términos y condiciones",
     "saveProfileInfo": "Guardar mi información para futuras reservas",
     "specialRequestsPlaceholder": "Solicitudes especiales o preferencias...",
-    "totalNights": "{{count}} noche en total | {{count}} noches en total",
+    "totalNights": "{{count}} noche en total",
+    "totalNights_plural": "{{count}} noches en total",
     "savedCards": "Métodos de Pago Guardados",
     "useNewCard": "Usar una tarjeta nueva",
     "saveCardForFuture": "Guardar esta tarjeta para futuras reservas",
@@ -1771,6 +1773,8 @@
     "confirmBookingWithCredits": "Confirmar Reserva con Créditos",
     "creditsWillBeHeldUntilApproval": "Los créditos serán bloqueados hasta que el staff apruebe o rechace la reserva. Si es aprobada, los créditos se deducirán. Si es rechazada, los créditos serán devueltos a tu cuenta.",
     "bookingCreatedPendingApproval": "Reserva creada exitosamente. Esperando aprobación del staff.",
-    "bookingError": "Error al crear la reserva"
+    "bookingError": "Error al crear la reserva",
+    "continueToPayment": "Continuar al Pago",
+    "pleaseAcceptTerms": "Por favor acepta los términos y condiciones para continuar"
   }
 }

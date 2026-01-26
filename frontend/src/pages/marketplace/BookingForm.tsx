@@ -53,8 +53,8 @@ export default function BookingForm() {
   const [checkIn, setCheckIn] = useState(state.checkIn || '');
   const [checkOut, setCheckOut] = useState(state.checkOut || '');
   const [specialRequests, setSpecialRequests] = useState('');
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [saveProfile, setSaveProfile] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'credits' | null>(null);
+  const [creditCalculation, setCreditCalculation] = useState<any>(null);
 
   // Fetch user profile if logged in
   const { data: profileData } = useQuery({
@@ -79,6 +79,26 @@ export default function BookingForm() {
       setGuestEmail(user.email);
     }
   }, [profileData, user]);
+
+  // Fetch credit calculation when credits payment method is selected
+  const { data: creditCalcData } = useQuery({
+    queryKey: ['credit-calculation', propertyId, roomId, checkIn, checkOut],
+    queryFn: async () => {
+      const { data } = await apiClient.post(
+        `/public/properties/${propertyId}/rooms/${roomId}/calculate-credit-cost`,
+        { checkIn, checkOut }
+      );
+      return data.data;
+    },
+    enabled: !!(paymentMethod === 'credits' && propertyId && roomId && checkIn && checkOut),
+    staleTime: 60000 // 1 minute
+  });
+
+  useEffect(() => {
+    if (creditCalcData) {
+      setCreditCalculation(creditCalcData);
+    }
+  }, [creditCalcData]);
 
   // Mutation para actualizar perfil
   const updateProfileMutation = useMutation({
@@ -133,27 +153,9 @@ export default function BookingForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!acceptTerms) {
-      toast.error(t('marketplace.acceptTermsRequired'));
-      return;
-    }
-
     if (!guestName || !guestEmail || !checkIn || !checkOut) {
       toast.error(t('marketplace.fillAllFields'));
       return;
-    }
-
-    // Guardar perfil si el usuario lo desea y está autenticado
-    if (saveProfile && user) {
-      const names = guestName.trim().split(' ');
-      const firstName = names[0] || '';
-      const lastName = names.slice(1).join(' ') || '';
-      
-      await updateProfileMutation.mutateAsync({
-        firstName,
-        lastName,
-        phone: guestPhone
-      });
     }
 
     // Redirigir al checkout de Stripe con la información del formulario
@@ -318,7 +320,7 @@ export default function BookingForm() {
 
                 {nights > 0 && (
                   <p className="mt-2 text-sm text-gray-600">
-                    {t('marketplace.totalNights', { count: nights })}
+                    {nights === 1 ? '1 noche en total' : `${nights} noches en total`}
                   </p>
                 )}
               </div>
@@ -344,9 +346,72 @@ export default function BookingForm() {
                   {t('marketplace.paymentMethod')}
                 </h2>
 
-                {/* Credit Payment Option (only for owners) */}
-                {user && user.role === 'owner' && checkIn && checkOut && guestName && guestEmail && nights > 0 && (
-                  <div className="mb-6">
+                {/* Payment Method Selector */}
+                {!paymentMethod && (
+                  <div className="space-y-4">
+                    {/* Credit Payment Option (only for owners) */}
+                    {user && user.role === 'owner' && checkIn && checkOut && guestName && guestEmail && nights > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('credits')}
+                        className="w-full p-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg hover:border-purple-400 hover:shadow-md transition-all text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-purple-100 rounded-lg">
+                              <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-bold text-gray-900">{t('marketplace.payWithCredits')}</h3>
+                              <p className="text-sm text-gray-600">{t('marketplace.payWithCreditsDescription')}</p>
+                            </div>
+                          </div>
+                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Card Payment Option */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('card')}
+                      className="w-full p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-blue-100 rounded-lg">
+                            <CreditCard className="h-6 w-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-gray-900">{t('marketplace.payWithCard')}</h3>
+                            <p className="text-sm text-gray-600">{t('marketplace.securePaymentWithStripe')}</p>
+                          </div>
+                        </div>
+                        <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
+                {/* Credit Payment Card (when selected) */}
+                {paymentMethod === 'credits' && user && user.role === 'owner' && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod(null)}
+                      className="mb-4 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Cambiar método de pago
+                    </button>
                     <CreditPaymentOption
                       propertyId={propertyId!}
                       roomId={roomId!}
@@ -358,63 +423,41 @@ export default function BookingForm() {
                       guestPhone={guestPhone}
                       totalAmount={totalAmount}
                       nights={nights}
-                      acceptTerms={acceptTerms}
                     />
                   </div>
                 )}
 
-                {/* Stripe Payment Button */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    {t('marketplace.payWithCard')}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {t('marketplace.securePaymentWithStripe')}
-                  </p>
-                  
-                  {/* Checkboxes Section */}
-                  <div className="space-y-3 mb-4">
-                    {/* Save Profile Checkbox (solo si está autenticado) */}
-                    {user && (
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={saveProfile}
-                          onChange={(e) => setSaveProfile(e.target.checked)}
-                          className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {t('marketplace.saveProfileInfo')}
-                        </span>
-                      </label>
-                    )}
+                {/* Card Payment Form (when selected) */}
+                {paymentMethod === 'card' && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod(null)}
+                      className="mb-4 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Cambiar método de pago
+                    </button>
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                        {t('marketplace.payWithCard')}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        {t('marketplace.securePaymentWithStripe')}
+                      </p>
 
-                    {/* Terms and Conditions */}
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={acceptTerms}
-                        onChange={(e) => setAcceptTerms(e.target.checked)}
-                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700">
-                        {t('marketplace.acceptTerms')}{' '}
-                        <a href="/terms" target="_blank" className="text-blue-600 hover:text-blue-700">
-                          {t('marketplace.termsAndConditions')}
-                        </a>
-                      </span>
-                    </label>
+                      <button
+                        type="submit"
+                        className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-semibold"
+                      >
+                        <CreditCard className="h-5 w-5" />
+                        {t('marketplace.continueToPayment')}
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={!acceptTerms}
-                    className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                  >
-                    <CreditCard className="h-5 w-5" />
-                    {t('marketplace.confirmBooking')}
-                  </button>
-                </div>
+                )}
               </div>
             </form>
           </div>
@@ -447,7 +490,7 @@ export default function BookingForm() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                      <span className="text-gray-600">{t('marketplace.nights')}</span>
+                      <span className="text-gray-600">{nights === 1 ? 'Noche' : 'Noches'}</span>
                       <span className="font-medium text-gray-900">{nights}</span>
                     </div>
                   </div>
@@ -455,27 +498,73 @@ export default function BookingForm() {
 
                 {nights > 0 && (
                   <>
-                    <div className="pt-4 border-t border-gray-200 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">
-                          €{pricePerNight.toFixed(2)} × {nights} {t('marketplace.nights')}
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          €{totalAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Mostrar precio en créditos o EUR según método de pago */}
+                    {paymentMethod === 'credits' && creditCalculation ? (
+                      <>
+                        <div className="pt-4 border-t border-gray-200 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">
+                              {creditCalculation.creditsPerNight} créditos × {nights} {nights === 1 ? 'noche' : 'noches'}
+                            </span>
+                            <span className="font-medium text-purple-900">
+                              {creditCalculation.creditsRequired} créditos
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Temporada:</span>
+                            <span className="font-medium text-gray-700">
+                              {creditCalculation.season === 'RED' && '🔴 RED'}
+                              {creditCalculation.season === 'WHITE' && '⚪ WHITE'}
+                              {creditCalculation.season === 'BLUE' && '🔵 BLUE'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Tipo de habitación:</span>
+                            <span className="font-medium text-gray-700">{creditCalculation.roomType}</span>
+                          </div>
+                        </div>
 
-                    <div className="pt-4 border-t-2 border-gray-300">
-                      <div className="flex justify-between">
-                        <span className="text-lg font-bold text-gray-900">
-                          {t('marketplace.total')}
-                        </span>
-                        <span className="text-2xl font-bold text-gray-900">
-                          €{totalAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                        <div className="pt-4 border-t-2 border-purple-300 bg-purple-50 -mx-6 px-6 py-3">
+                          <div className="flex justify-between">
+                            <span className="text-lg font-bold text-purple-900">
+                              {t('marketplace.total')}
+                            </span>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-purple-900">
+                                {creditCalculation.creditsRequired} créditos
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                (≈ €{creditCalculation.totalAmountEUR?.toFixed(2)})
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="pt-4 border-t border-gray-200 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">
+                              €{pricePerNight.toFixed(2)} × {nights} {nights === 1 ? 'noche' : 'noches'}
+                            </span>
+                            <span className="font-medium text-gray-900">
+                              €{totalAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t-2 border-gray-300">
+                          <div className="flex justify-between">
+                            <span className="text-lg font-bold text-gray-900">
+                              {t('marketplace.total')}
+                            </span>
+                            <span className="text-2xl font-bold text-gray-900">
+                              €{totalAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>

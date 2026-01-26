@@ -1180,7 +1180,7 @@ router.post('/properties/:propertyId/rooms/:roomId/calculate-credit-cost', authe
 
 /**
  * @route   POST /api/public/properties/:propertyId/rooms/:roomId/book-with-credits
- * @desc    Create booking paid with credits (requires staff approval)
+ * @desc    Create booking paid with credits (auto-approved)
  * @access  Authenticated (owner role)
  */
 router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authenticateToken, async (req: any, res: Response) => {
@@ -1304,7 +1304,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       });
     }
 
-    // Crear booking con status pending_approval
+    // Crear booking confirmado automáticamente (igual que los bookings con tarjeta)
     const guestToken = `gt_credits_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     
     const booking = await Booking.create({
@@ -1316,8 +1316,8 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       guest_phone: guestPhone || null,
       check_in: checkInDate,
       check_out: checkOutDate,
-      status: 'pending_approval', // Requiere aprobación staff
-      payment_status: 'pending',
+      status: 'confirmed', // Aprobado automáticamente
+      payment_status: 'paid',
       payment_method: 'CREDITS',
       total_amount: totalAmountEUR,
       guest_token: guestToken,
@@ -1332,31 +1332,31 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
         room_type_category: roomType,
         calculation_breakdown: creditCalculation.breakdown,
         room_name: enrichedRoom.name,
-        property_name: property.name
+        property_name: property.name,
+        auto_approved: true
       })
     }, { transaction });
 
-    // Bloquear créditos temporalmente (transacción PENDIENTE)
-    // Los créditos se marcan como "bloqueados" pero no se gastan hasta aprobación staff
+    // Gastar créditos inmediatamente (transacción completada)
     const creditTransaction = await CreditTransaction.create({
       user_id: userId,
       transaction_type: 'SPEND',
       amount: -creditsRequired,
       balance_after: wallet.total_balance - creditsRequired,
-      status: 'ACTIVE', // Será SPENT cuando staff apruebe, o REFUNDED si rechaza
+      status: 'ACTIVE',
       booking_id: booking.id,
-      description: `Marketplace booking (pending approval) - ${property.name}`,
+      description: `Marketplace booking - ${property.name}`,
       metadata: JSON.stringify({
         property_id: propertyId,
         room_id: roomId,
         nights,
-        pending_approval: true
+        auto_approved: true
       })
     }, { transaction });
 
-    // Actualizar wallet (bloquear créditos pero NO incrementar total_spent aún)
-    // total_spent solo se incrementa cuando staff aprueba el booking
+    // Actualizar wallet (gastar créditos inmediatamente)
     wallet.total_balance -= creditsRequired;
+    wallet.total_spent += creditsRequired;
     wallet.last_transaction_at = new Date();
     await wallet.save({ transaction });
 
@@ -1380,8 +1380,8 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
             name: property.name
           }
         },
-        message: 'Booking created successfully. Waiting for staff approval.',
-        pendingApproval: true
+        message: 'Booking confirmed successfully',
+        confirmed: true
       }
     });
 

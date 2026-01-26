@@ -51,7 +51,11 @@ const AdminSettings = lazy(() => import('@/pages/admin/Settings'));
 const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
 const CreditConfiguration = lazy(() => import('@/pages/admin/CreditConfiguration'));
 // Marketplace pages
-const MarketplacePage = lazy(() => import('@/pages/marketplace/MarketplacePage'));
+const MarketplaceHome = lazy(() => import('@/pages/marketplace/MarketplaceHome'));
+const PropertyDetails = lazy(() => import('@/pages/marketplace/PropertyDetails'));
+const BookingForm = lazy(() => import('@/pages/marketplace/BookingForm'));
+const MarketplaceCheckout = lazy(() => import('@/pages/marketplace/MarketplaceCheckout'));
+const BookingSuccess = lazy(() => import('@/pages/marketplace/BookingSuccess'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -146,7 +150,47 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['guest']}>
               <MainLayout>
-                <MarketplacePage />
+                <MarketplaceHome />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/marketplace/properties/:id"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <PropertyDetails />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/marketplace/properties/:propertyId/rooms/:roomId/book"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <BookingForm />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/marketplace/properties/:propertyId/rooms/:roomId/checkout"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <MarketplaceCheckout />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest/marketplace/booking-success"
+          element={
+            <ProtectedRoute allowedRoles={['guest']}>
+              <MainLayout>
+                <BookingSuccess />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -258,7 +302,47 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['owner']}>
               <MainLayout>
-                <MarketplacePage />
+                <MarketplaceHome />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/marketplace/properties/:id"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <PropertyDetails />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/marketplace/properties/:propertyId/rooms/:roomId/book"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <BookingForm />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/marketplace/properties/:propertyId/rooms/:roomId/checkout"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <MarketplaceCheckout />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/marketplace/booking-success"
+          element={
+            <ProtectedRoute allowedRoles={['owner']}>
+              <MainLayout>
+                <BookingSuccess />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -280,7 +364,11 @@ function AppRoutes() {
           <Route path="property" element={<div className="p-6"><h1 className="text-2xl font-bold">Property Management</h1><p className="text-gray-600">Próximamente...</p></div>} />
           <Route path="owners" element={<div className="p-6"><h1 className="text-2xl font-bold">Owner Management</h1><p className="text-gray-600">Próximamente...</p></div>} />
           <Route path="profile" element={<StaffProfile />} />
-          <Route path="marketplace" element={<MarketplacePage />} />
+          <Route path="marketplace" element={<MarketplaceHome />} />
+          <Route path="marketplace/properties/:id" element={<PropertyDetails />} />
+          <Route path="marketplace/properties/:propertyId/rooms/:roomId/book" element={<BookingForm />} />
+          <Route path="marketplace/properties/:propertyId/rooms/:roomId/checkout" element={<MarketplaceCheckout />} />
+          <Route path="marketplace/booking-success" element={<BookingSuccess />} />
         </Route>
         
         {/* Admin routes */}
@@ -360,7 +448,47 @@ function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout>
-                <MarketplacePage />
+                <MarketplaceHome />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/marketplace/properties/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <PropertyDetails />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/marketplace/properties/:propertyId/rooms/:roomId/book"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <BookingForm />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/marketplace/properties/:propertyId/rooms/:roomId/checkout"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <MarketplaceCheckout />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/marketplace/booking-success"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <BookingSuccess />
               </MainLayout>
             </ProtectedRoute>
           }

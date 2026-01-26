@@ -220,7 +220,7 @@ export default function MarketplaceCheckout() {
                   {state.checkOut && format(parseISO(state.checkOut), 'MMM dd, yyyy')}
                 </div>
                 <div>
-                  <span className="font-semibold">{t('marketplace.nights')}:</span> {nights}
+                  <span className="font-semibold">{nights === 1 ? 'Noche' : 'Noches'}:</span> {nights}
                 </div>
                 <div>
                   <span className="font-semibold">{t('marketplace.guests')}:</span> {state.guests}
