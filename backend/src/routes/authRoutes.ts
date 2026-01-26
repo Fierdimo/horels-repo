@@ -354,20 +354,26 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
             createdWeeks.push(week);
             console.log(`✅ Week created with ID: ${week.id}`);
 
-            // Calculate credits using Master Formula
+            // Calculate credits using Master Formula for BOOKING COST (not deposit!)
             let weekCredits = nights;
             let calculationBreakdown = null;
             
-            console.log(`🧮 Calling CreditCalculationService.calculateDepositCredits(${week.id})...`);
+            console.log(`🧮 Calling CreditCalculationService.calculateBookingCost for ${nights} nights...`);
             
             try {
-              const creditResult = await CreditCalculationService.calculateDepositCredits(week.id);
-              weekCredits = creditResult.credits;
+              const creditResult = await CreditCalculationService.calculateBookingCost(
+                (invitation as any).property_id,
+                roomData.room_type,
+                seasonType,
+                nights
+              );
+              weekCredits = creditResult.totalCredits;
               calculationBreakdown = creditResult.breakdown;
               
-              console.log(`✅ Credits calculated for week ${week.id}:`, {
-                credits: creditResult.credits,
-                formula: `${creditResult.breakdown.baseValue} × ${creditResult.breakdown.tierMultiplier} × ${creditResult.breakdown.locationMultiplier} × ${creditResult.breakdown.roomTypeMultiplier} = ${creditResult.credits}`,
+              console.log(`✅ Credits calculated for ${nights} nights:`, {
+                credits_per_night: creditResult.creditsPerNight,
+                total_credits: creditResult.totalCredits,
+                formula: `${creditResult.breakdown.baseRate} × ${creditResult.breakdown.roomTypeMultiplier} × ${creditResult.breakdown.tierMultiplier} × ${creditResult.breakdown.locationMultiplier} × ${nights} nights = ${creditResult.totalCredits}`,
                 breakdown: creditResult.breakdown
               });
               

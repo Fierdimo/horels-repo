@@ -215,7 +215,7 @@ router.get('/seasonal-calendar/:propertyId/season', authenticateToken, authorize
  */
 router.post('/estimate-credits', authenticateToken, authorizeRole(['staff', 'admin']), async (req: AuthRequest, res: Response) => {
   try {
-    const { propertyId, roomType, seasonType } = req.body;
+    const { propertyId, roomType, seasonType, nights } = req.body;
 
     if (!propertyId || !roomType || !seasonType) {
       return res.status(400).json({ 
@@ -232,20 +232,43 @@ router.post('/estimate-credits', authenticateToken, authorizeRole(['staff', 'adm
     }
 
     const CreditCalculationService = (await import('../services/CreditCalculationService')).default;
-    const estimate = await CreditCalculationService.estimateCreditsForWeek(
-      parseInt(propertyId),
-      roomType,
-      seasonType as 'RED' | 'WHITE' | 'BLUE'
-    );
+    
+    // If nights provided, calculate booking cost; otherwise calculate deposit value
+    if (nights && nights > 0) {
+      const bookingCost = await CreditCalculationService.calculateBookingCost(
+        parseInt(propertyId),
+        roomType,
+        seasonType as 'RED' | 'WHITE' | 'BLUE',
+        parseInt(nights)
+      );
 
-    res.json({
-      success: true,
-      data: {
-        estimatedCredits: estimate.estimatedCredits,
-        seasonType: estimate.seasonType,
-        breakdown: estimate.breakdown
-      }
-    });
+      res.json({
+        success: true,
+        data: {
+          estimatedCredits: bookingCost.totalCredits,
+          nights: nights,
+          creditsPerNight: bookingCost.creditsPerNight,
+          seasonType: seasonType,
+          breakdown: bookingCost.breakdown
+        }
+      });
+    } else {
+      // For deposit calculation (week value)
+      const estimate = await CreditCalculationService.estimateCreditsForWeek(
+        parseInt(propertyId),
+        roomType,
+        seasonType as 'RED' | 'WHITE' | 'BLUE'
+      );
+
+      res.json({
+        success: true,
+        data: {
+          estimatedCredits: estimate.estimatedCredits,
+          seasonType: estimate.seasonType,
+          breakdown: estimate.breakdown
+        }
+      });
+    }
 
   } catch (error: any) {
     console.error('Error estimating credits:', error);

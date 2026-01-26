@@ -1549,22 +1549,24 @@ publicInvitationRoutes.get('/validate-token', async (req: Request, res: Response
         console.error('Error detecting season, using WHITE fallback:', error);
       }
 
-      // Use Master Formula to estimate credits
+      // Use Master Formula to estimate booking cost (not deposit!)
       let estimatedCredits = nights;
       try {
-        const estimate = await CreditCalculationService.estimateCreditsForWeek(
+        const bookingCost = await CreditCalculationService.calculateBookingCost(
           invitation.property_id,
           room.room_type,
-          seasonType
+          seasonType,
+          nights
         );
-        estimatedCredits = estimate.estimatedCredits;
+        estimatedCredits = bookingCost.totalCredits;
         
         console.log(`💡 Credit estimate for room:`, {
           room_type: room.room_type,
           season: seasonType,
           nights,
-          credits: estimatedCredits,
-          formula: `${estimate.breakdown.baseValue} × ${estimate.breakdown.tierMultiplier} × ${estimate.breakdown.locationMultiplier} × ${estimate.breakdown.roomTypeMultiplier} = ${estimatedCredits}`
+          credits_per_night: bookingCost.creditsPerNight,
+          total_credits: estimatedCredits,
+          formula: `${bookingCost.breakdown.baseRate} × ${bookingCost.breakdown.roomTypeMultiplier} × ${bookingCost.breakdown.tierMultiplier} × ${bookingCost.breakdown.locationMultiplier} × ${nights} nights = ${estimatedCredits}`
         });
       } catch (error) {
         console.error('Error estimating credits, using fallback:', error);

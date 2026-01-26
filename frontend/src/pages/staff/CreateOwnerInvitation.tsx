@@ -218,11 +218,12 @@ export default function CreateOwnerInvitation() {
 
       const seasonType = seasonResponse.data.data?.season || 'WHITE';
 
-      // Calculate DEPOSIT credits using Master Formula (not booking cost!)
+      // Calculate booking cost (not deposit!) using Master Formula with nights
       const response = await apiClient.post('/hotel-staff/estimate-credits', {
         propertyId: room.propertyId,
         seasonType: seasonType,
-        roomType: roomData.room_type
+        roomType: roomData.room_type,
+        nights: nights  // ← CRITICAL: Include nights for booking cost calculation
       });
 
       console.log('💡 Credit estimation response:', {
@@ -231,6 +232,7 @@ export default function CreateOwnerInvitation() {
         roomType: roomData.room_type,
         nights,
         estimatedCredits: response.data.data?.estimatedCredits,
+        creditsPerNight: response.data.data?.creditsPerNight,
         breakdown: response.data.data?.breakdown
       });
 

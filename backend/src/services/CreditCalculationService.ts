@@ -13,12 +13,22 @@ import Property from '../models/Property';
 class CreditCalculationService {
   
   /**
-   * Base season values (reference points for credit calculation)
+   * Base season values for DEPOSITS (weekly value)
    */
   private static readonly BASE_SEASON_VALUES = {
     RED: 1000,    // High season - peak demand
     WHITE: 600,   // Medium season - moderate demand
     BLUE: 300     // Low season - low demand
+  };
+
+  /**
+   * Base nightly rates for BOOKINGS (approximately 1/7 of weekly deposit values)
+   * These are the base costs per night before multipliers
+   */
+  private static readonly BASE_NIGHTLY_RATES = {
+    RED: 150,     // High season - ~1/7 of 1000
+    WHITE: 90,    // Medium season - ~1/7 of 600
+    BLUE: 45      // Low season - ~1/7 of 300
   };
 
   /**
@@ -174,14 +184,14 @@ class CreditCalculationService {
       creditsPerNight = costConfig.credits_per_night;
       configUsed = true;
     } else {
-      // Fallback to Master Formula calculation
+      // Fallback to Master Formula calculation for BOOKINGS
       const property = await Property.findByPk(propertyId);
       if (!property) {
         throw new Error(`Property ${propertyId} not found`);
       }
 
-      // Base rate from season
-      const baseRate = CreditCalculationService.BASE_SEASON_VALUES[seasonType];
+      // Base nightly rate from season (USE BASE_NIGHTLY_RATES, NOT BASE_SEASON_VALUES!)
+      const baseRate = CreditCalculationService.BASE_NIGHTLY_RATES[seasonType];
 
       // Room type multiplier
       const roomMultiplier = CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0;
@@ -192,7 +202,7 @@ class CreditCalculationService {
       // Location multiplier
       const locationMultiplier = parseFloat(property.location_multiplier.toString());
 
-      // Calculate nightly cost: Base_Rate × Room_Multiplier × Tier_Multiplier × Location_Multiplier
+      // Calculate nightly cost: Base_Nightly_Rate × Room_Multiplier × Tier_Multiplier × Location_Multiplier
       creditsPerNight = Math.round(baseRate * roomMultiplier * tierMultiplier * locationMultiplier);
     }
 
