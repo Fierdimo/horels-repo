@@ -147,10 +147,6 @@ Booking.init({
     allowNull: true,
     unique: false,
   },
-  night_credit_id: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
   swap_request_id: {
     type: DataTypes.STRING,
     allowNull: true,
