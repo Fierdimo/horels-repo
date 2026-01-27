@@ -139,8 +139,8 @@ export default function MyAccount() {
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl font-bold mb-2">Mi Cuenta</h1>
-          <p className="text-blue-100">Gestiona tu información personal y preferencias</p>
+          <h1 className="text-3xl font-bold mb-2">{t('owner.account.title')}</h1>
+          <p className="text-blue-100">{t('owner.account.subtitle')}</p>
         </div>
       </header>
 
@@ -158,7 +158,7 @@ export default function MyAccount() {
                 }`}
               >
                 <User className="inline h-5 w-5 mr-2" />
-                Información Personal
+                {t('owner.account.personalInfo')}
               </button>
               <button
                 onClick={() => setActiveTab('notifications')}
@@ -169,7 +169,7 @@ export default function MyAccount() {
                 }`}
               >
                 <Bell className="inline h-5 w-5 mr-2" />
-                Notificaciones
+                {t('owner.account.notifications')}
               </button>
               <button
                 onClick={() => setActiveTab('payment')}
@@ -180,7 +180,7 @@ export default function MyAccount() {
                 }`}
               >
                 <CreditCard className="inline h-5 w-5 mr-2" />
-                Método de Pago
+                {t('owner.account.paymentMethod')}
               </button>
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function MyAccount() {
               <div className="space-y-6">
                 {/* Actions */}
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-gray-900">Datos Personales</h2>
+                  <h2 className="text-xl font-bold text-gray-900">{t('owner.account.personalData')}</h2>
                   {!isEditing ? (
                     <div className="flex gap-3">
                       <button
@@ -200,13 +200,13 @@ export default function MyAccount() {
                         className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
                       >
                         <Lock className="h-5 w-5" />
-                        Cambiar Contraseña
+                        {t('userSettings.changePassword')}
                       </button>
                       <button
                         onClick={() => setIsEditing(true)}
                         className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                       >
-                        Editar
+                        {t('common.edit')}
                       </button>
                     </div>
                   ) : (
@@ -217,7 +217,7 @@ export default function MyAccount() {
                         disabled={isUpdating}
                       >
                         <X className="h-5 w-5" />
-                        Cancelar
+                        {t('common.cancel')}
                       </button>
                       <button
                         onClick={handleSaveProfile}
@@ -225,7 +225,7 @@ export default function MyAccount() {
                         disabled={isUpdating}
                       >
                         <Save className="h-5 w-5" />
-                        {isUpdating ? 'Guardando...' : 'Guardar'}
+                        {isUpdating ? t('common.saving') : t('common.save')}
                       </button>
                     </div>
                   )}
@@ -235,7 +235,7 @@ export default function MyAccount() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre
+                      {t('owner.profile.firstName')}
                     </label>
                     {isEditing ? (
                       <input
@@ -252,7 +252,7 @@ export default function MyAccount() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Apellido
+                      {t('owner.profile.lastName')}
                     </label>
                     {isEditing ? (
                       <input
@@ -270,16 +270,16 @@ export default function MyAccount() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Mail className="inline h-4 w-4 mr-1" />
-                      Email
+                      {t('owner.account.email')}
                     </label>
                     <p className="text-gray-900 py-2">{formData.email}</p>
-                    <p className="text-xs text-gray-500">El email no se puede cambiar</p>
+                    <p className="text-xs text-gray-500">{t('owner.account.emailCannotChange')}</p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Phone className="inline h-4 w-4 mr-1" />
-                      Teléfono
+                      {t('owner.profile.phone')}
                     </label>
                     {isEditing ? (
                       <input
@@ -297,7 +297,7 @@ export default function MyAccount() {
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <MapPin className="inline h-4 w-4 mr-1" />
-                      Dirección
+                      {t('owner.profile.address')}
                     </label>
                     {isEditing ? (
                       <input
@@ -319,14 +319,14 @@ export default function MyAccount() {
             {activeTab === 'notifications' && preferences && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-gray-900">Preferencias de Notificaciones</h2>
+                  <h2 className="text-xl font-bold text-gray-900">{t('owner.account.notificationPreferences')}</h2>
                   <button
                     onClick={handleSavePreferences}
                     disabled={isSaving}
                     className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2 disabled:opacity-50"
                   >
                     <Save className="h-5 w-5" />
-                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                    {isSaving ? t('common.saving') : t('common.saveChanges')}
                   </button>
                 </div>
 
@@ -334,7 +334,7 @@ export default function MyAccount() {
                 {success && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="text-green-800">Preferencias guardadas correctamente</span>
+                    <span className="text-green-800">{t('owner.account.preferencesSaved')}</span>
                   </div>
                 )}
 
@@ -349,14 +349,14 @@ export default function MyAccount() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     <Mail className="inline h-5 w-5 mr-2 text-blue-600" />
-                    Notificaciones por Email
+                    {t('userSettings.emailNotifications')}
                   </h3>
                   
                   <div className="space-y-4">
                     <div className="flex items-center justify-between py-3 border-b border-gray-200">
                       <div>
-                        <h4 className="font-medium text-gray-900">Activar Notificaciones por Email</h4>
-                        <p className="text-sm text-gray-600">Recibe actualizaciones importantes por correo</p>
+                        <h4 className="font-medium text-gray-900">{t('userSettings.emailNotificationsEnabled')}</h4>
+                        <p className="text-sm text-gray-600">{t('userSettings.emailNotificationsDesc')}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -371,8 +371,8 @@ export default function MyAccount() {
 
                     <div className="flex items-center justify-between py-3 border-b border-gray-200">
                       <div>
-                        <h4 className="font-medium text-gray-900">Notificaciones de Reservas</h4>
-                        <p className="text-sm text-gray-600">Recibe alertas sobre tus reservas</p>
+                        <h4 className="font-medium text-gray-900">{t('userSettings.bookingNotifications')}</h4>
+                        <p className="text-sm text-gray-600">{t('userSettings.bookingNotificationsDesc')}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -388,8 +388,8 @@ export default function MyAccount() {
 
                     <div className="flex items-center justify-between py-3 border-b border-gray-200">
                       <div>
-                        <h4 className="font-medium text-gray-900">Alertas de Créditos</h4>
-                        <p className="text-sm text-gray-600">Aviso cuando tus créditos estén por expirar</p>
+                        <h4 className="font-medium text-gray-900">{t('userSettings.creditExpiryAlerts')}</h4>
+                        <p className="text-sm text-gray-600">{t('userSettings.creditExpiryAlertsDesc')}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -405,8 +405,8 @@ export default function MyAccount() {
 
                     <div className="flex items-center justify-between py-3">
                       <div>
-                        <h4 className="font-medium text-gray-900">Notificaciones de Intercambios</h4>
-                        <p className="text-sm text-gray-600">Recibe alertas sobre swaps disponibles</p>
+                        <h4 className="font-medium text-gray-900">{t('userSettings.swapNotifications')}</h4>
+                        <p className="text-sm text-gray-600">{t('userSettings.swapNotificationsDesc')}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -427,9 +427,9 @@ export default function MyAccount() {
             {/* PAYMENT TAB */}
             {activeTab === 'payment' && (
               <div className="space-y-6">
-                <h2 className="text-xl font-bold text-gray-900">Método de Pago</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('owner.account.paymentMethod')}</h2>
                 <p className="text-gray-600">
-                  Configura tu método de pago para realizar transacciones en la plataforma
+                  {t('owner.account.paymentMethodDescription')}
                 </p>
                 <PaymentMethodSetup />
               </div>

@@ -88,12 +88,12 @@ export default function UnifiedDashboard() {
             {expiringIn30Days > 0 && (
               <div className="bg-red-50 rounded p-2 flex items-center gap-1">
                 <AlertCircle className="h-4 w-4 text-red-600" />
-                <span className="text-xs text-red-700">{expiringIn30Days} expiran pronto</span>
+                <span className="text-xs text-red-700">{expiringIn30Days} {t('owner.unified.expiringSoon')}</span>
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-md p-6">
+          {/* <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
               <div className="bg-blue-100 rounded-lg p-3">
                 <Calendar className="h-6 w-6 text-blue-600" />
@@ -102,9 +102,9 @@ export default function UnifiedDashboard() {
             </div>
             <p className="text-sm text-gray-600 mb-3">{t('owner.dashboard.availableWeeks')}</p>
             <Link to="/owner/marketplace" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-              Liberar por créditos <ArrowRight className="h-4 w-4" />
+              {t('owner.unified.releaseForCredits')} <ArrowRight className="h-4 w-4" />
             </Link>
-          </div>
+          </div> */}
 
           <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
@@ -113,12 +113,12 @@ export default function UnifiedDashboard() {
               </div>
               <span className="text-3xl font-bold text-purple-600">{confirmedBookings.length}</span>
             </div>
-            <p className="text-sm text-gray-600 mb-3">Reservas Confirmadas</p>
+            <p className="text-sm text-gray-600 mb-3">{t('owner.unified.confirmedBookings')}</p>
             <button 
               onClick={() => setActiveSection('bookings')}
               className="text-sm text-purple-600 hover:text-purple-700 font-medium"
             >
-              Ver detalles
+              {t('common.viewDetails')}
             </button>
           </div>
 
@@ -129,21 +129,21 @@ export default function UnifiedDashboard() {
               </div>
               <span className="text-3xl font-bold text-orange-600">{pendingBookings.length}</span>
             </div>
-            <p className="text-sm text-gray-600 mb-3">Reservas Pendientes</p>
+            <p className="text-sm text-gray-600 mb-3">{t('owner.unified.pendingBookings')}</p>
             {pendingBookings.length > 0 && (
               <button 
                 onClick={() => setActiveSection('bookings')}
                 className="text-sm text-orange-600 hover:text-orange-700 font-medium"
               >
-                Revisar
+                {t('owner.unified.review')}
               </button>
             )}
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4">Acciones Rápidas</h2>
+        {/* <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4">{t('owner.dashboard.quickActions')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Link
               to="/owner/marketplace"
@@ -153,8 +153,8 @@ export default function UnifiedDashboard() {
                 <TrendingUp className="h-6 w-6 text-emerald-600" />
               </div>
               <div>
-                <div className="font-semibold text-gray-900">Liberar Semanas</div>
-                <div className="text-sm text-gray-600">Gana créditos</div>
+                <div className="font-semibold text-gray-900">{t('owner.unified.releaseWeeks')}</div>
+                <div className="text-sm text-gray-600">{t('owner.unified.earnCredits')}</div>
               </div>
             </Link>
 
@@ -166,8 +166,8 @@ export default function UnifiedDashboard() {
                 <Calendar className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <div className="font-semibold text-gray-900">Buscar Semanas</div>
-                <div className="text-sm text-gray-600">Reserva con créditos</div>
+                <div className="font-semibold text-gray-900">{t('owner.unified.searchWeeks')}</div>
+                <div className="text-sm text-gray-600">{t('owner.unified.bookWithCredits')}</div>
               </div>
             </Link>
 
@@ -179,12 +179,12 @@ export default function UnifiedDashboard() {
                 <Calendar className="h-6 w-6 text-purple-600" />
               </div>
               <div>
-                <div className="font-semibold text-gray-900">Mis Semanas</div>
-                <div className="text-sm text-gray-600">Ver todas ({stats.totalWeeks})</div>
+                <div className="font-semibold text-gray-900">{t('owner.dashboard.myWeeks')}</div>
+                <div className="text-sm text-gray-600">{t('owner.unified.viewAll', { count: stats.totalWeeks })}</div>
               </div>
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Content Sections */}
         <div className="bg-white rounded-xl shadow-md">
@@ -199,7 +199,7 @@ export default function UnifiedDashboard() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Mis Semanas ({weeks.length})
+                {t('owner.unified.myWeeksTab', { count: weeks.length })}
               </button>
               <button
                 onClick={() => setActiveSection('bookings')}
@@ -209,7 +209,7 @@ export default function UnifiedDashboard() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Mis Reservas ({allBookings.length})
+                {t('owner.unified.myBookingsTab', { count: allBookings.length })}
               </button>
               <button
                 onClick={() => setActiveSection('credits')}
@@ -219,7 +219,7 @@ export default function UnifiedDashboard() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Historial de Créditos
+                {t('owner.unified.creditsHistory')}
               </button>
             </div>
           </div>
@@ -231,7 +231,7 @@ export default function UnifiedDashboard() {
                 {weeks.length === 0 ? (
                   <div className="text-center py-12">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No tienes semanas aún</p>
+                    <p className="text-gray-600">{t('owner.dashboard.noWeeksYet')}</p>
                   </div>
                 ) : (
                   weeks.slice(0, 10).map((week) => (

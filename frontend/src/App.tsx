@@ -41,6 +41,9 @@ const GuestDestinations = lazy(() => import('@/pages/guest/GuestDestinations'));
 const GuestInfo = lazy(() => import('@/pages/guest/GuestInfo'));
 const StaffDashboard = lazy(() => import('@/pages/staff/UnifiedDashboard'));
 const StaffProfile = lazy(() => import('@/pages/staff/Profile'));
+const StaffRooms = lazy(() => import('@/pages/staff/Rooms'));
+const StaffMarketplaceSettings = lazy(() => import('@/pages/staff/MarketplaceSettings'));
+
 const StaffInvitationsList = lazy(() => import('@/pages/staff/StaffInvitationsList'));
 const CreateOwnerInvitation = lazy(() => import('@/pages/staff/CreateOwnerInvitation'));
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'));
@@ -361,8 +364,8 @@ function AppRoutes() {
           <Route path="dashboard" element={<StaffDashboard />} />
           <Route path="invitations" element={<StaffInvitationsList />} />
           <Route path="invitations/create" element={<CreateOwnerInvitation />} />
-          <Route path="property" element={<div className="p-6"><h1 className="text-2xl font-bold">Property Management</h1><p className="text-gray-600">Próximamente...</p></div>} />
-          <Route path="owners" element={<div className="p-6"><h1 className="text-2xl font-bold">Owner Management</h1><p className="text-gray-600">Próximamente...</p></div>} />
+          <Route path="rooms" element={<StaffRooms />} />
+          <Route path="marketplace-settings" element={<StaffMarketplaceSettings />} />
           <Route path="profile" element={<StaffProfile />} />
           <Route path="marketplace" element={<MarketplaceHome />} />
           <Route path="marketplace/properties/:id" element={<PropertyDetails />} />

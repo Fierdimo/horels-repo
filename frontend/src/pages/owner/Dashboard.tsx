@@ -203,7 +203,7 @@ export default function DashboardNew() {
                         <p className="text-sm text-gray-600">
                           {week.Property?.city && week.Property?.country 
                             ? `${week.Property.city}, ${week.Property.country}`
-                            : week.Property?.location || 'N/A'
+                            : week.Property?.location || t('common.notAvailable')
                           }
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
@@ -246,7 +246,7 @@ export default function DashboardNew() {
                     <div key={swap.id} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
                       <Repeat className="h-5 w-5 text-gray-400 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">Swap #{swap.id}</p>
+                        <p className="font-medium text-gray-900">{t('owner.dashboard.swapNumber', { number: swap.id })}</p>
                         <p className="text-xs text-gray-500 mt-1">
                           {swap.createdAt && format(new Date(swap.createdAt), 'PPP', { locale: currentLocale })}
                         </p>

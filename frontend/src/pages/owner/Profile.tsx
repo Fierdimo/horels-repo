@@ -247,7 +247,7 @@ export default function Profile() {
                   name="bankAccount"
                   value={formData.bankAccount}
                   onChange={handleInputChange}
-                  placeholder="e.g., IBAN or Account Number"
+                  placeholder={t('owner.profile.bankAccountPlaceholder')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
@@ -268,7 +268,7 @@ export default function Profile() {
                   name="bankRoutingNumber"
                   value={formData.bankRoutingNumber}
                   onChange={handleInputChange}
-                  placeholder="e.g., Routing Number or BIC"
+                  placeholder={t('owner.profile.bankRoutingPlaceholder')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (

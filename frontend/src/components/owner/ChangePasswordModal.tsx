@@ -26,17 +26,17 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
 
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('All fields are required');
+      setError(t('userSettings.allFieldsRequired'));
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long');
+      setError(t('userSettings.passwordMinLength'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+      setError(t('userSettings.passwordsDoNotMatch'));
       return;
     }
 
@@ -51,7 +51,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
         handleClose();
       }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to change password');
+      setError(err.response?.data?.error || t('userSettings.passwordChangeFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +115,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
               required
             />
             <p className="text-xs text-gray-500 mt-1">
-              Minimum 6 characters
+              {t('userSettings.passwordMinLengthHint')}
             </p>
           </div>
 

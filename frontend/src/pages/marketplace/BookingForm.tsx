@@ -218,12 +218,6 @@ export default function BookingForm() {
           <p className="text-gray-600">
             {property.name} - {room.name}
           </p>
-          {/* Debug Info - Remove after testing */}
-          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-            <strong>Debug:</strong> pricePerNight={pricePerNight}, 
-            nights={nights}, totalAmount={totalAmount}, 
-            room.pricing.guestPrice={room?.pricing?.guestPrice}
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -320,7 +314,7 @@ export default function BookingForm() {
 
                 {nights > 0 && (
                   <p className="mt-2 text-sm text-gray-600">
-                    {nights === 1 ? '1 noche en total' : `${nights} noches en total`}
+                    {nights} {nights === 1 ? t('common.night') : t('common.nights')} {t('common.inTotal')}
                   </p>
                 )}
               </div>
@@ -410,7 +404,7 @@ export default function BookingForm() {
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
-                      Cambiar método de pago
+                      {t('bookings.changePaymentMethod')}
                     </button>
                     <CreditPaymentOption
                       propertyId={propertyId!}
@@ -438,7 +432,7 @@ export default function BookingForm() {
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
-                      Cambiar método de pago
+                      {t('bookings.changePaymentMethod')}
                     </button>
                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border-2 border-blue-200">
                       <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -490,7 +484,7 @@ export default function BookingForm() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                      <span className="text-gray-600">{nights === 1 ? 'Noche' : 'Noches'}</span>
+                      <span className="text-gray-600">{t('common.nights')}</span>
                       <span className="font-medium text-gray-900">{nights}</span>
                     </div>
                   </div>
@@ -504,14 +498,14 @@ export default function BookingForm() {
                         <div className="pt-4 border-t border-gray-200 space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">
-                              {creditCalculation.creditsPerNight} créditos × {nights} {nights === 1 ? 'noche' : 'noches'}
+                              {creditCalculation.creditsPerNight} {t('credits.credits')} × {nights} {nights === 1 ? t('common.night') : t('common.nights')}
                             </span>
                             <span className="font-medium text-purple-900">
-                              {creditCalculation.creditsRequired} créditos
+                              {creditCalculation.creditsRequired} {t('credits.credits')}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Temporada:</span>
+                            <span className="text-gray-500">{t('bookings.season')}:</span>
                             <span className="font-medium text-gray-700">
                               {creditCalculation.season === 'RED' && '🔴 RED'}
                               {creditCalculation.season === 'WHITE' && '⚪ WHITE'}
@@ -519,7 +513,7 @@ export default function BookingForm() {
                             </span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Tipo de habitación:</span>
+                            <span className="text-gray-500">{t('bookings.roomType')}:</span>
                             <span className="font-medium text-gray-700">{creditCalculation.roomType}</span>
                           </div>
                         </div>
@@ -531,11 +525,8 @@ export default function BookingForm() {
                             </span>
                             <div className="text-right">
                               <div className="text-2xl font-bold text-purple-900">
-                                {creditCalculation.creditsRequired} créditos
-                              </div>
-                              <div className="text-xs text-gray-600">
-                                (≈ €{creditCalculation.totalAmountEUR?.toFixed(2)})
-                              </div>
+                                {creditCalculation.creditsRequired} {t('credits.credits')}
+                              </div> 
                             </div>
                           </div>
                         </div>
@@ -545,7 +536,7 @@ export default function BookingForm() {
                         <div className="pt-4 border-t border-gray-200 space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">
-                              €{pricePerNight.toFixed(2)} × {nights} {nights === 1 ? 'noche' : 'noches'}
+                              €{pricePerNight.toFixed(2)} × {nights} {nights === 1 ? t('common.night') : t('common.nights')}
                             </span>
                             <span className="font-medium text-gray-900">
                               €{totalAmount.toFixed(2)}
@@ -570,7 +561,7 @@ export default function BookingForm() {
               </div>
 
               {/* Info Box */}
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              {/* <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
@@ -582,7 +573,7 @@ export default function BookingForm() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

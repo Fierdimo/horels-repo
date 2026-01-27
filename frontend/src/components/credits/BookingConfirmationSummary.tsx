@@ -1,4 +1,5 @@
 import { CheckCircle, CreditCard, Wallet, Calendar, MapPin, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { PaymentMethod } from './BookingPaymentSelector';
 
 interface BookingConfirmationSummaryProps {
@@ -32,6 +33,8 @@ export function BookingConfirmationSummary({
   transactionId,
   bookingId
 }: BookingConfirmationSummaryProps) {
+  const { t } = useTranslation();
+  
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'short',
@@ -89,7 +92,7 @@ export function BookingConfirmationSummary({
                 {formatDate(checkInDate)} → {formatDate(checkOutDate)}
               </p>
               <p className="text-sm text-gray-500 mt-0.5">
-                {nights} {nights === 1 ? 'night' : 'nights'}
+                {nights} {nights === 1 ? t('common.night') : t('common.nights')}
               </p>
             </div>
           </div>
