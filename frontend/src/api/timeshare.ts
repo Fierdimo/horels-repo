@@ -374,6 +374,14 @@ export const timeshareApi = {
   // ============================================================================
 
   /**
+   * Get credit to EUR conversion rate
+   */
+  getCreditToEurRate: async (): Promise<number> => {
+    const { data } = await apiClient.get('/public/credit-to-eur-rate');
+    return data.data.rate;
+  },
+
+  /**
    * Calculate credit cost for a booking (without creating it)
    * Returns the exact credits required based on Master Formula
    */

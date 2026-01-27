@@ -44,6 +44,9 @@ export default function MarketplaceCheckout() {
     guestName: string;
     guestEmail: string;
     guestPhone?: string;
+    useHybridPayment?: boolean;
+    creditsToUse?: number;
+    cardAmountToPay?: number;
   } || {};
 
   const [clientSecret, setClientSecret] = useState<string>('');
@@ -93,7 +96,12 @@ export default function MarketplaceCheckout() {
     ? differenceInDays(parseISO(state.checkOut), parseISO(state.checkIn)) 
     : 0;
   const pricePerNight = room?.guestPrice || 0;
-  const totalAmount = nights * pricePerNight;
+  const baseTotal = nights * pricePerNight;
+  
+  // Si es pago híbrido, el total a cobrar con tarjeta es menor
+  const totalAmount = state.useHybridPayment && state.cardAmountToPay 
+    ? state.cardAmountToPay 
+    : baseTotal;
 
   // Inicialmente usar tarjeta nueva si no hay tarjetas guardadas
   useEffect(() => {
@@ -232,8 +240,26 @@ export default function MarketplaceCheckout() {
                   </div>
                   <div className="flex justify-between font-bold text-lg mt-2">
                     <span>{t('marketplace.total')}:</span>
-                    <span>€{totalAmount.toFixed(2)}</span>
+                    <span>€{baseTotal.toFixed(2)}</span>
                   </div>
+                  
+                  {/* Hybrid Payment Breakdown */}
+                  {state.useHybridPayment && state.creditsToUse && state.cardAmountToPay && (
+                    <div className="mt-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
+                      <p className="text-sm font-semibold text-gray-900 mb-3">💳 Pago Híbrido:</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">✨ Créditos a usar:</span>
+                          <span className="font-semibold text-purple-600">{state.creditsToUse.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">💳 A cobrar con tarjeta:</span>
+                          <span className="font-bold text-blue-600">€{state.cardAmountToPay.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {isTestPrice && (
                     <div className="mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2">
                       ⚠️ Using test pricing for development
@@ -324,6 +350,8 @@ export default function MarketplaceCheckout() {
                     paymentIntentId={paymentIntentId}
                     propertyId={propertyId!}
                     guestEmail={state.guestEmail}
+                    useHybridPayment={state.useHybridPayment}
+                    creditsToUse={state.creditsToUse}
                   />
                 </Elements>
               )}

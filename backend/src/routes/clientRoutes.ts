@@ -94,11 +94,24 @@ router.get('/profile', authenticateToken, logAction('view_profile'), async (req:
 // Client Settings - Update user preferences (for both mobile and web clients)
 router.put('/settings', authenticateToken, logAction('update_settings'), async (req: any, res: Response) => {
   try {
-    // Placeholder for settings update
-    // This could include notification preferences, language, etc.
+    console.log('🔍 PUT /settings received:', JSON.stringify(req.body, null, 2));
+    const { settings } = req.body;
+    
+    // Si se incluye creditToEurRate, guardarlo en la base de datos
+    if (settings && settings.creditToEurRate !== undefined) {
+      const rate = parseFloat(settings.creditToEurRate);
+      console.log('🔍 Parsed creditToEurRate:', rate, 'isValid:', !isNaN(rate) && rate >= 0 && rate <= 10);
+      if (!isNaN(rate) && rate >= 0 && rate <= 10) {
+        const { CreditCalculationService } = await import('../services/CreditCalculationService');
+        await CreditCalculationService.updateCreditToEurRate(rate);
+        console.log('🔍 CreditToEurRate saved successfully');
+      }
+    }
+    
+    // Placeholder para otros settings (notification preferences, language, etc.)
     res.json({
       message: 'Settings updated successfully',
-      settings: req.body
+      settings: req.body.settings
     });
   } catch (error) {
     console.error('Settings update error:', error);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   Settings as SettingsIcon, 
   DollarSign, 
@@ -17,6 +18,7 @@ import * as settingsApi from '@/api/settings';
 
 export default function Settings() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +30,7 @@ export default function Settings() {
   const [creditConversionFee, setCreditConversionFee] = useState(5);
   const [chargeSwapFeeToRequester, setChargeSwapFeeToRequester] = useState(true);
   const [chargeSwapFeeToResponder, setChargeSwapFeeToResponder] = useState(false);
+  const [creditToEurRate, setCreditToEurRate] = useState(0.10);
   
   // Auto-Approval Settings State
   const [autoApproveGuests, setAutoApproveGuests] = useState(false);
@@ -59,6 +62,7 @@ export default function Settings() {
       setCreditConversionFee(Number(settings.creditConversionFee) || 5);
       setChargeSwapFeeToRequester(settings.chargeSwapFeeToRequester !== 'false');
       setChargeSwapFeeToResponder(settings.chargeSwapFeeToResponder === 'true');
+      setCreditToEurRate(Number(settings.creditToEurRate) || 0.10);
       setAutoApproveGuests(settings.autoApproveGuests === 'true');
       setAutoApproveStaff(settings.autoApproveStaff === 'true');
       setRequireEmailVerification(settings.requireEmailVerification === 'true');
@@ -78,13 +82,20 @@ export default function Settings() {
   const handleSaveCommission = async () => {
     try {
       setIsSaving(true);
-      await settingsApi.updateSettings({
+      const settingsToSave = {
         commissionRate: String(commissionRate),
         swapFee: String(swapFee),
         creditConversionFee: String(creditConversionFee),
         chargeSwapFeeToRequester: String(chargeSwapFeeToRequester),
         chargeSwapFeeToResponder: String(chargeSwapFeeToResponder),
-      });
+        creditToEurRate: String(creditToEurRate),
+      };
+      console.log('🔍 Frontend sending settings:', settingsToSave);
+      await settingsApi.updateSettings(settingsToSave);
+      
+      // Invalidar cache de tasa de créditos para que se recargue en todo el sistema
+      queryClient.invalidateQueries({ queryKey: ['credit-to-eur-rate'] });
+      
       toast.success(t('admin.settings.settingsSaved'));
     } catch (error: any) {
       console.error('Error saving commission settings:', error);
@@ -304,6 +315,42 @@ export default function Settings() {
                 <span className="absolute right-3 top-2 text-gray-500">%</span>
               </div>
               <p className="mt-1 text-xs text-gray-500">{t('admin.settings.creditConversionHelp')}</p>
+            </div>
+
+            {/* Credit to EUR Rate */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Valor de Crédito en EUR
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">€</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={creditToEurRate}
+                  onChange={(e) => setCreditToEurRate(Number(e.target.value))}
+                  className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Valor en EUR de 1 crédito para pagos híbridos (créditos + tarjeta)
+              </p>
+            </div>
+          </div>
+          
+          {/* Credit Rate Preview */}
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <DollarSign className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-900 mb-1">Vista previa del valor de créditos</p>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p>• 100 créditos = €{(100 * creditToEurRate).toFixed(2)}</p>
+                  <p>• 500 créditos = €{(500 * creditToEurRate).toFixed(2)}</p>
+                  <p>• 1,000 créditos = €{(1000 * creditToEurRate).toFixed(2)}</p>
+                </div>
+              </div>
             </div>
           </div>
 

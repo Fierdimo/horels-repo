@@ -6,6 +6,7 @@ export interface PlatformSettings {
   creditConversionFee: string;
   chargeSwapFeeToRequester?: string;
   chargeSwapFeeToResponder?: string;
+  creditToEurRate?: string;
   autoApproveGuests: string;
   autoApproveStaff: string;
   requireEmailVerification: string;
@@ -36,7 +37,7 @@ export const getSetting = async (key: string): Promise<{ key: string; value: str
  * Update platform settings (bulk update)
  */
 export const updateSettings = async (settings: Partial<PlatformSettings>): Promise<PlatformSettings> => {
-  const response = await apiClient.put('/settings', { settings });
+  const response = await apiClient.put('/api/settings', { settings });
   return response.data.settings;
 };
 

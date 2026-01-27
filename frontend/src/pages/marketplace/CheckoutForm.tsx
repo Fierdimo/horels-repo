@@ -13,9 +13,11 @@ interface CheckoutFormProps {
   paymentIntentId: string;
   propertyId: string;
   guestEmail: string;
+  useHybridPayment?: boolean;
+  creditsToUse?: number;
 }
 
-export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }: CheckoutFormProps) {
+export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail, useHybridPayment, creditsToUse }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const { t } = useTranslation();
@@ -68,11 +70,19 @@ export default function CheckoutForm({ paymentIntentId, propertyId, guestEmail }
         // Pago exitoso, confirmar el booking en nuestro backend
         try {
           const response = await apiClient.post('/public/bookings/confirm-payment', {
-            payment_intent_id: paymentIntent.id
+            payment_intent_id: paymentIntent.id,
+            useHybridPayment,
+            creditsUsed: creditsToUse
           });
 
           // Invalidar cache de bookings para que se recarguen
           queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+          
+          // Si fue pago híbrido, invalidar también el wallet
+          if (useHybridPayment && creditsToUse) {
+            queryClient.invalidateQueries({ queryKey: ['credit-wallet'] });
+            queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
+          }
 
           // El token ahora viene en response.data.token (raíz de la respuesta)
           const token = response.data.token;

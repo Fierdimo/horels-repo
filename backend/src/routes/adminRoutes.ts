@@ -645,6 +645,56 @@ router.patch('/settings/commission', authenticateToken, authorize(['manage_permi
   }
 });
 
+/**
+ * @route   PATCH /admin/settings/credit-to-eur-rate
+ * @desc    Update credit to EUR conversion rate
+ * @access  Admin only
+ */
+router.patch('/settings/credit-to-eur-rate', authenticateToken, authorize(['manage_permissions']), logAction('update_credit_rate'), async (req: Request, res: Response) => {
+  try {
+    const { rate } = req.body;
+
+    if (rate === undefined || rate === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Credit rate is required'
+      });
+    }
+
+    const rateNum = parseFloat(rate);
+
+    if (isNaN(rateNum) || rateNum < 0 || rateNum > 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'Credit rate must be between 0 and 10 EUR'
+      });
+    }
+
+    const { CreditCalculationService: CreditCalcService } = await import('../services/CreditCalculationService');
+    await CreditCalcService.updateCreditToEurRate(rateNum);
+
+    res.json({
+      success: true,
+      message: 'Credit to EUR rate updated successfully',
+      data: {
+        rate: rateNum,
+        description: `1 crédito ahora vale €${rateNum.toFixed(2)}`,
+        examples: {
+          '100_credits': `€${(100 * rateNum).toFixed(2)}`,
+          '500_credits': `€${(500 * rateNum).toFixed(2)}`,
+          '1000_credits': `€${(1000 * rateNum).toFixed(2)}`
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error updating credit to EUR rate:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update credit to EUR rate'
+    });
+  }
+});
+
 // Get owners list (staff/admin) - simplified endpoint for dropdowns
 router.get('/owners', authenticateToken, authorize(['manage_users', 'manage_bookings']), logAction('view_owners_list'), async (req: Request, res: Response) => {
   try {

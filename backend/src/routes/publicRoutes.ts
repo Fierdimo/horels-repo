@@ -13,6 +13,7 @@ import jwt from 'jsonwebtoken';
 import UserCreditWallet from '../models/UserCreditWallet';
 import CreditTransaction from '../models/CreditTransaction';
 import CreditCalculationService from '../services/CreditCalculationService';
+import { CreditCalculationService as CreditCalculationServiceClass } from '../services/CreditCalculationService';
 import SeasonalCalendar from '../models/SeasonalCalendar';
 import sequelize from '../config/database';
 
@@ -928,7 +929,9 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
  */
 router.post('/bookings/confirm-payment', async (req: Request, res: Response) => {
   try {
-    const { payment_intent_id } = req.body;
+    const { payment_intent_id, useHybridPayment, creditsUsed } = req.body;
+
+    console.log('confirm-payment received:', { payment_intent_id, useHybridPayment, creditsUsed });
 
     if (!payment_intent_id) {
       return res.status(400).json({
@@ -939,6 +942,70 @@ router.post('/bookings/confirm-payment', async (req: Request, res: Response) => 
 
     // Confirmar pago y crear booking
     const { booking, user } = await stripeService.confirmBookingPayment(payment_intent_id);
+    
+    console.log('Booking created:', { bookingId: booking?.id, userId: user?.id });
+    
+    // Si es pago híbrido, descontar los créditos (en transacción separada)
+    if (useHybridPayment && creditsUsed && user) {
+      console.log('Processing hybrid payment credits:', { userId: user.id, creditsUsed });
+      
+      const creditTransaction = await sequelize.transaction();
+      
+      try {
+        const userId = user.id;
+        
+        // Obtener wallet
+        const wallet = await UserCreditWallet.getOrCreateWallet(userId);
+        
+        console.log('Current wallet balance:', wallet.total_balance);
+        
+        if (wallet.total_balance < creditsUsed) {
+          await creditTransaction.rollback();
+          console.error('Insufficient credits:', { required: creditsUsed, available: wallet.total_balance });
+          // No fallar la reserva, solo loguear el error
+          // La reserva ya se hizo con tarjeta
+        } else {
+          // Crear transacción de créditos
+          await CreditTransaction.create({
+            user_id: userId,
+            transaction_type: 'SPEND',
+            amount: -creditsUsed,
+            balance_after: wallet.total_balance - creditsUsed,
+            status: 'ACTIVE',
+            booking_id: booking.id,
+            description: `Hybrid payment - ${creditsUsed} credits + card`,
+            metadata: JSON.stringify({
+              hybrid_payment: true,
+              credits_used: creditsUsed,
+              card_amount: booking.total_amount
+            })
+          }, { transaction: creditTransaction });
+          
+          // Actualizar wallet
+          wallet.total_balance -= creditsUsed;
+          wallet.total_spent += creditsUsed;
+          wallet.last_transaction_at = new Date();
+          await wallet.save({ transaction: creditTransaction });
+          
+          // Actualizar booking metadata para indicar pago híbrido
+          if (booking.raw) {
+            const rawData = typeof booking.raw === 'string' ? JSON.parse(booking.raw) : booking.raw;
+            rawData.payment_type = 'HYBRID';
+            rawData.credits_used = creditsUsed;
+            rawData.card_amount = booking.total_amount;
+            booking.raw = JSON.stringify(rawData);
+            await booking.save({ transaction: creditTransaction });
+          }
+          
+          await creditTransaction.commit();
+          console.log('Credits deducted successfully:', { newBalance: wallet.total_balance });
+        }
+      } catch (error) {
+        await creditTransaction.rollback();
+        console.error('Error processing credits in hybrid payment:', error);
+        // No fallar la respuesta, la reserva ya está hecha
+      }
+    }
 
     let token = null;
     
@@ -1174,6 +1241,31 @@ router.post('/properties/:propertyId/rooms/:roomId/calculate-credit-cost', authe
       success: false,
       error: 'Failed to calculate credit cost',
       message: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/public/credit-to-eur-rate
+ * @desc    Get the current credit to EUR conversion rate
+ * @access  Public
+ */
+router.get('/credit-to-eur-rate', async (req: Request, res: Response) => {
+  try {
+    const rate = await CreditCalculationServiceClass.getCreditToEurRate();
+    console.log('🔍 GET /credit-to-eur-rate returning:', rate, typeof rate);
+    res.json({
+      success: true,
+      data: {
+        rate,
+        description: 'EUR value per credit for hybrid payment calculations'
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching credit to EUR rate:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch credit to EUR rate'
     });
   }
 });

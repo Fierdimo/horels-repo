@@ -13,6 +13,12 @@ import Property from '../models/Property';
 class CreditCalculationService {
   
   /**
+   * Credit to EUR conversion rate (hardcoded - to be made configurable by admin)
+   * Represents the EUR value of 1 credit for hybrid payment calculations
+   */
+  public static readonly CREDIT_TO_EUR_RATE = 0.10; // €0.10 per credit
+  
+  /**
    * Base season values for DEPOSITS (weekly value)
    */
   private static readonly BASE_SEASON_VALUES = {
@@ -433,6 +439,63 @@ class CreditCalculationService {
   getBaseSeasonValues(): Record<string, number> {
     return { ...CreditCalculationService.BASE_SEASON_VALUES };
   }
+
+  /**
+   * Get credit to EUR conversion rate from database or fallback to hardcoded value
+   */
+  static async getCreditToEurRate(): Promise<number> {
+    try {
+      const PlatformSetting = (await import('../models/PlatformSetting')).default;
+      const setting = await PlatformSetting.findOne({
+        where: { setting_key: 'credit_to_eur_rate' }
+      });
+      
+      console.log('🔍 getCreditToEurRate - setting from DB:', setting ? (setting as any).setting_value : 'NOT FOUND');
+      
+      if (setting) {
+        const value = (setting as any).setting_value;
+        if (value) {
+          const rate = parseFloat(value);
+          console.log('🔍 getCreditToEurRate - parsed rate:', rate);
+          return isNaN(rate) ? CreditCalculationService.CREDIT_TO_EUR_RATE : rate;
+        }
+      }
+      
+      console.log('🔍 getCreditToEurRate - returning fallback:', CreditCalculationService.CREDIT_TO_EUR_RATE);
+      return CreditCalculationService.CREDIT_TO_EUR_RATE;
+    } catch (error) {
+      console.error('Error fetching credit to EUR rate from DB:', error);
+      return CreditCalculationService.CREDIT_TO_EUR_RATE;
+    }
+  }
+
+  /**
+   * Update credit to EUR conversion rate in database
+   */
+  static async updateCreditToEurRate(rate: number): Promise<void> {
+    console.log('🔍 updateCreditToEurRate called with:', rate, typeof rate);
+    const PlatformSetting = (await import('../models/PlatformSetting')).default;
+    const [setting, created] = await PlatformSetting.findOrCreate({
+      where: { setting_key: 'credit_to_eur_rate' },
+      defaults: { 
+        setting_key: 'credit_to_eur_rate',
+        setting_value: String(rate),
+        setting_type: 'NUMBER',
+        description: 'EUR value per credit for hybrid payment calculations'
+      }
+    });
+
+    console.log('🔍 updateCreditToEurRate - created:', created, 'current value:', (setting as any).setting_value);
+
+    // Si ya existía, actualizarlo
+    if (!created) {
+      (setting as any).setting_value = String(rate);
+      await (setting as any).save();
+      console.log('🔍 updateCreditToEurRate - UPDATED to:', rate);
+    }
+  }
 }
 
+// Export both the class and a singleton instance
+export { CreditCalculationService };
 export default new CreditCalculationService();

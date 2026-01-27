@@ -36,6 +36,7 @@ export default function CreditPaymentOption({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [useHybridPayment, setUseHybridPayment] = useState(false);
 
   // Fetch credit wallet
   const { data: walletData, isLoading: loadingWallet } = useQuery({
@@ -43,6 +44,17 @@ export default function CreditPaymentOption({
     queryFn: timeshareApi.getCreditWallet,
     staleTime: 30000 // 30 seconds
   });
+
+  // Fetch credit to EUR conversion rate
+  const { data: creditToEurRate, isLoading: loadingRate } = useQuery({
+    queryKey: ['credit-to-eur-rate'],
+    queryFn: timeshareApi.getCreditToEurRate,
+    staleTime: 30000, // 30 seconds - actualiza más frecuentemente para reflejar cambios del admin
+    refetchOnWindowFocus: true // Recarga cuando el usuario vuelve a la ventana
+  });
+
+  // Debug: ver qué valor trae el endpoint
+  console.log('🔍 creditToEurRate from API:', creditToEurRate, typeof creditToEurRate);
 
   // Calculate actual credits required using backend Master Formula
   const { data: creditCalculation, isLoading: loadingCalculation } = useQuery({
@@ -64,6 +76,19 @@ export default function CreditPaymentOption({
   const totalBalance = wallet?.wallet?.totalBalance ?? 0;
   const hasEnoughCredits = totalBalance >= creditsRequired;
   const creditDeficit = creditsRequired - totalBalance;
+  
+  // Calculate EUR deficit using backend conversion rate
+  const conversionRate = creditToEurRate || 0.10; // Fallback to 0.10 if not loaded
+  const deficitInEUR = creditDeficit > 0 ? Math.ceil(creditDeficit * conversionRate) : 0;
+
+  // Debug logging
+  console.log('💰 CreditPaymentOption Conversion:', {
+    creditToEurRate,
+    conversionRate,
+    creditDeficit,
+    deficitInEUR,
+    calculation: `${creditDeficit} × ${conversionRate} = ${deficitInEUR}`
+  });
 
   // Debug logging
   console.log('CreditPaymentOption Debug:', {
@@ -95,7 +120,7 @@ export default function CreditPaymentOption({
     }),
     onSuccess: (response) => {
       console.log('Booking with credits success:', response);
-      toast.success(t('marketplace.bookingCreatedPendingApproval'));
+      toast.success('¡Reserva confirmada exitosamente!');
       
       // Invalidate queries AFTER navigation to prevent auth issues
       setTimeout(() => {
@@ -118,7 +143,7 @@ export default function CreditPaymentOption({
     }
   });
 
-  if (loadingWallet || loadingCalculation) {
+  if (loadingWallet || loadingCalculation || loadingRate) {
     return (
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <LoadingSpinner size="sm" />
@@ -180,16 +205,7 @@ export default function CreditPaymentOption({
         )}
       </div>
 
-      {/* Pending Approval Notice */}
-      <div className="bg-blue-50 rounded-lg p-3 mb-4 flex items-start gap-2">
-        <Clock className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-blue-800">
-          <strong>{t('marketplace.pendingApprovalNotice')}:</strong>{' '}
-          {t('marketplace.creditBookingsRequireApproval')}
-        </p>
-      </div>
 
-      {/* Action Button */}
       {hasEnoughCredits ? (
         <>
           <button
@@ -254,10 +270,6 @@ export default function CreditPaymentOption({
                   </div>
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-6 text-xs text-yellow-800">
-                  <strong>{t('common.important')}:</strong> {t('marketplace.creditsWillBeHeldUntilApproval')}
-                </div>
-
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -283,19 +295,117 @@ export default function CreditPaymentOption({
           )}
         </>
       ) : (
-        <button
-          disabled
-          className="w-full py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-        >
-          <AlertCircle className="h-5 w-5" />
-          {t('credits.insufficientCredits')}
-        </button>
-      )}
+        <div>
+          {/* Hybrid Payment Option */}
+          <div className="bg-white rounded-lg p-4 mb-4 border-2 border-orange-200">
+            <div className="flex items-start gap-2 mb-3">
+              <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 mb-1">
+                  Créditos insuficientes
+                </h4>
+                <p className="text-sm text-gray-600 mb-2">
+                  Te faltan <strong>{creditDeficit.toLocaleString()}</strong> créditos (aprox. <strong>€{deficitInEUR}</strong>).
+                </p>
+                <p className="text-sm text-gray-600">
+                  Puedes usar tus <strong>{totalBalance.toLocaleString()}</strong> créditos disponibles y pagar la diferencia con tarjeta.
+                </p>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => setUseHybridPayment(true)}
+              className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-2 font-semibold"
+            >
+              <Wallet className="h-5 w-5" />
+              Pagar con Créditos + Tarjeta
+            </button>
+          </div>
+          
+          <p className="text-xs text-center text-gray-500">
+            O puedes pagar el total con tarjeta
+          </p>
+          
+          {/* Hybrid Payment Modal */}
+          {useHybridPayment && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-md w-full p-6">
+                <h3 className="text-xl font-bold mb-4">Pago Híbrido</h3>
+                
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="text-center mb-4">
+                    <p className="text-sm text-gray-600 mb-1">Total de la reserva</p>
+                    <p className="text-3xl font-bold text-gray-900">€{totalAmount.toFixed(2)}</p>
+                  </div>
+                </div>
 
-      <p className="text-xs text-center text-gray-500 mt-3">
-        {t('marketplace.or')}{' '}
-        <span className="text-gray-700 font-medium">{t('marketplace.continueToPayWithCard')}</span>
-      </p>
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">✨</span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Tus créditos</p>
+                        <p className="text-xs text-gray-600">Usarás todos los disponibles</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-purple-600">{totalBalance.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">💳</span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Pago con tarjeta</p>
+                        <p className="text-xs text-gray-600">Diferencia a cobrar</p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-blue-600">€{deficitInEUR}</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6 text-sm">
+                  <p className="text-blue-900">
+                    <strong>¿Cómo funciona?</strong> Usaremos tus {totalBalance.toLocaleString()} créditos y solo cobraremos <strong>€{deficitInEUR}</strong> a tu tarjeta.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setUseHybridPayment(false)}
+                    className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Navigate to checkout with hybrid payment info
+                      navigate(`/owner/marketplace/properties/${propertyId}/rooms/${roomId}/checkout`, {
+                        state: {
+                          checkIn,
+                          checkOut,
+                          guests,
+                          guestName,
+                          guestEmail,
+                          guestPhone,
+                          useHybridPayment: true,
+                          creditsToUse: totalBalance,
+                          cardAmountToPay: deficitInEUR
+                        }
+                      });
+                    }}
+                    className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 transition-colors font-semibold"
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

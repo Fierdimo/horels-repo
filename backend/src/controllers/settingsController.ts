@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import PlatformSetting from '../models/PlatformSetting';
+import { CreditCalculationService } from '../services/CreditCalculationService';
 
 // Default settings
 const DEFAULT_SETTINGS = {
   commissionRate: '10',
   swapFee: '25',
   creditConversionFee: '5',
+  creditToEurRate: '0.10',
   autoApproveGuests: 'false',
   autoApproveStaff: 'false',
   requireEmailVerification: 'true',
@@ -28,6 +30,10 @@ export const getAllSettings = async (req: Request, res: Response): Promise<void>
     settings.forEach((setting: any) => {
       settingsObject[setting.setting_key] = setting.setting_value;
     });
+
+    // Obtener creditToEurRate dinámicamente desde el servicio
+    const creditRate = await CreditCalculationService.getCreditToEurRate();
+    settingsObject['creditToEurRate'] = String(creditRate);
 
     res.json({
       success: true,
