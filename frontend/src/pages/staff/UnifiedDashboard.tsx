@@ -384,7 +384,6 @@ export default function UnifiedDashboard() {
       {/* Tab Content */}
       <div className="px-6 pb-6">
         {activeTab === 'summary' && renderSummaryTab()}
-        {activeTab === 'invitations' && renderInvitationsTab()}
       </div>
     </div>
   );

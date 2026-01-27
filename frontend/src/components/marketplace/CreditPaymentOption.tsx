@@ -38,6 +38,12 @@ export default function CreditPaymentOption({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [useHybridPayment, setUseHybridPayment] = useState(false);
 
+  // Debug translations
+  console.log('🔍 Translation test:', {
+    insufficientCredits: t('bookings.insufficientCredits'),
+    creditsShortage: t('bookings.creditsShortage', { count: 45, amount: 5 })
+  });
+
   // Fetch credit wallet
   const { data: walletData, isLoading: loadingWallet } = useQuery({
     queryKey: ['credit-wallet'],
@@ -171,12 +177,6 @@ export default function CreditPaymentOption({
 
       {/* Credit Balance */}
       <div className="bg-white rounded-lg p-4 mb-4">
-        {/* Debug Info - Remove after testing */}
-        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-          <strong>Debug:</strong> totalAmount={totalAmount}, nights={nights}, 
-          wallet.totalBalance={wallet?.wallet?.totalBalance}, 
-          creditsRequired={creditsRequired}, totalBalance={totalBalance}
-        </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -242,7 +242,7 @@ export default function CreditPaymentOption({
                   {creditCalculation && (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Temporada:</span>
+                        <span className="text-gray-600">{t('bookings.season')}:</span>
                         <span className="font-medium">
                           {creditCalculation.season === 'RED' && '🔴 RED'}
                           {creditCalculation.season === 'WHITE' && '⚪ WHITE'}
@@ -250,11 +250,11 @@ export default function CreditPaymentOption({
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Tipo de habitación:</span>
+                        <span className="text-gray-600">{t('bookings.roomType')}:</span>
                         <span className="font-medium">{creditCalculation.roomType}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Créditos por noche:</span>
+                        <span className="text-gray-600">{t('bookings.creditsPerNight')}:</span>
                         <span className="font-medium">{creditCalculation.creditsPerNight}</span>
                       </div>
                     </>
@@ -302,13 +302,18 @@ export default function CreditPaymentOption({
               <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900 mb-1">
-                  Créditos insuficientes
+                  {t('bookings.insufficientCredits')}
                 </h4>
                 <p className="text-sm text-gray-600 mb-2">
-                  Te faltan <strong>{creditDeficit.toLocaleString()}</strong> créditos (aprox. <strong>€{deficitInEUR}</strong>).
+                  {t('bookings.creditsShortage', {
+                    count: creditDeficit,
+                    amount: deficitInEUR
+                  })}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Puedes usar tus <strong>{totalBalance.toLocaleString()}</strong> créditos disponibles y pagar la diferencia con tarjeta.
+                  {t('bookings.hybridPaymentOption', { 
+                    available: totalBalance.toLocaleString() 
+                  })}
                 </p>
               </div>
             </div>
@@ -319,23 +324,23 @@ export default function CreditPaymentOption({
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-2 font-semibold"
             >
               <Wallet className="h-5 w-5" />
-              Pagar con Créditos + Tarjeta
+              {t('bookings.payWithCreditsAndCard')}
             </button>
           </div>
           
           <p className="text-xs text-center text-gray-500">
-            O puedes pagar el total con tarjeta
+            {t('bookings.orPayWithCard')}
           </p>
           
           {/* Hybrid Payment Modal */}
           {useHybridPayment && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-lg max-w-md w-full p-6">
-                <h3 className="text-xl font-bold mb-4">Pago Híbrido</h3>
+                <h3 className="text-xl font-bold mb-4">{t('bookings.hybridPaymentTitle')}</h3>
                 
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <div className="text-center mb-4">
-                    <p className="text-sm text-gray-600 mb-1">Total de la reserva</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('bookings.bookingTotal')}</p>
                     <p className="text-3xl font-bold text-gray-900">€{totalAmount.toFixed(2)}</p>
                   </div>
                 </div>
@@ -345,8 +350,8 @@ export default function CreditPaymentOption({
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">✨</span>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">Tus créditos</p>
-                        <p className="text-xs text-gray-600">Usarás todos los disponibles</p>
+                        <p className="text-sm font-semibold text-gray-900">{t('bookings.yourCredits')}</p>
+                        <p className="text-xs text-gray-600">{t('bookings.useAllAvailable')}</p>
                       </div>
                     </div>
                     <span className="font-bold text-purple-600">{totalBalance.toLocaleString()}</span>
@@ -356,8 +361,8 @@ export default function CreditPaymentOption({
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">💳</span>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">Pago con tarjeta</p>
-                        <p className="text-xs text-gray-600">Diferencia a cobrar</p>
+                        <p className="text-sm font-semibold text-gray-900">{t('bookings.cardPayment')}</p>
+                        <p className="text-xs text-gray-600">{t('bookings.differenceToPay')}</p>
                       </div>
                     </div>
                     <span className="font-bold text-blue-600">€{deficitInEUR}</span>
@@ -366,7 +371,10 @@ export default function CreditPaymentOption({
 
                 <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6 text-sm">
                   <p className="text-blue-900">
-                    <strong>¿Cómo funciona?</strong> Usaremos tus {totalBalance.toLocaleString()} créditos y solo cobraremos <strong>€{deficitInEUR}</strong> a tu tarjeta.
+                    <strong>{t('bookings.howItWorksTitle')}</strong> {t('bookings.howItWorksDesc', { 
+                      credits: totalBalance.toLocaleString(), 
+                      amount: deficitInEUR 
+                    })}
                   </p>
                 </div>
 
@@ -376,7 +384,7 @@ export default function CreditPaymentOption({
                     onClick={() => setUseHybridPayment(false)}
                     className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
                   >
-                    Cancelar
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="button"
@@ -398,7 +406,7 @@ export default function CreditPaymentOption({
                     }}
                     className="flex-1 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 transition-colors font-semibold"
                   >
-                    Continuar
+                    {t('bookings.continue')}
                   </button>
                 </div>
               </div>
