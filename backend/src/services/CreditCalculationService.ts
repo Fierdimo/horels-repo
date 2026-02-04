@@ -4,6 +4,7 @@ import Week from '../models/Week';
 import Property from '../models/Property';
 import CreditSystemConfig from '../models/v2/CreditSystemConfig';
 import TimeshareUnit from '../models/v2/TimeshareUnit';
+import TimeshareProperty from '../models/v2/TimeshareProperty';
 
 /**
  * Credit Calculation Service - Master Formula Implementation
@@ -293,26 +294,38 @@ class CreditCalculationService {
       configUsed: boolean;
     };
   }> {
-    let creditsPerNight: number;
+    let creditsPerNight: number = 0;
     let configUsed = false;
 
-    // Try to get configured cost from CreditBookingCost table
-    const costConfig = await CreditBookingCost.getCost(
-      propertyId,
-      roomType,
-      seasonType,
-      checkInDate
-    );
+    // Try to get configured cost from CreditBookingCost table (v1 table, may not exist in v2)
+    try {
+      const costConfig = await CreditBookingCost.getCost(
+        propertyId,
+        roomType,
+        seasonType,
+        checkInDate
+      );
 
-    if (costConfig && costConfig.credits_per_night) {
-      // Use configured value
-      creditsPerNight = costConfig.credits_per_night;
-      configUsed = true;
-    } else {
-      // Fallback to Master Formula calculation for BOOKINGS
-      const property = await Property.findByPk(propertyId);
-      if (!property) {
-        throw new Error(`Property ${propertyId} not found`);
+      if (costConfig && costConfig.credits_per_night) {
+        // Use configured value
+        creditsPerNight = costConfig.credits_per_night;
+        configUsed = true;
+      }
+    } catch (error: any) {
+      // Table doesn't exist or query failed - this is expected in v2 system
+      // Continue to use Master Formula fallback
+      console.log('📝 CreditBookingCost table not available, using Master Formula');
+    }
+
+    if (!configUsed) {
+      // Use Master Formula calculation for BOOKINGS
+      // Try v2 property first, fallback to v1
+      let propertyV2 = await TimeshareProperty.findByPk(propertyId);
+      if (!propertyV2) {
+        const propertyV1 = await Property.findByPk(propertyId);
+        if (!propertyV1) {
+          throw new Error(`Property ${propertyId} not found`);
+        }
       }
 
       // Base nightly rate from season - get from config with fallback
@@ -339,15 +352,13 @@ class CreditCalculationService {
 
     const totalCredits = creditsPerNight * nights;
 
-    // Get property for breakdown
-    const property = await Property.findByPk(propertyId);
-
+    // Property is not needed for breakdown in v2 (we just return defaults)
     return {
       totalCredits,
       creditsPerNight,
       nights,
       breakdown: {
-        baseRate: CreditCalculationService.BASE_SEASON_VALUES[seasonType],
+        baseRate: CreditCalculationService.BASE_NIGHTLY_RATES[seasonType],
         tierMultiplier: 1.0,
         locationMultiplier: 1.0,
         roomTypeMultiplier: CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0,

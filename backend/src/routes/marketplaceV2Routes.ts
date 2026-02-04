@@ -584,9 +584,9 @@ router.get('/search', async (req: Request, res: Response) => {
 router.post('/properties/:propertyId/room-types/:roomType/create-payment-intent', async (req: Request, res: Response) => {
   try {
     const { propertyId, roomType } = req.params;
-    const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests } = req.body;
+    const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests, amount } = req.body;
 
-    console.log('🔍 Create payment intent request:', { propertyId, roomType, guestName, guestEmail, checkIn, checkOut, guests });
+    console.log('🔍 Create payment intent request:', { propertyId, roomType, guestName, guestEmail, checkIn, checkOut, guests, amount });
 
     // Validar campos requeridos
     if (!guestName || !guestEmail || !checkIn || !checkOut) {
@@ -624,11 +624,16 @@ router.post('/properties/:propertyId/room-types/:roomType/create-payment-intent'
       });
     }
 
-    // Calcular precio
+    // Calcular precio (si no se provee un monto específico)
+    let subtotal: number;
+    let nights: number;
+    let pricePerNight: number;
+    
+    // Convertir fechas (necesarias para metadata de Stripe)
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
-    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+    nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
     if (nights <= 0) {
       return res.status(400).json({
         success: false,
@@ -636,21 +641,29 @@ router.post('/properties/:propertyId/room-types/:roomType/create-payment-intent'
       });
     }
 
-    // Obtener precio del guest con comisión
-    const basePrice = unit.base_credit_value || 0;
-    const pricePerNight = await pricingService.calculateGuestPrice(basePrice);
+    if (amount && amount > 0) {
+      // Si se provee un amount (ej: pago híbrido con créditos), usarlo
+      subtotal = amount;
+      pricePerNight = subtotal / nights;
+      console.log('💰 Using provided amount (hybrid payment):', { amount, subtotal, nights, pricePerNight });
+    } else {
+      // Calcular precio normal (pago solo con tarjeta)
+      // Obtener precio del guest con comisión
+      const basePrice = unit.base_credit_value || 0;
+      pricePerNight = await pricingService.calculateGuestPrice(basePrice);
 
-    if (!pricePerNight || pricePerNight <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Room price not configured. Please contact property owner.'
-      });
+      if (!pricePerNight || pricePerNight <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Room price not configured. Please contact property owner.'
+        });
+      }
+
+      subtotal = pricePerNight * nights;
+      console.log('💰 Calculated payment (card only):', { basePrice, pricePerNight, nights, subtotal });
     }
 
-    const subtotal = pricePerNight * nights;
     const totalAmount = Math.round(subtotal * 100); // Convert to cents for Stripe
-
-    console.log('💰 Payment calculation:', { basePrice, pricePerNight, nights, subtotal, totalAmountCents: totalAmount });
 
     // Verify Stripe is configured
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -704,8 +717,485 @@ router.post('/properties/:propertyId/room-types/:roomType/create-payment-intent'
 });
 
 /**
+ * POST /api/marketplace/properties/:propertyId/room-types/:roomType/calculate-credit-price
+ * Calculate price in credits for marketplace booking (for owners with credit balance)
+ */
+router.post('/properties/:propertyId/room-types/:roomType/calculate-credit-price', async (req: Request, res: Response) => {
+  try {
+    const { propertyId, roomType } = req.params;
+    const { checkIn, checkOut, guests } = req.body;
+
+    console.log('🔍 Calculate credit price request:', { propertyId, roomType, checkIn, checkOut, guests });
+
+    // Validar campos requeridos
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: checkIn, checkOut'
+      });
+    }
+
+    // Verificar property en v2
+    const property = await TimeshareProperty.findOne({
+      where: { id: propertyId, is_active: true }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found or not available'
+      });
+    }
+
+    // Buscar unit por categoría
+    const unit = await TimeshareUnit.findOne({
+      where: {
+        property_id: propertyId,
+        category: decodeURIComponent(roomType),
+        is_active: true
+      }
+    });
+
+    if (!unit) {
+      return res.status(404).json({
+        success: false,
+        error: 'Room type not found'
+      });
+    }
+
+    // Calcular noches
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (nights <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Check-out date must be after check-in date'
+      });
+    }
+
+    // Obtener configuración de créditos y servicio de cálculo
+    const creditCalculationService = require('../services/CreditCalculationService').default;
+    const { CreditCalculationService } = require('../services/CreditCalculationService');
+    const creditToEurRate = await CreditCalculationService.getCreditToEurRate();
+
+    // Helper: Determinar temporada por mes
+    const getSeasonForMonth = (month: number): 'RED' | 'WHITE' | 'BLUE' => {
+      if ([7, 8, 12].includes(month)) {
+        return 'RED'; // Julio, Agosto, Diciembre (alta temporada)
+      } else if ([1, 2, 6, 9].includes(month)) {
+        return 'WHITE'; // Enero, Febrero, Junio, Septiembre (media)
+      } else {
+        return 'BLUE'; // Resto del año (baja)
+      }
+    };
+
+    // Calcular créditos por noche, considerando cambios de temporada
+    let totalCredits = 0;
+    const nightlyBreakdown: Array<{
+      date: string;
+      season: string;
+      credits: number;
+    }> = [];
+
+    // Iterar cada noche para calcular su costo según su temporada
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(checkInDate);
+      currentDate.setDate(currentDate.getDate() + i);
+      const currentMonth = currentDate.getMonth() + 1;
+      const seasonType = getSeasonForMonth(currentMonth);
+
+      // Calcular costo para esta noche específica
+      const nightCost = await creditCalculationService.calculateBookingCost(
+        propertyId,
+        decodeURIComponent(roomType),
+        seasonType,
+        1, // Solo 1 noche a la vez
+        currentDate
+      );
+
+      totalCredits += nightCost.creditsPerNight;
+      nightlyBreakdown.push({
+        date: currentDate.toISOString().split('T')[0],
+        season: seasonType,
+        credits: nightCost.creditsPerNight
+      });
+    }
+
+    const creditsRequired = totalCredits;
+    const averageCreditsPerNight = Math.round(totalCredits / nights);
+
+    // Convertir créditos a EUR para mostrar precio equivalente
+    const totalEur = creditsRequired * creditToEurRate;
+    const pricePerNightEur = averageCreditsPerNight * creditToEurRate;
+
+    // Determinar si hay temporadas mixtas
+    const uniqueSeasons = [...new Set(nightlyBreakdown.map(n => n.season))];
+    const hasMixedSeasons = uniqueSeasons.length > 1;
+
+    console.log('💰 Credit calculation (Master Formula with multi-season support):', {
+      nights,
+      creditsRequired,
+      averageCreditsPerNight,
+      totalEur,
+      creditToEurRate,
+      hasMixedSeasons,
+      seasons: uniqueSeasons.join(', '),
+      nightlyBreakdown
+    });
+
+    res.json({
+      success: true,
+      data: {
+        creditsRequired,
+        totalEur,
+        pricePerNightEur,
+        pricePerNightCredits: averageCreditsPerNight,
+        nights,
+        creditToEurRate,
+        hasMixedSeasons,
+        seasons: uniqueSeasons,
+        nightlyBreakdown, // Detalle por noche
+        currency: unit.currency || 'EUR'
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error calculating credit price:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to calculate credit price'
+    });
+  }
+});
+
+/**
+ * GET /api/marketplace/credits/balance/:userId
+ * Get user's credit balance
+ */
+router.get('/credits/balance/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const CreditAccount = require('../models/v2/CreditAccount').default;
+    const creditAccount = await CreditAccount.findOne({
+      where: { user_id: userId }
+    });
+
+    if (!creditAccount) {
+      return res.json({
+        success: true,
+        data: {
+          balance: 0,
+          hasAccount: false
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        balance: creditAccount.balance,
+        hasAccount: true,
+        lastUpdated: creditAccount.balance_last_updated
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error getting credit balance:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get credit balance'
+    });
+  }
+});
+
+/**
+ * POST /api/marketplace/bookings/with-credits
+ * Create a booking using credits (full or partial payment)
+ */
+router.post('/bookings/with-credits', async (req: Request, res: Response) => {
+  try {
+    const {
+      propertyId,
+      roomType,
+      checkIn,
+      checkOut,
+      guests,
+      guestName,
+      guestEmail,
+      guestPhone,
+      userId,
+      creditsToUse,
+      paymentIntentId // Optional - only if hybrid payment (credits + card)
+    } = req.body;
+
+    console.log('🔍 Creating booking with credits:', { 
+      propertyId, roomType, checkIn, checkOut, guestEmail, userId, creditsToUse, paymentIntentId 
+    });
+
+    // Validar fechas y calcular noches
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        error: 'Check-in and check-out dates are required'
+      });
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (nights <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Check-out date must be after check-in date'
+      });
+    }
+
+    console.log('🔍 Creating booking with credits:', { 
+      propertyId, roomType, guestEmail, userId, creditsToUse, paymentIntentId, nights 
+    });
+
+    // userId is required for credit payments
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required for credit payments'
+      });
+    }
+
+    // Find property and unit
+    const property = await TimeshareProperty.findByPk(propertyId);
+    const unit = await TimeshareUnit.findOne({
+      where: {
+        property_id: propertyId,
+        category: decodeURIComponent(roomType)
+      }
+    });
+
+    if (!property || !unit) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property or room type not found'
+      });
+    }
+
+    // Get credit account
+    const CreditAccount = require('../models/v2/CreditAccount').default;
+    const creditAccount = await CreditAccount.findOne({
+      where: { user_id: userId }
+    });
+
+    if (!creditAccount) {
+      return res.status(404).json({
+        success: false,
+        error: 'Credit account not found'
+      });
+    }
+
+    // Check if user has enough credits
+    if (creditAccount.balance < creditsToUse) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient credits. Available: ${creditAccount.balance}, Required: ${creditsToUse}`
+      });
+    }
+
+    // Calculate pricing using Master Formula with multi-season support
+    const creditCalculationService = require('../services/CreditCalculationService').default;
+    const { CreditCalculationService } = require('../services/CreditCalculationService');
+    const creditToEurRate = await CreditCalculationService.getCreditToEurRate();
+    
+    // Helper: Determinar temporada por mes
+    const getSeasonForMonth = (month: number): 'RED' | 'WHITE' | 'BLUE' => {
+      if ([7, 8, 12].includes(month)) {
+        return 'RED'; // Alta temporada
+      } else if ([1, 2, 6, 9].includes(month)) {
+        return 'WHITE'; // Media temporada
+      } else {
+        return 'BLUE'; // Baja temporada
+      }
+    };
+
+    // Calcular créditos totales considerando cambios de temporada
+    const checkInDateObj = new Date(checkIn);
+    let totalCreditsRequired = 0;
+    const nightlyBreakdown: Array<{ date: string; season: string; credits: number }> = [];
+
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(checkInDateObj);
+      currentDate.setDate(currentDate.getDate() + i);
+      const currentMonth = currentDate.getMonth() + 1;
+      const seasonType = getSeasonForMonth(currentMonth);
+
+      const nightCost = await creditCalculationService.calculateBookingCost(
+        propertyId,
+        decodeURIComponent(roomType),
+        seasonType,
+        1,
+        currentDate
+      );
+
+      totalCreditsRequired += nightCost.creditsPerNight;
+      nightlyBreakdown.push({
+        date: currentDate.toISOString().split('T')[0],
+        season: seasonType,
+        credits: nightCost.creditsPerNight
+      });
+    }
+
+    const creditsRequired = totalCreditsRequired;
+    const totalEur = creditsRequired * creditToEurRate;
+    const creditsValueEur = creditsToUse * creditToEurRate;
+    const cashNeeded = Math.max(0, totalEur - creditsValueEur);
+
+    const uniqueSeasons = [...new Set(nightlyBreakdown.map(n => n.season))];
+
+    console.log('💰 Payment breakdown (Master Formula with multi-season):', {
+      nights,
+      creditsRequired,
+      creditsToUse,
+      totalEur,
+      creditsValueEur,
+      cashNeeded,
+      creditToEurRate,
+      seasons: uniqueSeasons.join(', '),
+      nightlyBreakdown
+    });
+
+    // If hybrid payment, verify payment intent
+    if (cashNeeded > 0) {
+      if (!paymentIntentId) {
+        return res.status(400).json({
+          success: false,
+          error: `Cash payment required: €${cashNeeded.toFixed(2)}`
+        });
+      }
+
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (paymentIntent.status !== 'succeeded') {
+        return res.status(400).json({
+          success: false,
+          error: 'Payment not confirmed'
+        });
+      }
+
+      // Verify payment amount matches
+      const paidAmount = paymentIntent.amount / 100; // Convert from cents
+      if (Math.abs(paidAmount - cashNeeded) > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Payment amount mismatch. Expected: €${cashNeeded.toFixed(2)}, Paid: €${paidAmount.toFixed(2)}`
+        });
+      }
+    }
+
+    // Deduct credits from account
+    const CreditTransaction = require('../models/v2/CreditTransaction').default;
+    const previousBalance = creditAccount.balance;
+    const newBalance = previousBalance - creditsToUse;
+
+    await creditAccount.update({
+      balance: newBalance,
+      balance_last_updated: new Date()
+    });
+
+    // Generate booking code
+    const bookingCode = `MKT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+    // Create credit transaction record
+    const transactionDescription = `Marketplace booking at ${property.name} - ${unit.category}`;
+    
+    const creditTransaction = await CreditTransaction.create({
+      account_id: creditAccount.id, // Corregido: era credit_account_id
+      type: 'WEEK_BOOKING',
+      amount: -creditsToUse,
+      balance_before: previousBalance,
+      balance_after: newBalance,
+      description: transactionDescription,
+      reference_type: 'marketplace_booking',
+      reference_id: null, // Will be updated after booking is created
+      metadata: {
+        propertyId,
+        propertyName: property.name,
+        roomType: unit.category,
+        checkIn,
+        checkOut,
+        nights,
+        totalEur,
+        creditsUsed: creditsToUse,
+        cashPaid: cashNeeded,
+        paymentIntentId: paymentIntentId || null
+      }
+    });
+
+    // Calculate platform revenue (commission)
+    const commissionRate = await pricingService.getPlatformCommissionRate();
+    const baseBookingPrice = totalEur / (1 + commissionRate / 100);
+    const platformRevenue = totalEur - baseBookingPrice;
+
+    // Create booking in v2_bookings table
+    const booking = await V2Booking.create({
+      booking_code: bookingCode,
+      property_id: propertyId,
+      unit_id: unit.id,
+      guest_id: userId,
+      guest_name: guestName,
+      guest_email: guestEmail,
+      guest_phone: guestPhone || null,
+      check_in: new Date(checkIn),
+      check_out: new Date(checkOut),
+      nights: nights,
+      number_of_guests: guests || 1,
+      num_guests: guests || 1,
+      room_category: unit.category,
+      total_amount: totalEur,
+      currency: 'EUR',
+      payment_method: cashNeeded > 0 ? 'hybrid' : 'credits',
+      payment_status: 'PAID',
+      payment_intent_id: paymentIntentId || null,
+      booking_status: 'CONFIRMED',
+      booked_via: 'MARKETPLACE',
+      source: 'HOTEL_PMS',
+      credits_used: creditsToUse,
+      cash_paid: cashNeeded,
+      platform_cost: 0,
+      platform_revenue: parseFloat(platformRevenue.toFixed(2)),
+      margin_percent: parseFloat(commissionRate.toFixed(2)),
+      status: 'CONFIRMED'
+    });
+
+    console.log('✅ Booking created with credits:', booking.id, `User ${userId}, Credits: ${creditsToUse}, Cash: €${cashNeeded}`);
+
+    res.json({
+      success: true,
+      data: {
+        bookingId: booking.id,
+        confirmationNumber: bookingCode,
+        property: property.name,
+        roomType: unit.category,
+        checkIn,
+        checkOut,
+        guests,
+        totalAmount: totalEur,
+        creditsUsed: creditsToUse,
+        cashPaid: cashNeeded,
+        currency: 'EUR',
+        newCreditBalance: newBalance
+      }
+    });
+  } catch (error: any) {
+    console.error('❌ Error creating booking with credits:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create booking with credits'
+    });
+  }
+});
+
+/**
  * POST /api/marketplace/bookings
- * Create a booking record after successful payment
+ * Create a booking record after successful payment (card only)
  */
 router.post('/bookings', async (req: Request, res: Response) => {
   try {

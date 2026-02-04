@@ -115,12 +115,39 @@ export default function BookingSuccess() {
               </div>
 
               <div className="border-t pt-4 mt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Total Paid:</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    {booking.currency?.toUpperCase()} {booking.totalAmount.toFixed(2)}
-                  </span>
-                </div>
+                {/* Payment Breakdown */}
+                {booking.creditsUsed && booking.creditsUsed > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-purple-600">
+                      <span className="font-medium">Credits Used:</span>
+                      <span className="text-lg font-bold">{booking.creditsUsed.toLocaleString()} credits</span>
+                    </div>
+                    {booking.cashPaid && booking.cashPaid > 0 && (
+                      <div className="flex justify-between items-center text-blue-600">
+                        <span className="font-medium">Card Payment:</span>
+                        <span className="text-lg font-bold">€{booking.cashPaid.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-lg font-semibold">Total Value:</span>
+                      <span className="text-2xl font-bold text-green-600">
+                        €{booking.totalAmount.toFixed(2)}
+                      </span>
+                    </div>
+                    {booking.newCreditBalance !== undefined && (
+                      <div className="text-sm text-gray-600 text-right">
+                        New credit balance: {booking.newCreditBalance.toLocaleString()} credits
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">Total Paid:</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      {booking.currency?.toUpperCase()} {booking.totalAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

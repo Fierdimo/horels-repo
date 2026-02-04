@@ -9,6 +9,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { CreditPaymentSelector } from '@/components/marketplace/CreditPaymentSelector';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
@@ -36,6 +37,8 @@ function CheckoutForm({
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'credits' | 'hybrid'>('card');
+  const [creditsToUse, setCreditsToUse] = useState(0);
   
   // Guest information form - prefilled from user data
   const [guestInfo, setGuestInfo] = useState({
@@ -45,6 +48,12 @@ function CheckoutForm({
   });
 
   console.log('🎨 CheckoutForm rendered', { stripe: !!stripe, elements: !!elements, user: !!user });
+
+  const handlePaymentMethodChange = (method: 'card' | 'credits' | 'hybrid', credits?: number) => {
+    setPaymentMethod(method);
+    setCreditsToUse(credits || 0);
+    console.log('💳 Payment method changed:', { method, credits });
+  };
 
   const createPaymentIntent = useMutation({
     mutationFn: async (data: any) => {
@@ -59,35 +68,88 @@ function CheckoutForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('🔵 handleSubmit called');
-    console.log('🔵 stripe:', !!stripe);
-    console.log('🔵 elements:', !!elements);
+    console.log('🔵 handleSubmit called', { paymentMethod, creditsToUse });
     
-    if (!stripe || !elements) {
-      console.log('❌ Stripe not loaded');
-      return;
-    }
-
     if (!guestInfo.name || !guestInfo.email) {
       console.log('❌ Missing guest info');
       setError('Please fill in all required fields');
       return;
     }
 
-    console.log('✅ Starting payment process...');
     setIsProcessing(true);
     setError(null);
 
     try {
-      console.log('🔵 Creating payment intent...');
-      // Step 1: Create payment intent
+      // Si paga solo con créditos (no necesita Stripe)
+      if (paymentMethod === 'credits') {
+        console.log('💜 Creating booking with credits only...');
+        
+        const bookingPayload = {
+          propertyId,
+          roomType,
+          checkIn,
+          checkOut,
+          guests,
+          guestName: guestInfo.name,
+          guestEmail: guestInfo.email,
+          guestPhone: guestInfo.phone,
+          userId: user?.id,
+          creditsToUse: Number(creditsToUse) // Convertir a número
+        };
+        
+        console.log('📦 Credits-only booking payload:', bookingPayload);
+        
+        const bookingResponse = await apiClient.post('/api/marketplace/bookings/with-credits', bookingPayload);
+        
+        console.log('✅ Booking created with credits:', bookingResponse.data);
+        
+        navigate('/guest/marketplace/booking-success', {
+          state: { 
+            booking: bookingResponse.data.data,
+            message: `Booking confirmed! You used ${Number(creditsToUse).toLocaleString()} credits.`,
+            type: 'success'
+          }
+        });
+        return;
+      }
+
+      // Para pago con tarjeta o híbrido, necesitamos Stripe
+      if (!stripe || !elements) {
+        console.log('❌ Stripe not loaded');
+        setError('Payment system not loaded. Please refresh the page.');
+        return;
+      }
+
+      // Obtener el precio real basado en la fórmula maestra del backend
+      const creditPriceResponse = await apiClient.post(
+        `/api/marketplace/properties/${propertyId}/room-types/${encodeURIComponent(roomType)}/calculate-credit-price`,
+        { checkIn, checkOut, guests }
+      );
+      const creditPrice = creditPriceResponse.data.data;
+      const actualTotalEur = creditPrice.totalEur;
+      const creditToEurRate = creditPrice.creditToEurRate;
+
+      // Calcular el monto que va a la tarjeta
+      let cardAmount = actualTotalEur;
+      if (paymentMethod === 'hybrid') {
+        const creditsValueEur = creditsToUse * creditToEurRate;
+        cardAmount = Math.max(0, actualTotalEur - creditsValueEur);
+        console.log('💳 Hybrid payment:', { actualTotalEur, creditsToUse, creditsValueEur, cardAmount, creditPrice });
+      } else {
+        console.log('💳 Card-only payment:', { actualTotalEur, creditPrice });
+      }
+
+      console.log('🔵 Creating payment intent for €', cardAmount);
+      
+      // Step 1: Create payment intent con el monto correcto (ya descontados los créditos)
       const { data: paymentData } = await createPaymentIntent.mutateAsync({
         guestName: guestInfo.name,
         guestEmail: guestInfo.email,
         guestPhone: guestInfo.phone,
         checkIn,
         checkOut,
-        guests
+        guests,
+        amount: cardAmount // Pasar el monto exacto a cobrar (ya con créditos descontados)
       });
 
       console.log('✅ Payment intent created:', paymentData);
@@ -97,6 +159,7 @@ function CheckoutForm({
       }
 
       console.log('🔵 Confirming card payment...');
+      
       // Step 2: Confirm payment with Stripe
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) {
@@ -128,36 +191,75 @@ function CheckoutForm({
         
         // Step 3: Create booking record in database
         try {
-          const bookingResponse = await apiClient.post('/api/marketplace/bookings', {
-            propertyId,
-            roomType,
-            checkIn,
-            checkOut,
-            guests,
-            guestName: guestInfo.name,
-            guestEmail: guestInfo.email,
-            guestPhone: guestInfo.phone,
-            userId: user?.id || null, // Include user ID if logged in
-            paymentIntentId: paymentIntent.id,
-            totalAmount: paymentData.amount,
-            currency: paymentData.currency,
-            nights: paymentData.nights
-          });
+          let bookingResponse;
+          
+          if (paymentMethod === 'hybrid') {
+            // Booking híbrido: créditos + tarjeta
+            console.log('📦 Hybrid booking payload:', {
+              propertyId,
+              roomType,
+              checkIn,
+              checkOut,
+              guests,
+              guestName: guestInfo.name,
+              guestEmail: guestInfo.email,
+              guestPhone: guestInfo.phone,
+              userId: user?.id,
+              creditsToUse: Number(creditsToUse), // Asegurar que sea número
+              paymentIntentId: paymentIntent.id
+            });
+            
+            bookingResponse = await apiClient.post('/api/marketplace/bookings/with-credits', {
+              propertyId,
+              roomType,
+              checkIn,
+              checkOut,
+              guests,
+              guestName: guestInfo.name,
+              guestEmail: guestInfo.email,
+              guestPhone: guestInfo.phone,
+              userId: user?.id,
+              creditsToUse: Number(creditsToUse), // Convertir a número
+              paymentIntentId: paymentIntent.id
+            });
+          } else {
+            // Solo tarjeta
+            bookingResponse = await apiClient.post('/api/marketplace/bookings', {
+              propertyId,
+              roomType,
+              checkIn,
+              checkOut,
+              guests,
+              guestName: guestInfo.name,
+              guestEmail: guestInfo.email,
+              guestPhone: guestInfo.phone,
+              userId: user?.id || null,
+              paymentIntentId: paymentIntent.id,
+              totalAmount: paymentData.amount,
+              currency: paymentData.currency,
+              nights: paymentData.nights
+            });
+          }
           
           console.log('✅ Booking created:', bookingResponse.data);
           
           // Navigate to success page with booking data
+          const message = paymentMethod === 'hybrid' 
+            ? `Booking confirmed! You used ${creditsToUse.toLocaleString()} credits + €${cardAmount.toFixed(2)}.`
+            : 'Booking confirmed! Check your email for details.';
+            
           navigate('/guest/marketplace/booking-success', {
             state: { 
               booking: bookingResponse.data.data,
-              message: 'Booking confirmed! Check your email for details.',
+              message,
               type: 'success'
             }
           });
         } catch (bookingError: any) {
           console.error('❌ Error creating booking:', bookingError);
-          // Payment succeeded but booking creation failed
-          setError('Payment successful but booking creation failed. Please contact support with payment ID: ' + paymentIntent.id);
+          console.error('❌ Error response:', bookingError.response?.data);
+          const errorMessage = bookingError.response?.data?.error || bookingError.message || 'Unknown error';
+          setError(`Payment successful but booking creation failed: ${errorMessage}. Please contact support with payment ID: ` + paymentIntent.id);
         }
       } else {
         throw new Error('Payment was not successful');
@@ -223,32 +325,46 @@ function CheckoutForm({
         </div>
       </div>
 
-      {/* Payment Information */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <CreditCard className="w-5 h-5 mr-2" />
-          Payment Information
-        </h2>
-        
-        <div className="border border-gray-300 rounded-lg p-4">
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#424770',
-                  '::placeholder': {
-                    color: '#aab7c4',
+      {/* Payment Method Selector */}
+      <CreditPaymentSelector
+        userId={user?.id || null}
+        propertyId={propertyId}
+        roomType={roomType}
+        checkIn={checkIn}
+        checkOut={checkOut}
+        guests={guests}
+        totalAmount={totalAmount}
+        onPaymentMethodChange={handlePaymentMethodChange}
+      />
+
+      {/* Card Payment Information (only if paying with card or hybrid) */}
+      {(paymentMethod === 'card' || paymentMethod === 'hybrid') && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-xl font-semibold mb-4 flex items-center">
+            <CreditCard className="w-5 h-5 mr-2" />
+            {paymentMethod === 'hybrid' ? 'Card Payment (Remaining Amount)' : 'Card Payment'}
+          </h2>
+          
+          <div className="border border-gray-300 rounded-lg p-4">
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: '16px',
+                    color: '#424770',
+                    '::placeholder': {
+                      color: '#aab7c4',
+                    },
+                  },
+                  invalid: {
+                    color: '#9e2146',
                   },
                 },
-                invalid: {
-                  color: '#9e2146',
-                },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -258,15 +374,25 @@ function CheckoutForm({
 
       <button
         type="submit"
-        disabled={!stripe || isProcessing}
-        onClick={() => console.log('🔴 Button clicked!', { stripe: !!stripe, isProcessing })}
+        disabled={(!stripe && paymentMethod !== 'credits') || isProcessing}
+        onClick={() => console.log('🔴 Button clicked!', { paymentMethod, creditsToUse, stripe: !!stripe, isProcessing })}
         className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold text-lg"
       >
-        {isProcessing ? 'Processing Payment...' : `Pay €${totalAmount.toFixed(2)}`}
+        {isProcessing 
+          ? 'Processing...' 
+          : paymentMethod === 'credits' 
+            ? `Book with ${creditsToUse.toLocaleString()} Credits`
+            : paymentMethod === 'hybrid'
+              ? `Book with ${creditsToUse.toLocaleString()} Credits + Card`
+              : `Pay €${totalAmount.toFixed(2)}`
+        }
       </button>
 
       <p className="text-xs text-gray-500 text-center">
-        Your payment is secure and encrypted. We never store your card details.
+        {paymentMethod === 'credits' 
+          ? 'Your credits will be deducted immediately upon booking confirmation.'
+          : 'Your payment is secure and encrypted. We never store your card details.'
+        }
       </p>
     </form>
   );
