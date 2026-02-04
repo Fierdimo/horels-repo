@@ -1,10 +1,11 @@
-import { IPMSAdapter } from './PMSFactory';
+// Legacy file - not used anymore
+// import { IPMSAdapter } from './PMSFactory';
 
 /**
  * Mock PMS Adapter for properties without PMS integration
  * Returns simulated data for testing and development
  */
-export class MockPMSAdapter implements IPMSAdapter {
+export class MockPMSAdapter { // implements IPMSAdapter {
   private propertyId?: string;
 
   setPropertyId(propertyId: string): void {

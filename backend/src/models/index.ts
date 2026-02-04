@@ -18,15 +18,18 @@ import OwnerInvitation from './OwnerInvitation';
 import CreditBookingCost from './CreditBookingCost';
 import UserPreference from './UserPreference';
 import InventoryItem from './InventoryItem';
+import TimeshareAllocation from './TimeshareAllocation';
 
 // Asociaciones existentes (guardadas con comprobaciones para evitar errores durante el arranque de tests)
 try {
   if (User && typeof (User as any).belongsTo === 'function') {
-    User.belongsTo(Role, { foreignKey: 'role_id' });
-    Role.hasMany(User, { foreignKey: 'role_id' });
+    // V2: User.role is now an ENUM, not a foreign key to roles table
+    // User.belongsTo(Role, { foreignKey: 'role_id' });
+    // Role.hasMany(User, { foreignKey: 'role_id' });
 
-    User.belongsTo(Property, { foreignKey: 'property_id' });
-    Property.hasMany(User, { foreignKey: 'property_id' });
+    // Property table doesn't exist yet - commented until migrations are applied
+    // User.belongsTo(Property, { foreignKey: 'property_id' });
+    // Property.hasMany(User, { foreignKey: 'property_id' });
 
     Role.belongsToMany(Permission, { through: RolePermission, foreignKey: 'role_id', as: 'Permissions' });
     Permission.belongsToMany(Role, { through: RolePermission, foreignKey: 'permission_id', as: 'Roles' });
@@ -76,8 +79,9 @@ try {
     PMSSyncLog.belongsTo(Property, { foreignKey: 'property_id' });
 
     // Asociaciones para Rooms
-    Property.hasMany(Room, { foreignKey: 'propertyId', as: 'Rooms' });
-    Room.belongsTo(Property, { foreignKey: 'propertyId', as: 'RoomProperty' });
+    // Note: propertyId field doesn't exist in current schema - commented out
+    // Property.hasMany(Room, { foreignKey: 'propertyId', as: 'Rooms' });
+    // Room.belongsTo(Property, { foreignKey: 'propertyId', as: 'RoomProperty' });
 
     // Asociaciones para Bookings-Room (trackear habitación específica)
     Room.hasMany(Booking, { foreignKey: 'room_id', as: 'Bookings' });
@@ -112,6 +116,13 @@ try {
     InventoryItem.belongsTo(User, { foreignKey: 'reserved_by', as: 'reservedBy' });
     InventoryItem.belongsTo(User, { foreignKey: 'booked_by', as: 'bookedBy' });
     InventoryItem.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
+
+    // Asociaciones para Timeshare Allocations (Prepaid Inventory)
+    TimeshareAllocation.belongsTo(Property, { foreignKey: 'property_id', as: 'property' });
+    Property.hasMany(TimeshareAllocation, { foreignKey: 'property_id', as: 'timeshareAllocations' });
+
+    TimeshareAllocation.belongsTo(User, { foreignKey: 'current_week_owner_id', as: 'currentOwner' });
+    User.hasMany(TimeshareAllocation, { foreignKey: 'current_week_owner_id', as: 'assignedAllocations' });
   }
 } catch (e) {
   // Log and continue — tests will surface issues if associations are required
@@ -140,4 +151,5 @@ export {
   CreditBookingCost,
   UserPreference,
   InventoryItem,
+  TimeshareAllocation,
 };

@@ -3,13 +3,14 @@ export interface User {
   id: number;
   email: string;
   role: 'owner' | 'guest' | 'staff' | 'admin';
-  status?: 'pending' | 'approved' | 'rejected';
+  status?: 'pending' | 'approved' | 'rejected' | 'active' | 'suspended' | 'inactive';
   property_id?: number | null;
   property?: Property | null;
   firstName?: string;
   lastName?: string;
   phone?: string;
   address?: string;
+  must_change_password?: boolean;
   created_at: string;
 }
 

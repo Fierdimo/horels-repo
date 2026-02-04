@@ -609,7 +609,7 @@ export class SwapService {
                   ...booking.Property.toJSON(),
                   location: booking.Property.city && booking.Property.country
                     ? `${booking.Property.city}, ${booking.Property.country}`
-                    : booking.Property.location
+                    : ''
                 } : null,
               };
             }
@@ -646,7 +646,7 @@ export class SwapService {
                   ...booking.Property.toJSON(),
                   location: booking.Property.city && booking.Property.country
                     ? `${booking.Property.city}, ${booking.Property.country}`
-                    : booking.Property.location
+                    : ''
                 } : null,
               };
             }
@@ -759,7 +759,7 @@ export class SwapService {
                   // Fix location if it's "undefined, undefined" or similar
                   location: booking.Property.city && booking.Property.country
                     ? `${booking.Property.city}, ${booking.Property.country}`
-                    : booking.Property.location
+                    : ''
                 } : null,
               };
               console.log(`[SwapService.getAvailableSwapsForBrowse] Enriched swap ${swapData.id} with booking data`);
@@ -908,7 +908,7 @@ export class SwapService {
                   ...booking.Property.toJSON(),
                   location: booking.Property.city && booking.Property.country
                     ? `${booking.Property.city}, ${booking.Property.country}`
-                    : booking.Property.location
+                    : ''
                 } : null,
               };
               console.log('[SwapService.getStaffPendingSwaps] RequesterWeek enriched with booking');
@@ -960,7 +960,7 @@ export class SwapService {
                   ...booking.Property.toJSON(),
                   location: booking.Property.city && booking.Property.country
                     ? `${booking.Property.city}, ${booking.Property.country}`
-                    : booking.Property.location
+                    : ''
                 } : null,
               };
 

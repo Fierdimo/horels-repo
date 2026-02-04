@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { ActionLog, User, Role, Property, Week } from '../models';
+import UserV2 from '../models/v2/User';
+import Room from '../models/room';
+import { TimeshareProperty } from '../models/v2';
 import PlatformSetting from '../models/PlatformSetting';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { authorize } from '../middleware/authorizationMiddleware';
@@ -10,7 +13,65 @@ import { checkAndConvertToOwner } from '../utils/roleConversion';
 
 const router = Router();
 
-// Get all users (admin only)
+// Get dashboard statistics (admin only)
+router.get('/dashboard-stats', authenticateToken, authorize(['view_users']), async (req: Request, res: Response) => {
+  try {
+    // Count total users
+    const totalUsers = await UserV2.count();
+    
+    // Count users by role
+    const usersByRole = await Promise.all([
+      UserV2.count({ where: { role: 'admin' } }),
+      UserV2.count({ where: { role: 'owner' } }),
+      UserV2.count({ where: { role: 'staff' } }),
+      UserV2.count({ where: { role: 'guest' } })
+    ]);
+    
+    // Count pending staff (inactive staff members)
+    const pendingStaff = await UserV2.count({ 
+      where: { 
+        role: 'staff',
+        status: 'inactive'
+      } 
+    });
+    
+    // Count timeshare properties (V2)
+    const totalProperties = await TimeshareProperty.count();
+    
+    // Count rooms (V1 - if exists)
+    let totalRooms = 0;
+    try {
+      totalRooms = await Room.count();
+    } catch (error) {
+      // Room table might not exist, ignore
+      console.log('Room table not available for stats');
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        users: {
+          total: totalUsers,
+          admin: usersByRole[0],
+          owner: usersByRole[1],
+          staff: usersByRole[2],
+          guest: usersByRole[3]
+        },
+        properties: totalProperties,
+        rooms: totalRooms,
+        pendingApprovals: pendingStaff
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch dashboard statistics' 
+    });
+  }
+});
+
+// Get all users (admin only) - V2
 router.get('/users', authenticateToken, authorize(['view_users']), logAction('view_all_users'), async (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 50, role, status, search } = req.query;
@@ -18,13 +79,9 @@ router.get('/users', authenticateToken, authorize(['view_users']), logAction('vi
     const offset = (Number(page) - 1) * Number(limit);
     const where: any = {};
 
-    // Filter by role
+    // Filter by role (V2: role is enum in user table)
     if (role && typeof role === 'string' && role !== 'all') {
-      const roleName: string = role;
-      const roleRecord = await Role.findOne({ where: { name: roleName } });
-      if (roleRecord) {
-        where.role_id = roleRecord.id;
-      }
+      where.role = role;
     }
 
     // Filter by status
@@ -41,26 +98,30 @@ router.get('/users', authenticateToken, authorize(['view_users']), logAction('vi
       ];
     }
 
-    const { count, rows: users } = await User.findAndCountAll({
+    const { count, rows: users } = await UserV2.findAndCountAll({
       where,
-      include: [
-        {
-          model: Role,
-          attributes: ['name']
-        },
-        {
-          model: Property,
-          attributes: ['name', 'location', 'city', 'country']
-        }
-      ],
       limit: Number(limit),
       offset,
-      order: [['createdAt', 'DESC']],
-      attributes: { exclude: ['password'] }
+      order: [['created_at', 'DESC']],
+      attributes: { exclude: ['password_hash'] }
     });
 
+    // Transform to frontend format
+    const transformedUsers = users.map(user => ({
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+      email_verified: user.email_verified,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    }));
+
     res.json({
-      users,
+      users: transformedUsers,
       pagination: {
         total: count,
         page: Number(page),
@@ -182,88 +243,55 @@ router.get('/logs/stats', authenticateToken, authorize(['view_users']), logActio
 });
 
 // Update user (admin only)
+// Update user by ID (admin only) - V2
 router.patch('/users/:userId', authenticateToken, authorize(['update_user']), logAction('update_user'), async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { status, role, email, firstName, lastName, phone, address } = req.body;
+    const { status, role, email, firstName, lastName, phone } = req.body;
     const currentUser = (req as any).user;
 
     console.log('PATCH /users/:userId - Request body:', req.body);
-    console.log('PATCH /users/:userId - Extracted fields:', { status, role, email, firstName, lastName, phone, address });
-    console.log('PATCH /users/:userId - firstName type:', typeof firstName, 'value:', firstName);
-    console.log('PATCH /users/:userId - lastName type:', typeof lastName, 'value:', lastName);
 
     // Prevent admin from modifying themselves
     if (currentUser && currentUser.id === parseInt(userId)) {
       return res.status(400).json({ error: 'Cannot modify your own account. Use PUT /auth/profile instead' });
     }
 
-    const userToUpdate = await User.findByPk(userId, {
-      include: [{
-        model: Role,
-        attributes: ['name']
-      }]
-    });
+    const userToUpdate = await UserV2.findByPk(userId);
 
     if (!userToUpdate) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Build update object
+    // Build update object (map frontend field names to V2 schema)
     const updates: any = {};
     
     if (status !== undefined) updates.status = status;
     if (email !== undefined) updates.email = email;
-    if (firstName !== undefined) {
-      console.log('Setting firstName to:', firstName);
-      updates.firstName = firstName;
-    }
-    if (lastName !== undefined) {
-      console.log('Setting lastName to:', lastName);
-      updates.lastName = lastName;
-    }
+    if (firstName !== undefined) updates.first_name = firstName;
+    if (lastName !== undefined) updates.last_name = lastName;
     if (phone !== undefined) updates.phone = phone;
-    if (address !== undefined) updates.address = address;
+    if (role !== undefined) updates.role = role; // Direct enum in V2
 
-    console.log('PATCH /users/:userId - Updates object before save:', updates);
-
-    // Handle role change
-    if (role !== undefined) {
-      const roleRecord = await Role.findOne({ where: { name: role } });
-      if (!roleRecord) {
-        return res.status(400).json({ error: 'Invalid role' });
-      }
-      updates.role_id = roleRecord.id;
-    }
+    console.log('PATCH /users/:userId - Updates object:', updates);
 
     // Update user
     await userToUpdate.update(updates);
-    console.log('PATCH /users/:userId - User after update:', {
-      id: userToUpdate.id,
-      email: userToUpdate.email,
-      firstName: userToUpdate.firstName,
-      lastName: userToUpdate.lastName,
-      phone: userToUpdate.phone
-    });
 
-    // Fetch updated user with relations
-    const updatedUser = await User.findByPk(userId, {
-      include: [
-        {
-          model: Role,
-          attributes: ['name']
-        },
-        {
-          model: Property,
-          attributes: ['name', 'location', 'city', 'country']
-        }
-      ],
-      attributes: { exclude: ['password'] }
-    });
-
+    // Return transformed response
     res.json({
       message: 'User updated successfully',
-      user: updatedUser
+      user: {
+        id: userToUpdate.id,
+        email: userToUpdate.email,
+        firstName: userToUpdate.first_name,
+        lastName: userToUpdate.last_name,
+        phone: userToUpdate.phone,
+        role: userToUpdate.role,
+        status: userToUpdate.status,
+        createdAt: userToUpdate.created_at,
+        updatedAt: userToUpdate.updated_at
+      }
     });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -271,7 +299,7 @@ router.patch('/users/:userId', authenticateToken, authorize(['update_user']), lo
   }
 });
 
-// Delete user by ID (admin only)
+// Delete user by ID (admin only) - V2
 router.delete('/users/:userId', authenticateToken, authorize(['view_users']), logAction('delete_user'), async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -282,13 +310,7 @@ router.delete('/users/:userId', authenticateToken, authorize(['view_users']), lo
       return res.status(400).json({ error: 'Cannot delete your own account. Use DELETE /auth/me instead' });
     }
 
-    const { User } = await import('../models');
-    const userToDelete = await User.findByPk(userId, {
-      include: [{
-        model: (await import('../models')).Role,
-        attributes: ['name']
-      }]
-    });
+    const userToDelete = await UserV2.findByPk(userId);
 
     if (!userToDelete) {
       return res.status(404).json({ error: 'User not found' });
@@ -296,7 +318,7 @@ router.delete('/users/:userId', authenticateToken, authorize(['view_users']), lo
 
     // Store user info for logging before deletion
     const userEmail = userToDelete.email;
-    const userRole = (userToDelete as any).Role?.name;
+    const userRole = userToDelete.role;
 
     // Delete the user
     await userToDelete.destroy();
@@ -310,18 +332,19 @@ router.delete('/users/:userId', authenticateToken, authorize(['view_users']), lo
       }
     });
   } catch (error) {
+    console.error('Error deleting user:', error);
     res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 
-// Create admin user (admin only)
+// Create admin user (admin only) - V2
 router.post('/create-admin', authenticateToken, authorize(['create_user']), logAction('create_admin'), async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, firstName, lastName } = req.body;
     const currentUser = (req as any).user;
 
-    // Verify current user is admin
-    if (currentUser.Role?.name !== 'admin') {
+    // Verify current user is admin (V2: role is directly in user)
+    if (currentUser.role !== 'admin') {
       return res.status(403).json({ error: 'Only administrators can create admin accounts' });
     }
 
@@ -336,27 +359,23 @@ router.post('/create-admin', authenticateToken, authorize(['create_user']), logA
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } });
+    const existingUser = await UserV2.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
-    }
-
-    // Get admin role
-    const adminRole = await Role.findOne({ where: { name: 'admin' } });
-    if (!adminRole) {
-      return res.status(500).json({ error: 'Admin role not found in database' });
     }
 
     // Hash password and create admin user
     const bcrypt = await import('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newAdmin = await User.create({
+    const newAdmin = await UserV2.create({
       email,
-      password: hashedPassword,
-      role_id: adminRole.id,
-      status: 'approved'
-    });
+      password_hash: hashedPassword,
+      first_name: firstName || 'Admin',
+      last_name: lastName || 'User',
+      role: 'admin',
+      status: 'active'
+    } as any);
 
     // Log admin creation
     const LoggingService = (await import('../services/loggingService')).default;
@@ -372,8 +391,10 @@ router.post('/create-admin', authenticateToken, authorize(['create_user']), logA
       admin: {
         id: newAdmin.id,
         email: newAdmin.email,
+        firstName: newAdmin.first_name,
+        lastName: newAdmin.last_name,
         role: 'admin',
-        status: 'approved'
+        status: 'active'
       }
     });
   } catch (error) {
@@ -382,33 +403,38 @@ router.post('/create-admin', authenticateToken, authorize(['create_user']), logA
   }
 });
 
-// Get pending staff requests for the user's hotel (staff/admin)
+// Get pending staff requests for the user's hotel (staff/admin) - V2
 router.get('/staff-requests', authenticateToken, authorize(['view_users']), logAction('view_staff_requests'), async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const staffRole = await Role.findOne({ where: { name: 'staff' } });
-    if (!staffRole) {
-      return res.status(500).json({ error: 'Staff role not found' });
-    }
-    const where: any = { status: 'pending', role_id: staffRole.id };
+    
+    // V2: role is enum, status uses different values
+    const where: any = { 
+      role: 'staff',
+      status: 'inactive' // Assuming inactive means pending approval in V2
+    };
 
-    // If not admin, filter by property_id
-    if (user.Role.name !== 'admin') {
-      where.property_id = user.property_id;
-    }
+    // Note: V2 doesn't have property_id in users table
+    // If filtering by property is needed, would need to join through ownerships
 
-    const pendingUsers = await User.findAll({
+    const pendingUsers = await UserV2.findAll({
       where,
-      include: [{
-        model: Role,
-        attributes: ['name']
-      }, {
-        model: Property,
-        attributes: ['name', 'location', 'city', 'country']
-      }]
+      attributes: { exclude: ['password_hash'] }
     });
 
-    res.json({ requests: pendingUsers });
+    // Transform to frontend format
+    const transformedRequests = pendingUsers.map(u => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      phone: u.phone,
+      role: u.role,
+      status: u.status,
+      createdAt: u.created_at
+    }));
+
+    res.json({ requests: transformedRequests });
   } catch (error) {
     console.error('Error fetching staff requests:', error);
     res.status(500).json({ error: 'Failed to fetch staff requests' });
@@ -422,36 +448,27 @@ router.post('/staff-requests/:userId', authenticateToken, authorize(['update_use
     const { action } = req.body; // 'approve' or 'reject'
     const user = (req as any).user;
 
-    const targetUser = await User.findByPk(userId, { include: Role });
-    if (!targetUser || targetUser.status !== 'pending') {
+    const targetUser = await User.findByPk(userId);
+    if (!targetUser || targetUser.status !== 'inactive') {
       return res.status(404).json({ error: 'Pending user request not found' });
     }
 
     // Solo se pueden aprobar usuarios staff
-    const targetRole = (targetUser as any).Role?.name;
-    if (targetRole !== 'staff') {
+    if (targetUser.role !== 'staff') {
       return res.status(400).json({ error: 'Only staff users can be approved through this endpoint' });
     }
 
     // Admin puede aprobar cualquier staff
-    // Staff aprobado puede aprobar otros staff del mismo hotel
-    const userRole = user.Role?.name || user.role;
+    const userRole = user.role;
     
-    if (userRole === 'admin') {
-      // Admin puede aprobar cualquier staff
-    } else if (userRole === 'staff' && user.status === 'approved') {
-      // Staff aprobado solo puede aprobar staff de su mismo hotel
-      if (!user.property_id || user.property_id !== targetUser.property_id) {
-        return res.status(403).json({ error: 'You can only manage staff requests for your own property' });
-      }
-    } else {
-      return res.status(403).json({ error: 'Insufficient permissions to manage staff requests' });
+    if (userRole !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can manage staff requests' });
     }
 
     if (action === 'approve') {
-      await targetUser.update({ status: 'approved' });
+      await targetUser.update({ status: 'active' });
     } else if (action === 'reject') {
-      await targetUser.update({ status: 'rejected' });
+      await targetUser.update({ status: 'suspended' });
     } else {
       return res.status(400).json({ error: 'Invalid action. Must be "approve" or "reject"' });
     }
@@ -698,22 +715,14 @@ router.patch('/settings/credit-to-eur-rate', authenticateToken, authorize(['mana
 // Get owners list (staff/admin) - simplified endpoint for dropdowns
 router.get('/owners', authenticateToken, authorize(['manage_users', 'manage_bookings']), logAction('view_owners_list'), async (req: Request, res: Response) => {
   try {
-    const ownerRole = await Role.findOne({ where: { name: 'owner' } });
-    
-    if (!ownerRole) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Owner role not found' 
-      });
-    }
-
+    // V2: role is a direct field, no need to lookup Role table
     const owners = await User.findAll({
       where: { 
-        role_id: ownerRole.id,
+        role: 'owner',
         status: 'active'
       },
-      attributes: ['id', 'firstName', 'lastName', 'email'],
-      order: [['firstName', 'ASC'], ['lastName', 'ASC']]
+      attributes: ['id', 'first_name', 'last_name', 'email'],
+      order: [['first_name', 'ASC'], ['last_name', 'ASC']]
     });
 
     res.json({

@@ -432,20 +432,20 @@ router.get('/bookings/:bookingId', authenticateToken, logAction('view_booking_de
     }
 
     // Verify authorization:
-    // 1. User is property staff/owner (has matching property_id), OR
-    // 2. User is the guest who made the booking (email matches)
+    // V2: Check if user is the guest who made the booking (email matches)
+    // Property staff check removed as V2 users don't have property_id
     const user = await User.findByPk(userId, {
-      attributes: ['email', 'property_id']
+      attributes: ['email', 'role']
     });
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    const isPropertyStaff = user.property_id === (booking as any).property_id;
     const isGuest = user.email === (booking as any).guest_email;
+    const isAdmin = user.role === 'admin';
 
-    if (!isPropertyStaff && !isGuest) {
+    if (!isGuest && !isAdmin) {
       return res.status(403).json({ error: 'Unauthorized to view this booking' });
     }
 
@@ -527,21 +527,16 @@ router.post('/swaps', authenticateToken, requireOwnerRole, authorize(['view_own_
       return res.status(404).json({ error: 'Week not found or not available for swap' });
     }
 
-    // Verificar que la property tenga al menos un staff activo
+    // Verificar que haya al menos un staff activo en el sistema (V2: no property-specific check)
     const activeStaff = await User.findOne({
       where: {
-        property_id: (week as any).property_id,
-        status: 'approved'
-      },
-      include: [{
-        model: Role,
-        where: { name: 'staff' },
-        required: true
-      }]
+        role: 'staff',
+        status: 'active'
+      }
     });
 
     if (!activeStaff) {
-      return res.status(400).json({ error: 'Property is not available for swaps (no active staff)' });
+      return res.status(400).json({ error: 'No active staff available for swaps' });
     }
 
     // Create swap request (fee will be calculated when approved)
@@ -637,6 +632,88 @@ router.post('/weeks/:weekId/convert', authenticateToken, requireOwnerRole, autho
     const { weekId } = req.params;
     const userId = req.user.id;
 
+    // Import V2 models
+    const WeekAllocation = require('../models/v2/WeekAllocation').default;
+    const Ownership = require('../models/v2/Ownership').default;
+    
+    // Try V2 first (week_allocations table)
+    let isV2 = false;
+    let allocation = null;
+    
+    try {
+      allocation = await WeekAllocation.findOne({
+        where: { id: weekId },
+        include: [{
+          model: Ownership,
+          as: 'ownership',
+          where: { owner_id: userId }
+        }]
+      });
+      
+      if (allocation) {
+        isV2 = true;
+      }
+    } catch (err) {
+      // V2 not available or error, try V1
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.log('V2 lookup failed, trying V1:', errorMessage);
+    }
+
+    if (isV2 && allocation) {
+      // V2 Path: Update week_allocation and ownership
+      if (allocation.status !== 'ASSIGNED') {
+        return res.status(400).json({ 
+          error: 'Week not available for conversion. Only ASSIGNED weeks can be converted.' 
+        });
+      }
+
+      // Calculate nights
+      const startDate = new Date(allocation.start_date);
+      const endDate = new Date(allocation.end_date);
+      const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (nights < 1) {
+        return res.status(400).json({ error: 'Period must have at least 1 night' });
+      }
+
+      const creditValue = nights;
+
+      // Calculate expiry date
+      let expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 18); // 18 months expiry
+
+      // Create night credit
+      const nightCredit = await NightCredit.create({
+        owner_id: userId,
+        original_week_id: weekId,
+        total_nights: creditValue,
+        remaining_nights: creditValue,
+        expiry_date: expiryDate,
+        status: 'active'
+      });
+
+      // Update week_allocation status to RELEASED
+      await allocation.update({ status: 'RELEASED' });
+
+      // Update ownership status to CONVERTED_TO_CREDITS
+      await Ownership.update(
+        { status: 'CONVERTED_TO_CREDITS' },
+        { where: { id: allocation.ownership_id } }
+      );
+
+      return res.json({
+        success: true,
+        message: `Period of ${nights} night(s) converted to ${creditValue} night credits`,
+        data: {
+          allocation: allocation,
+          nightCredit: nightCredit,
+          nights: nights,
+          credits: creditValue
+        }
+      });
+    }
+
+    // V1 Path: Original logic for backwards compatibility
     const week = await Week.findOne({
       where: { id: weekId, owner_id: userId, status: 'available' }
     });

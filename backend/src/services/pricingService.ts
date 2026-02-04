@@ -11,17 +11,21 @@ class PricingService {
   async getPlatformCommissionRate(): Promise<number> {
     try {
       const setting = await PlatformSetting.findOne({
-        where: { setting_key: 'marketplace_commission_rate' }
+        where: { key: 'marketplace_commission_rate' }
       });
 
+      console.log('🔍 [PricingService] Commission setting found:', setting?.toJSON());
+
       if (setting) {
-        const rate = parseFloat((setting as any).setting_value);
+        const rate = parseFloat(setting.get('value') as string);
+        console.log('💰 [PricingService] Commission rate:', rate);
         return isNaN(rate) ? 10.0 : rate;
       }
 
+      console.log('⚠️ [PricingService] No commission setting found, using default 10%');
       return 10.0; // Default 10%
     } catch (error) {
-      console.error('Error fetching commission rate:', error);
+      console.error('❌ [PricingService] Error fetching commission rate:', error);
       return 10.0; // Fallback
     }
   }
@@ -35,9 +39,19 @@ class PricingService {
     // Validar que basePrice sea un número válido
     const validBasePrice = parseFloat(String(basePrice)) || 0;
     
+    console.log('💵 [PricingService] Calculating guest price for base:', validBasePrice);
     const commissionRate = await this.getPlatformCommissionRate();
     const commission = validBasePrice * (commissionRate / 100);
-    return parseFloat((validBasePrice + commission).toFixed(2));
+    const guestPrice = validBasePrice + commission;
+    
+    console.log('✅ [PricingService] Result:', {
+      basePrice: validBasePrice,
+      commissionRate: commissionRate,
+      commission: commission,
+      guestPrice: guestPrice
+    });
+    
+    return parseFloat(guestPrice.toFixed(2));
   }
 
   /**

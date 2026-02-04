@@ -13,7 +13,9 @@ export default function BookingSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
-  const state = location.state as { paymentIntentId: string } || {};
+  const state = location.state as { booking?: any; message?: string; type?: string } || {};
+
+  console.log('📍 BookingSuccess state:', state);
 
   const getMarketplaceBasePath = () => {
     if (!user?.role) return '/guest/marketplace';
@@ -37,8 +39,8 @@ export default function BookingSuccess() {
     }
   };
 
-  // Si no hay paymentIntentId, mostrar error
-  if (!state?.paymentIntentId) {
+  // Si no hay booking, mostrar error
+  if (!state?.booking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
@@ -55,6 +57,8 @@ export default function BookingSuccess() {
     );
   }
 
+  const { booking } = state;
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-3xl mx-auto">
@@ -67,40 +71,79 @@ export default function BookingSuccess() {
           </div>
 
           {/* Success Message */}
-          <h1 className="text-3xl font-bold text-center mb-4">{t('marketplace.bookingSuccessTitle')}</h1>
-          <p className="text-gray-600 text-center mb-8">
-            {t('marketplace.bookingSuccessMessage')}
+          <h1 className="text-3xl font-bold text-center mb-4">
+            {t('marketplace.bookingSuccessTitle') || 'Booking Confirmed!'}
+          </h1>
+          <p className="text-gray-600 text-center mb-2">
+            {state.message || t('marketplace.bookingSuccessMessage')}
+          </p>
+          <p className="text-2xl font-bold text-center text-blue-600 mb-8">
+            {booking.confirmationNumber}
           </p>
 
-          {/* Payment Intent Info */}
+          {/* Booking Details */}
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">{t('marketplace.bookingDetails')}</h2>
-            <div className="space-y-3">
-              <div className="flex items-center text-gray-700">
-                <Mail className="w-5 h-5 mr-3 text-gray-400" />
-                <span>{t('marketplace.confirmationEmailSent')}</span>
+            <h2 className="text-xl font-bold mb-4">{t('marketplace.bookingDetails') || 'Booking Details'}</h2>
+            <div className="space-y-4">
+              <div className="flex items-start">
+                <Home className="w-5 h-5 mr-3 text-gray-400 mt-1" />
+                <div>
+                  <div className="font-semibold text-gray-900">{booking.property}</div>
+                  <div className="text-sm text-gray-600">{booking.roomType}</div>
+                </div>
               </div>
-              <div className="text-sm text-gray-600">
-                {t('marketplace.paymentId')}: {state.paymentIntentId}
+              
+              <div className="flex items-center text-gray-700">
+                <Calendar className="w-5 h-5 mr-3 text-gray-400" />
+                <div>
+                  <span className="font-medium">Check-in:</span> {format(parseISO(booking.checkIn), 'PPP')}
+                </div>
+              </div>
+              
+              <div className="flex items-center text-gray-700">
+                <Calendar className="w-5 h-5 mr-3 text-gray-400" />
+                <div>
+                  <span className="font-medium">Check-out:</span> {format(parseISO(booking.checkOut), 'PPP')}
+                </div>
+              </div>
+
+              <div className="flex items-center text-gray-700">
+                <MapPin className="w-5 h-5 mr-3 text-gray-400" />
+                <div>
+                  <span className="font-medium">Guests:</span> {booking.guests}
+                </div>
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold">Total Paid:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    {booking.currency?.toUpperCase()} {booking.totalAmount.toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Next Steps */}
           <div className="border-t pt-6">
-            <h2 className="text-xl font-bold mb-4">{t('marketplace.nextSteps')}</h2>
+            <h2 className="text-xl font-bold mb-4">{t('marketplace.nextSteps') || 'What\'s Next?'}</h2>
             <ul className="space-y-3 text-gray-700">
               <li className="flex items-start">
                 <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>{t('marketplace.nextStep1')}</span>
+                <span>A confirmation email has been sent to your email address</span>
               </li>
               <li className="flex items-start">
                 <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>{t('marketplace.nextStep2')}</span>
+                <span>You can view and manage your booking in "My Bookings"</span>
               </li>
               <li className="flex items-start">
                 <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>{t('marketplace.nextStep3')}</span>
+                <span>The property will contact you closer to your check-in date</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
+                <span>The property will contact you closer to your check-in date</span>
               </li>
             </ul>
           </div>

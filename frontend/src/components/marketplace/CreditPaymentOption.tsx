@@ -9,7 +9,7 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 
 interface CreditPaymentOptionProps {
   propertyId: string;
-  roomId: string;
+  roomType: string;
   checkIn: string;
   checkOut: string;
   guests: number;
@@ -22,7 +22,7 @@ interface CreditPaymentOptionProps {
 
 export default function CreditPaymentOption({
   propertyId,
-  roomId,
+  roomType,
   checkIn,
   checkOut,
   guests,
@@ -64,14 +64,14 @@ export default function CreditPaymentOption({
 
   // Calculate actual credits required using backend Master Formula
   const { data: creditCalculation, isLoading: loadingCalculation } = useQuery({
-    queryKey: ['credit-calculation', propertyId, roomId, checkIn, checkOut],
+    queryKey: ['credit-calculation', propertyId, roomType, checkIn, checkOut],
     queryFn: () => timeshareApi.calculateCreditCost({
       propertyId: parseInt(propertyId),
-      roomId: parseInt(roomId),
+      roomType: decodeURIComponent(roomType),
       checkIn,
       checkOut
     }),
-    enabled: !!(propertyId && roomId && checkIn && checkOut),
+    enabled: !!(propertyId && roomType && checkIn && checkOut),
     staleTime: 60000 // 1 minute
   });
 
@@ -116,7 +116,7 @@ export default function CreditPaymentOption({
   const bookMutation = useMutation({
     mutationFn: () => timeshareApi.bookRoomWithCredits({
       propertyId: parseInt(propertyId),
-      roomId: parseInt(roomId),
+      roomType: decodeURIComponent(roomType),
       guestName,
       guestEmail,
       guestPhone,
@@ -390,7 +390,7 @@ export default function CreditPaymentOption({
                     type="button"
                     onClick={() => {
                       // Navigate to checkout with hybrid payment info
-                      navigate(`/owner/marketplace/properties/${propertyId}/rooms/${roomId}/checkout`, {
+                      navigate(`/owner/marketplace/properties/${propertyId}/room-types/${encodeURIComponent(roomType)}/checkout`, {
                         state: {
                           checkIn,
                           checkOut,

@@ -7,10 +7,7 @@ interface AuthRequest extends Request {
   user?: {
     id: number;
     email: string;
-    role_id: number;
-    Role?: {
-      name: string;
-    };
+    role: 'admin' | 'owner' | 'guest' | 'staff';
   };
 }
 
@@ -18,14 +15,12 @@ const router = Router();
 
 // Middleware para verificar que el usuario es admin
 const requireAdminRole = (req: any, res: Response, next: any) => {
-  if (req.user?.Role?.name !== 'admin' && req.user?.role !== 'admin') {
+  if (req.user?.role !== 'admin') {
     return res.status(403).json({ 
       error: 'Admin access required',
       debug: {
         hasUser: !!req.user,
-        hasRole: !!req.user?.Role,
-        roleName: req.user?.Role?.name,
-        roleId: req.user?.role_id
+        role: req.user?.role
       }
     });
   }
@@ -85,22 +80,13 @@ router.put('/properties/:id', requireAdminRole, async (req: any, res: Response) 
       });
     }
 
-    // Validate multiplier
-    if (location_multiplier && (location_multiplier < 0.5 || location_multiplier > 3.0)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Location multiplier must be between 0.5 and 3.0'
-      });
-    }
-
-    await property.update({
-      tier: tier || property.tier,
-      location_multiplier: location_multiplier || property.location_multiplier
-    });
+    // Note: tier and location_multiplier fields removed from Property model
+    // These values are now managed through PlatformSetting table
+    // No property update needed
 
     res.json({
       success: true,
-      message: 'Property updated successfully',
+      message: 'Property tier and location multiplier are now managed through system settings',
       data: property
     });
   } catch (error: any) {

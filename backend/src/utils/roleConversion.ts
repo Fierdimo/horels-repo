@@ -17,7 +17,7 @@ export async function autoConvertGuestToOwner(userId: number): Promise<boolean> 
       throw new Error(`User ${userId} not found`);
     }
 
-    const userRole = (user as any).Role?.name;
+    const userRole = user.role; // V2: direct role field
 
     // Solo convertir si es guest
     if (userRole !== 'guest') {
@@ -33,14 +33,8 @@ export async function autoConvertGuestToOwner(userId: number): Promise<boolean> 
       return false; // No tiene semanas, no convertir
     }
 
-    // Convertir a owner
-    const ownerRole = await Role.findOne({ where: { name: 'owner' } });
-    
-    if (!ownerRole) {
-      throw new Error('Owner role not found in database');
-    }
-
-    await user.update({ role_id: ownerRole.id });
+    // Convertir a owner (V2: role is a direct field)
+    await user.update({ role: 'owner' });
 
     console.log(`[RoleConversion] User ${userId} (${user.email}) converted from guest to owner (has ${weekCount} week(s))`);
 
@@ -79,7 +73,7 @@ export async function validateOwnerWithWeeks(userId: number): Promise<boolean> {
     return false;
   }
 
-  const userRole = (user as any).Role?.name;
+  const userRole = user.role; // V2: direct role field
   
   if (userRole !== 'owner') {
     return false;

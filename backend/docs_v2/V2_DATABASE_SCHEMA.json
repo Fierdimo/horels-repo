@@ -1,0 +1,1355 @@
+{
+  "generatedAt": "2026-02-01T21:02:00.445Z",
+  "database": "sw2_db",
+  "tables": {
+    "users": {
+      "tableName": "users",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "email": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "password_hash": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "first_name": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "last_name": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "phone": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "role": {
+          "type": "ENUM('admin','owner','guest','staff')",
+          "nullable": false,
+          "default": "guest",
+          "autoIncrement": false
+        },
+        "status": {
+          "type": "ENUM('active','suspended','inactive')",
+          "nullable": false,
+          "default": "active",
+          "autoIncrement": false
+        },
+        "email_verified": {
+          "type": "TINYINT(1)",
+          "nullable": true,
+          "default": "0",
+          "autoIncrement": false
+        },
+        "email_verified_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "last_login_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "stripe_customer_id": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "password_reset_token": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "password_reset_expires": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "email",
+        "password_hash",
+        "first_name",
+        "last_name",
+        "role",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "phone",
+        "email_verified",
+        "email_verified_at",
+        "last_login_at",
+        "stripe_customer_id",
+        "password_reset_token",
+        "password_reset_expires"
+      ],
+      "enums": {},
+      "defaults": {
+        "role": "guest",
+        "status": "active",
+        "email_verified": "0",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "timeshare_properties": {
+      "tableName": "timeshare_properties",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "name": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "slug": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "city": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "country": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "region": {
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "latitude": {
+          "type": "DECIMAL(10,8)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "longitude": {
+          "type": "DECIMAL(11,8)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "address": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "postal_code": {
+          "type": "VARCHAR(20)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_provider": {
+          "type": "ENUM('mews','cloudbeds','opera','resnexus','other')",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_property_id": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_credentials_encrypted": {
+          "type": "BLOB",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_last_sync": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_sync_status": {
+          "type": "ENUM('OK','ERROR','DISABLED')",
+          "nullable": true,
+          "default": "OK",
+          "autoIncrement": false
+        },
+        "program_type": {
+          "type": "ENUM('FIXED_WEEK','FLOATING','POINTS')",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "weeks_per_year": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": true,
+          "default": "52",
+          "autoIncrement": false
+        },
+        "check_in_day": {
+          "type": "ENUM('MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY')",
+          "nullable": true,
+          "default": "SATURDAY",
+          "autoIncrement": false
+        },
+        "description": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "amenities": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "policies": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "images": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "is_active": {
+          "type": "TINYINT(1)",
+          "nullable": false,
+          "default": "1",
+          "autoIncrement": false
+        },
+        "is_marketplace_enabled": {
+          "type": "TINYINT(1)",
+          "nullable": false,
+          "default": "1",
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "name",
+        "slug",
+        "city",
+        "country",
+        "pms_provider",
+        "program_type",
+        "is_active",
+        "is_marketplace_enabled",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "region",
+        "latitude",
+        "longitude",
+        "address",
+        "postal_code",
+        "pms_property_id",
+        "pms_credentials_encrypted",
+        "pms_last_sync",
+        "pms_sync_status",
+        "weeks_per_year",
+        "check_in_day",
+        "description",
+        "amenities",
+        "policies",
+        "images"
+      ],
+      "enums": {},
+      "defaults": {
+        "pms_sync_status": "OK",
+        "weeks_per_year": "52",
+        "check_in_day": "SATURDAY",
+        "is_active": "1",
+        "is_marketplace_enabled": "1",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "timeshare_units": {
+      "tableName": "timeshare_units",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "property_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "category": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "slug": {
+          "type": "VARCHAR(150)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "capacity_min": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": false,
+          "default": "1",
+          "autoIncrement": false
+        },
+        "capacity_max": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "quantity": {
+          "type": "SMALLINT(5) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "bedrooms": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": true,
+          "default": "0",
+          "autoIncrement": false
+        },
+        "bathrooms": {
+          "type": "DECIMAL(2,1)",
+          "nullable": true,
+          "default": "1.0",
+          "autoIncrement": false
+        },
+        "size_sqm": {
+          "type": "SMALLINT(5) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "floor_range": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "base_credit_value": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "seasonal_factors": {
+          "type": "LONGTEXT",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "currency": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "default": "EUR",
+          "autoIncrement": false
+        },
+        "description": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "amenities": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "images": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "view_type": {
+          "type": "ENUM('OCEAN','POOL','GARDEN','CITY','MOUNTAIN','NO_VIEW')",
+          "nullable": true,
+          "default": "NO_VIEW",
+          "autoIncrement": false
+        },
+        "is_active": {
+          "type": "TINYINT(1)",
+          "nullable": false,
+          "default": "1",
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "property_id",
+        "category",
+        "slug",
+        "capacity_min",
+        "capacity_max",
+        "quantity",
+        "base_credit_value",
+        "seasonal_factors",
+        "currency",
+        "is_active",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "bedrooms",
+        "bathrooms",
+        "size_sqm",
+        "floor_range",
+        "description",
+        "amenities",
+        "images",
+        "view_type"
+      ],
+      "enums": {},
+      "defaults": {
+        "capacity_min": "1",
+        "bedrooms": "0",
+        "bathrooms": "1.0",
+        "currency": "EUR",
+        "view_type": "NO_VIEW",
+        "is_active": "1",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "ownerships": {
+      "tableName": "ownerships",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "owner_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "unit_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "type": {
+          "type": "ENUM('FIXED_WEEK','FLOATING','POINTS')",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "fixed_week_number": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "annual_points": {
+          "type": "SMALLINT(5) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "purchase_date": {
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "contract_reference": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "contract_start_year": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "contract_end_year": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "annual_fee": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "annual_fee_due_date": {
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "currency": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "default": "EUR",
+          "autoIncrement": false
+        },
+        "last_payment_date": {
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "status": {
+          "type": "ENUM('ACTIVE','SUSPENDED','TERMINATED','PENDING_PAYMENT')",
+          "nullable": false,
+          "default": "ACTIVE",
+          "autoIncrement": false
+        },
+        "suspension_reason": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "notes": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "metadata": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "owner_id",
+        "unit_id",
+        "type",
+        "contract_start_year",
+        "annual_fee",
+        "currency",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "fixed_week_number",
+        "annual_points",
+        "purchase_date",
+        "contract_reference",
+        "contract_end_year",
+        "annual_fee_due_date",
+        "last_payment_date",
+        "suspension_reason",
+        "notes",
+        "metadata"
+      ],
+      "enums": {},
+      "defaults": {
+        "currency": "EUR",
+        "status": "ACTIVE",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "week_allocations": {
+      "tableName": "week_allocations",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "ownership_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "year": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "week_number": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "start_date": {
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "end_date": {
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "status": {
+          "type": "ENUM('ASSIGNED','RESERVED','RELEASED','BOOKED','USED','EXPIRED')",
+          "nullable": false,
+          "default": "ASSIGNED",
+          "autoIncrement": false
+        },
+        "released_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "credits_issued": {
+          "type": "DECIMAL(10,2)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "release_credit_calc": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "booking_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "booked_by": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "booked_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_booking_id": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_booking_status": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "physical_room_assigned": {
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_last_sync": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "ownership_id",
+        "year",
+        "start_date",
+        "end_date",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "week_number",
+        "released_at",
+        "credits_issued",
+        "release_credit_calc",
+        "booking_id",
+        "booked_by",
+        "booked_at",
+        "pms_booking_id",
+        "pms_booking_status",
+        "physical_room_assigned",
+        "pms_last_sync"
+      ],
+      "enums": {},
+      "defaults": {
+        "status": "ASSIGNED",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "credit_accounts": {
+      "tableName": "credit_accounts",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "user_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "balance": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": "0.00",
+          "autoIncrement": false
+        },
+        "credit_limit": {
+          "type": "DECIMAL(10,2)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "expiration_policy": {
+          "type": "ENUM('NEVER','1_YEAR','2_YEARS')",
+          "nullable": true,
+          "default": "2_YEARS",
+          "autoIncrement": false
+        },
+        "currency": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "default": "EUR",
+          "autoIncrement": false
+        },
+        "notes": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "last_transaction_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "user_id",
+        "balance",
+        "currency",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "credit_limit",
+        "expiration_policy",
+        "notes",
+        "last_transaction_at"
+      ],
+      "enums": {},
+      "defaults": {
+        "balance": "0.00",
+        "expiration_policy": "2_YEARS",
+        "currency": "EUR",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "credit_transactions": {
+      "tableName": "credit_transactions",
+      "columns": {
+        "id": {
+          "type": "BIGINT(20) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "account_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "type": {
+          "type": "ENUM('WEEK_RELEASE','WEEK_BOOKING','CREDIT_PURCHASE','CREDIT_EXPIRATION','CONDOMINIUM_PAYMENT','REFUND','ADJUSTMENT','BONUS','PENALTY')",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "amount": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "balance_before": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "balance_after": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "reference_type": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "reference_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "description": {
+          "type": "VARCHAR(500)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "metadata": {
+          "type": "LONGTEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_by": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "ip_address": {
+          "type": "VARCHAR(45)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "user_agent": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "account_id",
+        "type",
+        "amount",
+        "balance_before",
+        "balance_after",
+        "description",
+        "created_at"
+      ],
+      "optionalFields": [
+        "id",
+        "reference_type",
+        "reference_id",
+        "metadata",
+        "created_by",
+        "ip_address",
+        "user_agent"
+      ],
+      "enums": {},
+      "defaults": {
+        "created_at": "current_timestamp()"
+      }
+    },
+    "v2_bookings": {
+      "tableName": "v2_bookings",
+      "columns": {
+        "id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "confirmation_code": {
+          "type": "VARCHAR(20)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "guest_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "property_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "week_allocation_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "check_in": {
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "check_out": {
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "nights": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "guests": {
+          "type": "TINYINT(3) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "room_category": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "physical_room": {
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "source": {
+          "type": "ENUM('TIMESHARE','HOTEL_PMS')",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "credits_used": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": "0.00",
+          "autoIncrement": false
+        },
+        "cash_paid": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": "0.00",
+          "autoIncrement": false
+        },
+        "currency": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "default": "EUR",
+          "autoIncrement": false
+        },
+        "payment_status": {
+          "type": "ENUM('PENDING','COMPLETED','REFUNDED')",
+          "nullable": true,
+          "default": "PENDING",
+          "autoIncrement": false
+        },
+        "platform_cost": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": "0.00",
+          "autoIncrement": false
+        },
+        "platform_revenue": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "margin_percent": {
+          "type": "DECIMAL(5,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "status": {
+          "type": "ENUM('PENDING','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED','NO_SHOW')",
+          "nullable": false,
+          "default": "PENDING",
+          "autoIncrement": false
+        },
+        "cancellation_reason": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "cancelled_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_booking_id": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_provider": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_status": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "pms_last_sync": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "guest_name": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "guest_email": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "guest_phone": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "special_requests": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "internal_notes": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "created_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "updated_at": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "confirmed_at": {
+          "type": "DATETIME",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "confirmation_code",
+        "guest_id",
+        "property_id",
+        "check_in",
+        "check_out",
+        "nights",
+        "guests",
+        "room_category",
+        "source",
+        "credits_used",
+        "cash_paid",
+        "currency",
+        "platform_cost",
+        "platform_revenue",
+        "margin_percent",
+        "status",
+        "guest_name",
+        "guest_email",
+        "created_at",
+        "updated_at"
+      ],
+      "optionalFields": [
+        "id",
+        "week_allocation_id",
+        "physical_room",
+        "payment_status",
+        "cancellation_reason",
+        "cancelled_at",
+        "pms_booking_id",
+        "pms_provider",
+        "pms_status",
+        "pms_last_sync",
+        "guest_phone",
+        "special_requests",
+        "internal_notes",
+        "confirmed_at"
+      ],
+      "enums": {},
+      "defaults": {
+        "credits_used": "0.00",
+        "cash_paid": "0.00",
+        "currency": "EUR",
+        "payment_status": "PENDING",
+        "platform_cost": "0.00",
+        "status": "PENDING",
+        "created_at": "current_timestamp()",
+        "updated_at": "current_timestamp()"
+      }
+    },
+    "hotel_inventory": {
+      "tableName": "hotel_inventory",
+      "columns": {
+        "id": {
+          "type": "BIGINT(20) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": true
+        },
+        "property_id": {
+          "type": "INT(10) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "date": {
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "room_category": {
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "total_rooms": {
+          "type": "SMALLINT(5) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "available_rooms": {
+          "type": "SMALLINT(5) UNSIGNED",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "rate": {
+          "type": "DECIMAL(10,2)",
+          "nullable": false,
+          "default": null,
+          "autoIncrement": false
+        },
+        "currency": {
+          "type": "VARCHAR(3)",
+          "nullable": false,
+          "default": "EUR",
+          "autoIncrement": false
+        },
+        "last_synced": {
+          "type": "DATETIME",
+          "nullable": false,
+          "default": "current_timestamp()",
+          "autoIncrement": false
+        },
+        "source": {
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "default": null,
+          "autoIncrement": false
+        },
+        "is_stale": {
+          "type": "TINYINT(1)",
+          "nullable": true,
+          "default": "0",
+          "autoIncrement": false
+        }
+      },
+      "requiredFields": [
+        "property_id",
+        "date",
+        "room_category",
+        "total_rooms",
+        "available_rooms",
+        "rate",
+        "currency",
+        "last_synced"
+      ],
+      "optionalFields": [
+        "id",
+        "source",
+        "is_stale"
+      ],
+      "enums": {},
+      "defaults": {
+        "currency": "EUR",
+        "last_synced": "current_timestamp()",
+        "is_stale": "0"
+      }
+    }
+  }
+}

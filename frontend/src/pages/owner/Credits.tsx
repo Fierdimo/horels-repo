@@ -39,11 +39,11 @@ export default function Credits() {
     );
   }
 
-  // Extract wallet data
-  const totalBalance = wallet?.wallet?.totalBalance || 0;
-  const totalEarned = wallet?.wallet?.totalEarned || 0;
-  const totalSpent = wallet?.wallet?.totalSpent || 0;
-  const expiringIn30Days = wallet?.expirations?.in30Days || 0;
+  // Extract wallet data - V2 API structure
+  const totalBalance = wallet?.balance || 0;
+  const totalEarned = wallet?.total_earned || 0;
+  const totalSpent = wallet?.total_spent || 0;
+  const expiringIn30Days = 0; // TODO: Calculate from transactions with expiration dates
 
   // Active transactions
   const activeTransactions = wallet?.activeTransactions || [];

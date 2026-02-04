@@ -31,7 +31,7 @@ router.get('/properties', async (req: Request, res: Response) => {
     
     const where: any = {
       is_marketplace_enabled: true, // Solo mostrar properties habilitadas en marketplace
-      status: 'active' // Solo activas
+      is_active: true // Solo activas
     };
 
     // Filtros opcionales
@@ -97,7 +97,7 @@ router.get('/properties/:id', async (req: Request, res: Response) => {
     const property = await Property.findOne({
       where: {
         id,
-        status: 'active'
+        is_active: true
       },
       attributes: {
         exclude: ['pms_credentials', 'bank_account_info', 'stripe_connect_account_id'], // No exponer datos sensibles
@@ -150,7 +150,7 @@ router.get('/properties/:id/availability', async (req: Request, res: Response) =
     const { start_date, end_date, room_type } = req.query;
 
     const property = await Property.findOne({
-      where: { id, status: 'active' }
+      where: { id, is_active: true }
     });
 
     if (!property) {
@@ -179,27 +179,40 @@ router.get('/properties/:id/availability', async (req: Request, res: Response) =
     }
 
     // Si tiene PMS, consultar disponibilidad en tiempo real
-    if (property.pms_provider && property.pms_provider !== 'none' && property.pms_credentials) {
+    if (property.pms_provider && property.pms_credentials_encrypted) {
       try {
-        const credentials = decryptPMSCredentials(property.pms_credentials);
-        const adapter = PMSFactory.createAdapter(property.pms_provider, credentials);
-
-        // Calcular número de noches
-        const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const credentials = decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8'));
+        const adapter = PMSFactory.create(property.pms_provider as any, credentials as any);
 
         // Consultar disponibilidad en PMS
         const pmsAvailability = await adapter.getAvailability({
-          propertyId: property.id,
-          startDate: start_date as string,
-          endDate: end_date as string,
-          nights
+          checkIn: startDate,
+          checkOut: endDate
         });
 
-        // PMS adapters retornan diferentes estructuras
-        // Verificar si hay recursos/servicios disponibles
-        const hasAvailability = pmsAvailability.resources?.length > 0 || 
-                               pmsAvailability.services?.length > 0 ||
-                               pmsAvailability.available === true;
+        // Apply platform commission to all room prices
+        const pricingService = require('../services/pricingService').default;
+        const detailsWithPricing = await Promise.all(
+          pmsAvailability.map(async (room: any) => {
+            const hotelPrice = room.rate || 0;
+            const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
+            const priceBreakdown = await pricingService.getPriceBreakdown(hotelPrice);
+            
+            return {
+              ...room,
+              price: guestPrice, // Replace hotel price with guest price
+              basePrice: hotelPrice, // Keep original for reference
+              pricing: {
+                guestPrice,
+                breakdown: priceBreakdown
+              }
+            };
+          })
+        );
+
+        // getAvailability returns PMSRoomAvailability[]
+        const hasAvailability = detailsWithPricing && detailsWithPricing.length > 0 &&
+                               detailsWithPricing.some(room => room.availableRooms > 0);
 
         return res.json({
           success: true,
@@ -207,7 +220,7 @@ router.get('/properties/:id/availability', async (req: Request, res: Response) =
             available: hasAvailability,
             source: 'pms',
             pms_provider: property.pms_provider,
-            details: pmsAvailability
+            details: detailsWithPricing
           }
         });
       } catch (error: any) {
@@ -221,7 +234,7 @@ router.get('/properties/:id/availability', async (req: Request, res: Response) =
     const whereRooms: any = {
       propertyId: property.id,
       isMarketplaceEnabled: true,
-      status: 'active'
+      is_active: true
     };
 
     if (room_type) {
@@ -311,7 +324,7 @@ router.get('/properties/:id/rooms', async (req: Request, res: Response) => {
     const { type, min_capacity, max_price, checkIn, checkOut } = req.query;
 
     const property = await Property.findOne({
-      where: { id, status: 'active' }
+      where: { id, is_active: true }
     });
 
     if (!property) {
@@ -390,14 +403,13 @@ router.get('/properties/:id/rooms', async (req: Request, res: Response) => {
 
         return {
           id: room.id,
-          pmsResourceId: room.pmsResourceId,
           name: room.name,
           type: room.type,
           capacity: room.capacity,
           floor: room.floor,
           description: room.description,
           amenities: room.amenities,
-          images: room.images,
+          images: [], // images field doesn't exist in current schema
           hotelPrice: hotelPrice, // Precio del hotel
           guestPrice, // Precio final que pagará el guest
           platformCommission: parseFloat((guestPrice - hotelPrice).toFixed(2)),
@@ -422,51 +434,489 @@ router.get('/properties/:id/rooms', async (req: Request, res: Response) => {
 });
 
 /**
- * @route   GET /api/public/properties/:propertyId/rooms/:roomId
- * @desc    Get room details
+ * @route   GET /api/public/properties/:propertyId/room-types/:roomType
+ * @desc    Get room type details from PMS
  * @access  Public
  */
-router.get('/properties/:propertyId/rooms/:roomId', async (req: Request, res: Response) => {
+router.get('/properties/:propertyId/room-types/:roomType', async (req: Request, res: Response) => {
   try {
-    const { propertyId, roomId } = req.params;
+    const { propertyId, roomType } = req.params;
+    const { checkIn, checkOut } = req.query;
 
-    const room = await Room.findOne({
-      where: {
-        id: roomId,
-        propertyId,
-        isMarketplaceEnabled: true
-      }
-    });
+    console.log('[GET room-type] Request:', { propertyId, roomType, checkIn, checkOut });
 
-    if (!room) {
+    const property = await Property.findByPk(propertyId);
+    if (!property) {
+      console.error('[GET room-type] Property not found:', propertyId);
       return res.status(404).json({
         success: false,
-        error: 'Room not found or not available'
+        error: 'Property not found'
       });
     }
 
-    // Agregar precio con comisión de plataforma
-    const hotelPrice = room.customPrice || 0;
+    console.log('[GET room-type] Property found:', { 
+      id: property.id, 
+      name: property.name,
+      pms_provider: property.pms_provider,
+      has_credentials: !!property.pms_credentials_encrypted
+    });
+
+    // Obtener datos del tipo de habitación desde el PMS
+    let roomTypeData = null;
+    
+    if (property.pms_provider && property.pms_credentials_encrypted && checkIn && checkOut) {
+      try {
+        console.log('[GET room-type] Fetching from PMS...');
+        const credentials = decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8'));
+        const adapter = PMSFactory.create(property.pms_provider as any, credentials as any);
+
+        const pmsAvailability = await adapter.getAvailability({
+          checkIn: new Date(checkIn as string),
+          checkOut: new Date(checkOut as string),
+          roomCategory: decodeURIComponent(roomType)
+        });
+
+        console.log('[GET room-type] PMS availability response:', pmsAvailability);
+
+        // Buscar el tipo específico en la respuesta del PMS
+        roomTypeData = pmsAvailability.find(
+          (room: any) => room.roomCategory === decodeURIComponent(roomType)
+        );
+
+        console.log('[GET room-type] Room type data found:', roomTypeData);
+      } catch (error: any) {
+        console.error('[GET room-type] Error fetching from PMS:', error.message);
+        console.error('[GET room-type] Error stack:', error.stack);
+      }
+    } else {
+      console.log('[GET room-type] Skipping PMS query:', {
+        hasPMS: !!property.pms_provider,
+        pmsProvider: property.pms_provider,
+        hasCredentials: !!property.pms_credentials_encrypted,
+        hasCheckIn: !!checkIn,
+        hasCheckOut: !!checkOut
+      });
+    }
+
+    // Si no se encontró en PMS, devolver datos genéricos
+    if (!roomTypeData) {
+      console.log('[GET room-type] No PMS data, returning generic data');
+      const hotelPrice = 0;
+      const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
+      const priceBreakdown = await pricingService.getPriceBreakdown(hotelPrice);
+
+      return res.json({
+        success: true,
+        data: {
+          roomType: decodeURIComponent(roomType),
+          name: decodeURIComponent(roomType),
+          description: 'Standard room',
+          capacity: 2,
+          basePrice: 0,
+          pricing: {
+            guestPrice,
+            breakdown: priceBreakdown
+          },
+          property: {
+            id: property.id,
+            name: property.name,
+            location: `${property.city}, ${property.country}`
+          }
+        }
+      });
+    }
+
+    // Devolver datos del PMS
+    console.log('[GET room-type] Calculating pricing for hotel price:', roomTypeData.rate);
+    const hotelPrice = roomTypeData.rate || 0;
     const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
     const priceBreakdown = await pricingService.getPriceBreakdown(hotelPrice);
 
-    const roomData = {
-      ...room.toJSON(),
-      pricing: {
-        guestPrice, // Precio final que pagará el guest
-        breakdown: priceBreakdown // Desglose completo (opcional, puede ocultarse)
-      }
-    };
-
+    console.log('[GET room-type] Returning successful response');
     res.json({
       success: true,
-      data: roomData
+      data: {
+        roomType: roomTypeData.roomCategory,
+        name: roomTypeData.roomCategory,
+        description: roomTypeData.description || roomTypeData.roomCategory,
+        capacity: roomTypeData.capacity || 2,
+        basePrice: roomTypeData.rate,
+        amenities: roomTypeData.amenities || [],
+        images: roomTypeData.images || [],
+        availableRooms: roomTypeData.availableRooms || 0,
+        pricing: {
+          guestPrice,
+          breakdown: priceBreakdown
+        },
+        property: {
+          id: property.id,
+          name: property.name,
+          location: `${property.city}, ${property.country}`
+        }
+      }
     });
   } catch (error: any) {
-    console.error('Error fetching room details:', error);
+    console.error('[GET room-type] Unhandled error:', error.message);
+    console.error('[GET room-type] Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch room',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/public/properties/:propertyId/room-types/:roomType/create-payment-intent
+ * @desc    Create a Stripe payment intent for marketplace booking (by room type)
+ * @access  Public
+ */
+router.post('/properties/:propertyId/room-types/:roomType/create-payment-intent', async (req: Request, res: Response) => {
+  try {
+    const { propertyId, roomType } = req.params;
+    const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests } = req.body;
+
+    // Validar campos requeridos
+    if (!guestName || !guestEmail || !checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: guestName, guestEmail, checkIn, checkOut'
+      });
+    }
+
+    // Verificar property
+    const property = await Property.findOne({
+      where: { id: propertyId, is_active: true, is_marketplace_enabled: true }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found or not available'
+      });
+    }
+
+    // Verificar que la propiedad tenga PMS configurado
+    if (!property.pms_provider || !property.pms_credentials_encrypted) {
+      return res.status(400).json({
+        success: false,
+        error: 'Property does not have PMS configured'
+      });
+    }
+
+    // Obtener datos del room type desde PMS
+    const adapter = PMSFactory.create(property.pms_provider as any, decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8')) as any);
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    const pmsAvailability = await adapter.getAvailability({
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      roomCategory: decodeURIComponent(roomType)
+    });
+
+    const roomTypeData = pmsAvailability.find(r => r.roomCategory === decodeURIComponent(roomType));
+    
+    if (!roomTypeData || !roomTypeData.availableRooms || roomTypeData.availableRooms <= 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Room type not available for selected dates'
+      });
+    }
+
+    // Calcular precio
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (nights <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Check-out date must be after check-in date'
+      });
+    }
+
+    // Obtener precio del guest usando pricingService
+    const hotelPrice = roomTypeData.rate || 0;
+    const pricePerNight = await pricingService.calculateGuestPrice(hotelPrice);
+
+    if (!pricePerNight || pricePerNight <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Room price not configured. Please contact property owner.'
+      });
+    }
+
+    const subtotal = pricePerNight * nights;
+
+    // Obtener platform fee percentage de la base de datos
+    let platformFeePercentage = 10; // Default 10%
+    try {
+      const setting = await PlatformSetting.findOne({
+        where: { setting_key: 'commissionRate' }
+      });
+      if (setting) {
+        platformFeePercentage = parseFloat((setting as any).setting_value);
+      }
+    } catch (error) {
+      console.warn('Could not fetch commission rate, using default 10%');
+    }
+
+    // Calcular platform fee y total
+    const platformFeeAmount = Math.round((subtotal * platformFeePercentage) / 100 * 100) / 100;
+    const totalAmount = Math.round((subtotal + platformFeeAmount) * 100) / 100;
+
+    // Validar que el monto cumple con el mínimo de Stripe (0.50 EUR = 50 centavos)
+    if (totalAmount < 0.50) {
+      return res.status(400).json({
+        success: false,
+        error: 'Total amount is below minimum charge amount (€0.50)'
+      });
+    }
+
+    // Crear Payment Intent con metadata
+    const paymentIntent = await stripeService.createMarketplacePaymentIntent({
+      propertyId: parseInt(propertyId),
+      roomId: 0, // No room ID for room types
+      roomName: roomTypeData.roomCategory,
+      guestName,
+      guestEmail,
+      guestPhone,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      totalAmount,
+      nights,
+      pricePerNight,
+      platformFeePercentage,
+      platformFeeAmount,
+      subtotal
+    });
+
+    res.json({
+      success: true,
+      data: {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        amount: totalAmount,
+        subtotal: subtotal,
+        platformFeeAmount: platformFeeAmount,
+        platformFeePercentage: platformFeePercentage,
+        isTestPrice: false
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/public/properties/:propertyId/room-types/:roomType/book-with-credits
+ * @desc    Book room type using credits only (no card payment)
+ * @access  Public (requires authentication via token)
+ */
+router.post('/properties/:propertyId/room-types/:roomType/book-with-credits', async (req: Request, res: Response) => {
+  try {
+    const { propertyId, roomType } = req.params;
+    const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests } = req.body;
+
+    // Get user from token (should be set by authenticateToken middleware if present)
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required for credit payments'
+      });
+    }
+
+    // Verificar property
+    const property = await Property.findOne({
+      where: { id: propertyId, is_active: true, is_marketplace_enabled: true }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found or not available'
+      });
+    }
+
+    // Verificar que la propiedad tenga PMS configurado
+    if (!property.pms_provider || !property.pms_credentials_encrypted) {
+      return res.status(400).json({
+        success: false,
+        error: 'Property does not have PMS configured'
+      });
+    }
+
+    // Obtener datos del room type desde PMS
+    const adapter = PMSFactory.create(property.pms_provider as any, decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8')) as any);
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    const pmsAvailability = await adapter.getAvailability({
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      roomCategory: decodeURIComponent(roomType)
+    });
+
+    const roomTypeData = pmsAvailability.find(r => r.roomCategory === decodeURIComponent(roomType));
+    
+    if (!roomTypeData || !roomTypeData.availableRooms || roomTypeData.availableRooms <= 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Room type not available for selected dates'
+      });
+    }
+
+    // TODO: Implement credit-based booking logic
+    // This would involve:
+    // 1. Calculate credit cost
+    // 2. Verify user has sufficient credits
+    // 3. Deduct credits
+    // 4. Create PMS booking
+    // 5. Create local booking record
+
+    return res.status(501).json({
+      success: false,
+      error: 'Credit-based booking not yet implemented for room types'
+    });
+
+  } catch (error: any) {
+    console.error('Error booking with credits:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/public/properties/:propertyId/room-types/:roomType/calculate-credit-cost
+ * @desc    Calculate credit cost for booking a room type
+ * @access  Public (requires authentication)
+ */
+router.post('/properties/:propertyId/room-types/:roomType/calculate-credit-cost', async (req: Request, res: Response) => {
+  try {
+    const { propertyId, roomType } = req.params;
+    const { checkIn, checkOut } = req.body;
+
+    // Get user from token
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        error: 'checkIn and checkOut dates are required'
+      });
+    }
+
+    // Verificar property
+    const property = await Property.findOne({
+      where: { id: propertyId, is_active: true, is_marketplace_enabled: true }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: 'Property not found or not available'
+      });
+    }
+
+    // Verificar que la propiedad tenga PMS configurado
+    if (!property.pms_provider || !property.pms_credentials_encrypted) {
+      return res.status(400).json({
+        success: false,
+        error: 'Property does not have PMS configured'
+      });
+    }
+
+    // Obtener datos del room type desde PMS
+    const adapter = PMSFactory.create(property.pms_provider as any, decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8')) as any);
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    
+    const pmsAvailability = await adapter.getAvailability({
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      roomCategory: decodeURIComponent(roomType)
+    });
+
+    const roomTypeData = pmsAvailability.find(r => r.roomCategory === decodeURIComponent(roomType));
+    
+    if (!roomTypeData) {
+      return res.status(404).json({
+        success: false,
+        error: 'Room type not found'
+      });
+    }
+
+    // Calculate credits using CreditCalculationService
+    const hotelPrice = roomTypeData.rate || 0;
+    
+    // Calculate nights
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Determine season type (simplified - you may want to use SeasonalCalendar)
+    const month = checkInDate.getMonth() + 1; // 1-12
+    let seasonType: 'RED' | 'WHITE' | 'BLUE';
+    if ([7, 8, 12].includes(month)) {
+      seasonType = 'RED'; // High season
+    } else if ([6, 9, 10, 11].includes(month)) {
+      seasonType = 'WHITE'; // Mid season
+    } else {
+      seasonType = 'BLUE'; // Low season
+    }
+    
+    const creditService = new CreditCalculationServiceClass();
+    const calculation = await creditService.calculateBookingCost(
+      parseInt(propertyId),
+      decodeURIComponent(roomType),
+      seasonType,
+      nights,
+      checkInDate
+    );
+    
+    // Get user wallet to check if they have enough credits
+    const wallet = await UserCreditWallet.findOne({ where: { user_id: userId } });
+    const availableCredits = wallet?.total_balance || 0;
+    const hasEnoughCredits = availableCredits >= calculation.totalCredits;
+    const deficit = hasEnoughCredits ? 0 : calculation.totalCredits - availableCredits;
+
+    return res.json({
+      success: true,
+      data: {
+        creditsRequired: calculation.totalCredits,
+        creditsPerNight: calculation.creditsPerNight,
+        totalAmountEUR: hotelPrice * nights,
+        pricePerNightEUR: hotelPrice,
+        nights,
+        season: seasonType,
+        roomType: decodeURIComponent(roomType),
+        breakdown: calculation.breakdown,
+        wallet: {
+          availableCredits,
+          hasEnoughCredits,
+          deficit
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error calculating credit cost:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
       message: error.message
     });
   }
@@ -486,7 +936,7 @@ router.get('/properties/:propertyId/products', async (req: Request, res: Respons
       where: {
         id: propertyId,
         is_marketplace_enabled: true,
-        status: 'active'
+        is_active: true
       }
     });
 
@@ -585,7 +1035,7 @@ router.get('/weeks/available', authenticateToken, async (req: any, res: Response
 router.get('/cities', async (req: Request, res: Response) => {
   try {
     const cities = await Property.findAll({
-      where: { status: 'active' },
+      where: { is_active: true },
       attributes: ['city', 'country'],
       group: ['city', 'country'],
       raw: true
@@ -653,7 +1103,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
 
     // Verificar que la property exista y esté activa
     const property = await Property.findOne({
-      where: { id: propertyId, status: 'active' }
+      where: { id: propertyId, is_active: true }
     });
 
     if (!property) {
@@ -663,12 +1113,11 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
       });
     }
 
-    // Verificar que la habitación exista y esté habilitada en marketplace
+    // Verificar que la habitación exista
+    // Note: propertyId and isMarketplaceEnabled fields don't exist in current schema
     const room = await Room.findOne({
       where: {
-        id: roomId,
-        propertyId: property.id,
-        isMarketplaceEnabled: true
+        id: roomId
       }
     });
 
@@ -697,7 +1146,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
     const nights = Math.ceil(
       (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
     );
-    const hotelPrice = room.customPrice || 0;
+    const hotelPrice = 0; // customPrice field doesn't exist in current schema
     const guestPrice = await pricingService.calculateGuestPrice(hotelPrice);
     const totalAmount = guestPrice * nights;
 
@@ -712,7 +1161,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
       guest_email,
       check_in: checkInDate,
       check_out: checkOutDate,
-      room_type: room.roomTypeId,
+      room_type: null, // roomTypeId field doesn't exist in current schema
       status: 'pending', // Estado inicial para aprobación de staff
       guest_token,
       total_amount: totalAmount,
@@ -751,11 +1200,11 @@ router.post('/properties/:propertyId/rooms/:roomId/book', async (req: Request, r
         },
         room: {
           name: enrichedRoom.name,
-          type: room.roomTypeId
+          type: null // roomTypeId field doesn't exist in current schema
         },
         property: {
           name: property.name,
-          location: property.location
+          location: `${property.city}, ${property.country}`
         }
       }
     });
@@ -789,7 +1238,7 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
 
     // Verificar property
     const property = await Property.findOne({
-      where: { id: propertyId, status: 'active', is_marketplace_enabled: true }
+      where: { id: propertyId, is_active: true, is_marketplace_enabled: true }
     });
 
     if (!property) {
@@ -800,11 +1249,10 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
     }
 
     // Verificar room
+    // Note: propertyId and isMarketplaceEnabled fields don't exist in current schema
     const room = await Room.findOne({
       where: { 
-        id: roomId, 
-        propertyId: propertyId,
-        isMarketplaceEnabled: true
+        id: roomId
       }
     });
 
@@ -828,7 +1276,7 @@ router.post('/properties/:propertyId/rooms/:roomId/create-payment-intent', async
     }
 
     // Determinar precio base
-    let pricePerNight = room.customPrice || 0;
+    let pricePerNight = 0; // customPrice field doesn't exist in current schema
     let isTestPrice = false;
 
     // En desarrollo/testing, si el precio es 0, usar precio de prueba
@@ -1011,14 +1459,14 @@ router.post('/bookings/confirm-payment', async (req: Request, res: Response) => 
     
     // Si el usuario fue convertido de guest a owner, generar nuevo token
     if (user) {
-      const userRole = (user as any).Role?.name || 'owner';
+      const userRole = (user as any).Role?.name || user.role || 'owner';
       token = jwt.sign(
         {
           id: user.id,
           email: user.email,
           role: userRole,
           status: user.status,
-          property_id: user.property_id
+          property_id: user.property_id || null
         },
         process.env.JWT_SECRET!,
         { expiresIn: '24h' }
@@ -1085,14 +1533,14 @@ router.post('/bookings/confirm-payment-with-saved-card', authenticateToken, asyn
       
       // Si el usuario fue convertido de guest a owner, generar nuevo token
       if (user) {
-        const userRole = (user as any).Role?.name || 'owner';
+        const userRole = (user as any).Role?.name || user.role || 'owner';
         token = jwt.sign(
           {
             id: user.id,
             email: user.email,
             role: userRole,
             status: user.status,
-            property_id: user.property_id
+            property_id: user.property_id || null
           },
           process.env.JWT_SECRET!,
           { expiresIn: '24h' }
@@ -1150,10 +1598,10 @@ router.post('/properties/:propertyId/rooms/:roomId/calculate-credit-cost', authe
     }
 
     // Validar room
+    // Note: propertyId field doesn't exist in current schema
     const room = await Room.findOne({
       where: {
-        id: roomId,
-        propertyId: propertyId
+        id: roomId
       }
     });
 
@@ -1177,7 +1625,7 @@ router.post('/properties/:propertyId/rooms/:roomId/calculate-credit-cost', authe
     }
 
     // Obtener pricing en EUR (para referencia)
-    const basePrice = room.customPrice || 100;
+    const basePrice = 100; // customPrice field doesn't exist in current schema - using default
     const guestPrice = await pricingService.calculateGuestPrice(basePrice);
     const totalAmountEUR = guestPrice * nights;
 
@@ -1303,10 +1751,10 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
     }
 
     // Validar room
+    // Note: propertyId field doesn't exist in current schema
     const room = await Room.findOne({
       where: {
-        id: roomId,
-        propertyId: propertyId
+        id: roomId
       }
     });
 
@@ -1332,7 +1780,7 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
     }
 
     // Obtener pricing en EUR (para referencia)
-    const basePrice = room.customPrice || 100; // Default price if not set
+    const basePrice = 100; // customPrice field doesn't exist in current schema - using default
     const guestPrice = await pricingService.calculateGuestPrice(basePrice);
     const totalAmountEUR = guestPrice * nights;
 

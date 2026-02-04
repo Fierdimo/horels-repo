@@ -4,6 +4,32 @@ Backend for the SW2 Timesharing & Hotel Platform — Node.js/TypeScript, Express
 
 ---
 
+## ⚠️ V2 Development in Progress
+
+**Current Status:** V2 architecture implementation (Phase 2 complete)
+
+**Migration Strategy:** **Complete cutover** (no gradual migration)
+- V1 code will remain until cutover (Week 15)
+- After cutover, V1 will be completely removed (30-day grace period)
+- See: [V1 Decommission Plan](docs_v2/V1_DECOMMISSION_PLAN.md)
+- See: [Cutover Summary](docs_v2/V1_TO_V2_CUTOVER_SUMMARY.md)
+
+**V2 Documentation:**
+- 📖 [V2 Specification](docs_v2/TIMESHARE_PLATFORM_V2_SPEC.md) - Complete V2 architecture
+- 📖 [V2 Database Schema](docs_v2/V2_DATABASE_SCHEMA.md) - Auto-generated schema
+- 📖 [Phase 2 Complete](docs_v2/PHASE2_SERVICE_LAYER_COMPLETE.md) - Service layer status
+
+**Development Status:**
+- ✅ Phase 1: Domain Model (100% complete)
+- ✅ Phase 2: Service Layer (100% complete - 18/18 tests passing)
+- 🔄 Phase 2.5: Integration Tests (in progress)
+- 📋 Phase 3-8: Pending
+- 📋 Week 15: Cutover & V1 elimination
+
+**For new features:** Use only V2 architecture. V1 is in maintenance mode only.
+
+---
+
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Latest Features (December 2025)](#latest-features-december-2025)

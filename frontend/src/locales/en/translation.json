@@ -90,6 +90,7 @@
     "activityLogs": "Activity Logs",
     "settings": "Settings",
     "rooms": "Rooms",
+    "inventory": "Inventory",
     "products": "Products",
     "marketplace": "Marketplace",
     "myBookings": "My Bookings",
@@ -1108,6 +1109,46 @@
       "manageInvitations": "Manage invitations",
       "viewAll": "View All"
     },
+    "bookings": {
+      "title": "Bookings Management",
+      "subtitle": "Review and approve marketplace bookings",
+      "pending": "Pending Approval",
+      "active": "Active Bookings",
+      "all": "All Bookings",
+      "noBookings": "No bookings found",
+      "noBookingsDescription": "New bookings will appear here",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveSuccess": "Booking approved successfully",
+      "approveError": "Error approving booking",
+      "rejectSuccess": "Booking rejected successfully",
+      "rejectError": "Error rejecting booking",
+      "approveConfirm": "Are you sure you want to approve this booking?",
+      "rejectTitle": "Reject Booking",
+      "rejectDescription": "Please provide a reason for rejecting this booking:",
+      "rejectPlaceholder": "Enter rejection reason...",
+      "rejectReasonRequired": "Rejection reason is required",
+      "confirmReject": "Confirm Rejection",
+      "status": {
+        "pending_approval": "Pending Approval",
+        "confirmed": "Confirmed",
+        "checked_in": "Checked In",
+        "checked_out": "Checked Out",
+        "cancelled": "Cancelled"
+      },
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "checkInSuccess": "Check-in completed successfully",
+      "checkInError": "Error completing check-in",
+      "checkOutSuccess": "Check-out completed successfully",
+      "checkOutError": "Error completing check-out",
+      "checkInConfirm": "Confirm check-in for this guest?",
+      "checkOutConfirm": "Confirm check-out for this guest?"
+    },
+    "inventory": {
+      "title": "Available Inventory",
+      "subtitle": "Manage available weeks and marketplace inventory"
+    },
     "services": {
       "title": "Service Management",
       "manageRequests": "Manage guest requests",
@@ -1636,7 +1677,9 @@
       "updateUser": "Update User",
       "updating": "Updating...",
       "fillAllFields": "Please fill in all fields",
-      "passwordMinLength": "Password must be at least 8 characters"
+      "passwordMinLength": "Password must be at least 8 characters",
+      "staffPropertyHelp": "Select the property this staff member will be assigned to. Staff can only manage bookings and rooms for their assigned property.",
+      "selectProperty": "Select a property"
     },
     "pendingApprovals": {
       "title": "Pending Approvals",

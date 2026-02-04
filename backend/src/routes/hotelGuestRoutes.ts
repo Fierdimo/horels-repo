@@ -218,8 +218,10 @@ router.get('/nearby/:token', logAction('view_nearby_content'), async (req: Reque
     // Here we would call Secret World API to get nearby content
     // For now, return mock data
     const nearbyContent = {
-      location: booking.Property?.location || 'Test City',
-      coordinates: booking.Property?.coordinates || { lat: 40.7128, lng: -74.0060 },
+      location: booking.Property ? `${booking.Property.city}, ${booking.Property.country}` : 'Test City',
+      coordinates: booking.Property?.latitude && booking.Property?.longitude 
+        ? { lat: booking.Property.latitude, lng: booking.Property.longitude }
+        : { lat: 40.7128, lng: -74.0060 },
       cards: [
         {
           id: 'card1',
@@ -246,31 +248,12 @@ router.get('/nearby/:token', logAction('view_nearby_content'), async (req: Reque
       ]
     };
 
-    // Normalize coordinates: Property.coordinates may be stored as JSON string, CSV "lat,lng", or object
-    const _coords = (() => {
-      const raw = nearbyContent.coordinates;
-      if (!raw) return { lat: 40.7128, lng: -74.0060 };
-      if (typeof raw === 'object') return raw as { lat: number; lng: number };
-      if (typeof raw === 'string') {
-        // Try JSON
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') return parsed;
-        } catch (_) {
-          // not JSON, try CSV
-          const parts = raw.split(',').map(p => parseFloat(p.trim()));
-          if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return { lat: parts[0], lng: parts[1] };
-        }
-      }
-      return { lat: 40.7128, lng: -74.0060 };
-    })();
-
     res.json({
       content: nearbyContent.cards,
       location: {
         name: nearbyContent.location,
-        latitude: _coords.lat,
-        longitude: _coords.lng
+        latitude: nearbyContent.coordinates.lat,
+        longitude: nearbyContent.coordinates.lng
       }
     });
   } catch (error) {

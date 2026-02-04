@@ -131,15 +131,15 @@ export class PMSSyncWorker {
       });
 
       // Verificar credenciales
-      if (!property.pms_credentials) {
+      if (!property.pms_credentials_encrypted) {
         throw new Error('PMS credentials not configured');
       }
 
       // Desencriptar credenciales
-      const credentials = decryptPMSCredentials(property.pms_credentials);
+      const credentials = decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8'));
 
       // Crear adapter PMS
-      const adapter = PMSFactory.createAdapter(
+      const adapter = PMSFactory.create(
         property.pms_provider,
         credentials
       );
@@ -167,7 +167,7 @@ export class PMSSyncWorker {
       // Actualizar property
       await property.update({
         pms_last_sync: new Date(),
-        pms_sync_status: 'success'
+        pms_sync_status: 'OK'
       });
 
       // Actualizar log de sincronización
@@ -185,7 +185,7 @@ export class PMSSyncWorker {
       // Actualizar property con error
       await property.update({
         pms_last_sync: new Date(),
-        pms_sync_status: 'failed'
+        pms_sync_status: 'ERROR'
       });
 
       // Actualizar log con error

@@ -35,16 +35,16 @@ router.get('/dashboard', authenticateToken, logAction('view_dashboard'), async (
     // Get user stats
     const stats = {
       totalActions: await ActionLog.count({ where: { user_id: userId } }),
-      role: (user as any).Role?.name,
-      memberSince: user.createdAt
+      role: user.role,
+      memberSince: user.created_at
     };
 
     res.json({
       user: {
         id: user.id,
         email: user.email,
-        role: (user as any).Role?.name,
-        memberSince: user.createdAt
+        role: user.role,
+        memberSince: user.created_at
       },
       recentActivity: recentActivity.map(activity => ({
         action: activity.action,
@@ -80,8 +80,8 @@ router.get('/profile', authenticateToken, logAction('view_profile'), async (req:
       profile: {
         id: user.id,
         email: user.email,
-        role: (user as any).Role?.name,
-        memberSince: user.createdAt,
+        role: user.role,
+        memberSince: user.created_at,
         // Add more profile fields as needed
       }
     });
@@ -97,18 +97,65 @@ router.put('/settings', authenticateToken, logAction('update_settings'), async (
     console.log('🔍 PUT /settings received:', JSON.stringify(req.body, null, 2));
     const { settings } = req.body;
     
-    // Si se incluye creditToEurRate, guardarlo en la base de datos
-    if (settings && settings.creditToEurRate !== undefined) {
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ error: 'Invalid settings format' });
+    }
+
+    // Import PlatformSetting model
+    const PlatformSetting = (await import('../models/PlatformSetting')).default;
+    
+    // Map frontend keys to database keys
+    const keyMapping: Record<string, string> = {
+      'commissionRate': 'marketplace_commission_rate',
+      'swapFee': 'swap_fee',
+      'creditConversionFee': 'credit_conversion_fee',
+      'chargeSwapFeeToRequester': 'charge_swap_fee_to_requester',
+      'chargeSwapFeeToResponder': 'charge_swap_fee_to_responder',
+      'creditToEurRate': 'credit_to_eur_rate',
+      'autoApproveGuests': 'auto_approve_guests',
+      'autoApproveStaff': 'auto_approve_staff',
+      'requireEmailVerification': 'require_email_verification',
+      'emailNotifications': 'email_notifications',
+      'bookingAlerts': 'booking_alerts',
+      'systemAlerts': 'system_alerts',
+      'maintenanceMode': 'maintenance_mode',
+      'allowRegistrations': 'allow_registrations',
+    };
+
+    // Update or create each setting
+    const promises = Object.entries(settings).map(async ([frontendKey, value]) => {
+      const dbKey = keyMapping[frontendKey] || frontendKey;
+      
+      console.log(`💾 Saving: ${frontendKey} → ${dbKey} = ${value}`);
+      
+      const [setting, created] = await PlatformSetting.findOrCreate({
+        where: { key: dbKey },
+        defaults: {
+          key: dbKey,
+          value: String(value),
+        },
+      });
+
+      if (!created) {
+        await setting.update({ value: String(value) });
+      }
+
+      return setting;
+    });
+
+    await Promise.all(promises);
+    
+    console.log('✅ All settings saved successfully');
+    
+    // Si se incluye creditToEurRate, también actualizarlo vía el servicio para invalidar caché
+    if (settings.creditToEurRate !== undefined) {
       const rate = parseFloat(settings.creditToEurRate);
-      console.log('🔍 Parsed creditToEurRate:', rate, 'isValid:', !isNaN(rate) && rate >= 0 && rate <= 10);
-      if (!isNaN(rate) && rate >= 0 && rate <= 10) {
+      if (!isNaN(rate) && rate >= 0) {
         const { CreditCalculationService } = await import('../services/CreditCalculationService');
         await CreditCalculationService.updateCreditToEurRate(rate);
-        console.log('🔍 CreditToEurRate saved successfully');
       }
     }
     
-    // Placeholder para otros settings (notification preferences, language, etc.)
     res.json({
       message: 'Settings updated successfully',
       settings: req.body.settings
@@ -187,11 +234,19 @@ router.get('/properties/names', async (req: Request, res: Response) => {
   try {
     const { Property } = await import('../models');
     const properties = await Property.findAll({
-      attributes: ['name', 'location', 'city', 'country'],
+      attributes: ['name', 'city', 'country'],
       order: [['name', 'ASC']]
     });
-    res.json({ properties: properties.map(p => ({ name: p.name, location: p.location })) });
-  } catch (error) {
+    res.json({ properties: properties.map(p => ({ name: p.name, location: `${p.city}, ${p.country}` })) });
+  } catch (error: any) {
+    // If properties table doesn't exist (V1 legacy), return empty list
+    if (error.name === 'SequelizeDatabaseError' && error.original?.code === 'ER_NO_SUCH_TABLE') {
+      res.json({ 
+        properties: [],
+        message: 'Legacy properties table not available. Use V2 API: /api/admin/properties'
+      });
+      return;
+    }
     console.error('Error fetching property names:', error);
     res.status(500).json({ error: 'Failed to fetch property names' });
   }

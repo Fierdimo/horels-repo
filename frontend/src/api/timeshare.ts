@@ -1,3 +1,4 @@
+import axios from 'axios';
 import apiClient from './client';
 import type { 
   Week, 
@@ -19,8 +20,15 @@ export const timeshareApi = {
   
   getMyBookings: async (): Promise<any[]> => {
     try {
-      const { data } = await apiClient.get('/timeshare/bookings');
-      return Array.isArray(data.data) ? data.data : [];
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const { data } = await axios.get(`${baseURL}/api/v2/bookings`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      });
+      console.log('📦 Bookings API response:', data);
+      // El endpoint devuelve { success: true, data: { bookings: [...], meta: {...} } }
+      return Array.isArray(data.data?.bookings) ? data.data.bookings : [];
     } catch (error) {
       console.error('Failed to fetch my bookings:', error);
       return [];
@@ -33,11 +41,57 @@ export const timeshareApi = {
   
   getWeeks: async (filter?: 'all' | 'available'): Promise<Week[]> => {
     try {
-      const url = filter ? `/timeshare/weeks?filter=${filter}` : '/timeshare/weeks';
-      const { data } = await apiClient.get<ApiResponse<Week[]>>(url);
-      return Array.isArray(data.data) ? data.data : [];
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const currentYear = new Date().getFullYear();
+      const { data } = await axios.get<ApiResponse<any[]>>(`${baseURL}/api/owner/weeks?year=${currentYear}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      });
+      
+      let weeks = Array.isArray(data.data) ? data.data : [];
+      
+      // Apply filter if provided
+      if (filter === 'available') {
+        weeks = weeks.filter((w: any) => w.status === 'ASSIGNED');
+      }
+      
+      return weeks;
     } catch (error) {
       console.error('Failed to fetch weeks:', error);
+      return [];
+    }
+  },
+
+  // V2: Get owner weeks with full ownership details
+  getOwnerWeeks: async (year?: number): Promise<any[]> => {
+    try {
+      const currentYear = year || new Date().getFullYear();
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const { data } = await axios.get<ApiResponse<any[]>>(`${baseURL}/api/owner/weeks?year=${currentYear}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      });
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch owner weeks:', error);
+      return [];
+    }
+  },
+
+  // V2: Get owner ownerships
+  getOwnerOwnerships: async (): Promise<any[]> => {
+    try {
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const { data } = await axios.get<ApiResponse<any[]>>(`${baseURL}/api/owner/ownerships`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      });
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      console.error('Failed to fetch owner ownerships:', error);
       return [];
     }
   },
@@ -318,23 +372,33 @@ export const timeshareApi = {
   
   getCreditWallet: async (): Promise<any> => {
     try {
-      const { data } = await apiClient.get('/credits/wallet');
-      return data.data || null;
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const { data } = await axios.get(`${baseURL}/api/v2/credits/balance`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      });
+      return data.data || { balance: 0, available_balance: 0 };
     } catch (error) {
       console.error('Failed to fetch credit wallet:', error);
-      return null;
+      return { balance: 0, available_balance: 0 };
     }
   },
 
   getCreditTransactions: async (): Promise<any[]> => {
     try {
-      const { data } = await apiClient.get('/credits/transactions');
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const { data } = await axios.get(`${baseURL}/api/v2/credits/transactions`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      });
       console.log('📊 Credit transactions response:', data);
       
-      // Backend returns data in data.data.transactions format
-      if (data?.data?.transactions) {
-        console.log('✅ Transactions found:', data.data.transactions.length);
-        return data.data.transactions;
+      // V2 endpoint returns array directly in data.data
+      if (Array.isArray(data?.data)) {
+        console.log('✅ Transactions found:', data.data.length);
+        return data.data;
       }
       
       console.warn('⚠️ No transactions in response, data structure:', data);
@@ -387,7 +451,7 @@ export const timeshareApi = {
    */
   calculateCreditCost: async (params: {
     propertyId: number;
-    roomId: number;
+    roomType: string;
     checkIn: string;
     checkOut: string;
   }): Promise<{
@@ -405,9 +469,9 @@ export const timeshareApi = {
       deficit: number;
     };
   }> => {
-    const { propertyId, roomId, checkIn, checkOut } = params;
+    const { propertyId, roomType, checkIn, checkOut } = params;
     const { data } = await apiClient.post(
-      `/public/properties/${propertyId}/rooms/${roomId}/calculate-credit-cost`,
+      `/public/properties/${propertyId}/room-types/${encodeURIComponent(roomType)}/calculate-credit-cost`,
       { checkIn, checkOut }
     );
     return data.data;
@@ -415,7 +479,7 @@ export const timeshareApi = {
 
   bookRoomWithCredits: async (params: {
     propertyId: number;
-    roomId: number;
+    roomType: string;
     guestName: string;
     guestEmail: string;
     guestPhone?: string;
@@ -424,9 +488,60 @@ export const timeshareApi = {
     guests: number;
   }): Promise<any> => {
     const { data } = await apiClient.post(
-      `/public/properties/${params.propertyId}/rooms/${params.roomId}/book-with-credits`,
+      `/public/properties/${params.propertyId}/room-types/${encodeURIComponent(params.roomType)}/book-with-credits`,
       params
     );
     return data;
-  }
+  },
+
+  // ============================================================================
+  // WEEK CONVERSION / RELEASE
+  // ============================================================================
+
+  previewWeekRelease: async (weekId: number): Promise<{
+    estimatedCredits: number;
+    expirationDate: string;
+    breakdown: {
+      baseSeason: number;
+      tierMultiplier: number;
+      roomMultiplier: number;
+      locationMultiplier: number;
+    };
+    weekInfo: {
+      year: number;
+      weekNumber: number;
+      startDate: string;
+      endDate: string;
+      propertyName: string;
+      unitName: string;
+    };
+  }> => {
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const { data } = await axios.post(`${baseURL}/api/v2/weeks/${weekId}/preview-release`, {}, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+      }
+    });
+    return data.data;
+  },
+
+  releaseWeekToCredits: async (weekId: number): Promise<{
+    creditsEarned: number;
+    expiresAt: string;
+    transactionId: number;
+  }> => {
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const { data } = await axios.post(`${baseURL}/api/v2/weeks/release`, 
+      { 
+        allocationId: weekId,
+        confirmDecay: true
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('sw2_token')}`
+        }
+      }
+    );
+    return data.data;
+  },
 };

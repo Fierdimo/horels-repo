@@ -37,7 +37,7 @@ export function BottomNav() {
           ),
         },
         {
-          to: '/owner/weeks',
+          to: '/owner/my-weeks',
           label: t('nav.weeks'),
           icon: (
             <svg

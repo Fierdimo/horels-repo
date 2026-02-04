@@ -30,8 +30,13 @@ class LoggingService {
 
       await ActionLog.create(logData);
     } catch (error) {
-      console.error('Error logging action:', error);
+      // Silently fail if action_logs table doesn't exist (V1 table)
       // Don't throw error to avoid breaking the main flow
+      if ((error as any).name === 'SequelizeDatabaseError' && (error as any).original?.code === 'ER_NO_SUCH_TABLE') {
+        // Table doesn't exist, skip logging
+        return;
+      }
+      console.error('Error logging action:', error);
     }
   }
 

@@ -76,24 +76,19 @@ class PMSController {
         return;
       }
 
-      // Verificar que la property tenga al menos un staff activo
-      const { User, Role } = await import('../models');
+      // Verificar que haya al menos un staff activo en el sistema (V2: no property-specific check)
+      const { User } = await import('../models');
       const activeStaff = await User.findOne({
         where: {
-          property_id: bookingData.propertyId,
-          status: 'approved'
-        },
-        include: [{
-          model: Role,
-          where: { name: 'staff' },
-          required: true
-        }]
+          role: 'staff',
+          status: 'active'
+        }
       });
 
       if (!activeStaff) {
         res.status(400).json({
           success: false,
-          error: 'Property is not available for bookings (no active staff)'
+          error: 'No active staff available for bookings'
         });
         return;
       }

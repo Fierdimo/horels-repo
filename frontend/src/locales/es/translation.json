@@ -91,6 +91,7 @@
     "activityLogs": "Registros de Actividad",
     "settings": "Configuración",
     "rooms": "Habitaciones",
+    "inventory": "Inventario",
     "products": "Productos",
     "marketplace": "Marketplace",
     "myBookings": "Mis Reservas",
@@ -1160,6 +1161,46 @@
       "marketplaceRooms": "Habitaciones en Marketplace",
       "viewAll": "Ver Todo"
     },
+    "bookings": {
+      "title": "Gestión de Reservas",
+      "subtitle": "Revisar y aprobar reservas del marketplace",
+      "pending": "Pendientes de Aprobación",
+      "active": "Reservas Activas",
+      "all": "Todas las Reservas",
+      "noBookings": "No hay reservas",
+      "noBookingsDescription": "Las nuevas reservas aparecerán aquí",
+      "approve": "Aprobar",
+      "reject": "Rechazar",
+      "approveSuccess": "Reserva aprobada exitosamente",
+      "approveError": "Error al aprobar reserva",
+      "rejectSuccess": "Reserva rechazada exitosamente",
+      "rejectError": "Error al rechazar reserva",
+      "approveConfirm": "¿Estás seguro de que quieres aprobar esta reserva?",
+      "rejectTitle": "Rechazar Reserva",
+      "rejectDescription": "Por favor proporciona una razón para rechazar esta reserva:",
+      "rejectPlaceholder": "Ingresa la razón del rechazo...",
+      "rejectReasonRequired": "La razón del rechazo es obligatoria",
+      "confirmReject": "Confirmar Rechazo",
+      "status": {
+        "pending_approval": "Pendiente de Aprobación",
+        "confirmed": "Confirmada",
+        "checked_in": "Check-in Realizado",
+        "checked_out": "Check-out Realizado",
+        "cancelled": "Cancelada"
+      },
+      "checkIn": "Hacer Check-in",
+      "checkOut": "Hacer Check-out",
+      "checkInSuccess": "Check-in completado exitosamente",
+      "checkInError": "Error al completar el check-in",
+      "checkOutSuccess": "Check-out completado exitosamente",
+      "checkOutError": "Error al completar el check-out",
+      "checkInConfirm": "¿Confirmar check-in para este huésped?",
+      "checkOutConfirm": "¿Confirmar check-out para este huésped?"
+    },
+    "inventory": {
+      "title": "Inventario Disponible",
+      "subtitle": "Administrar semanas disponibles e inventario del marketplace"
+    },
     "rooms": {
       "title": "Gestión de Habitaciones",
       "subtitle": "Administrar habitaciones de tu propiedad",
@@ -1631,7 +1672,9 @@
       "updateUser": "Actualizar Usuario",
       "updating": "Actualizando...",
       "fillAllFields": "Por favor completa todos los campos",
-      "passwordMinLength": "La contraseña debe tener al menos 8 caracteres"
+      "passwordMinLength": "La contraseña debe tener al menos 8 caracteres",
+      "staffPropertyHelp": "Selecciona la propiedad a la que se asignará este miembro del personal. El personal solo puede gestionar reservas y habitaciones de su propiedad asignada.",
+      "selectProperty": "Selecciona una propiedad"
     },
     "pendingApprovals": {
       "title": "Aprobaciones Pendientes",

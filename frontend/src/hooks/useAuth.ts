@@ -52,6 +52,12 @@ export function useAuth() {
         // Call custom success callback if provided
         options?.onSuccess?.();
         
+        // Check if user must change password
+        if (data.user.must_change_password) {
+          navigate('/change-temporary-password');
+          return;
+        }
+        
         // Determine redirect based on role and status
         const redirectPath = getRoleBasedRedirect(data.user.role, data.user.status);
         navigate(redirectPath);
@@ -63,6 +69,15 @@ export function useAuth() {
     });
   };
 
+  const refreshUser = async () => {
+    // Refresh user data from local storage after password change
+    const storedUser = localStorage.getItem('sw2_user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setAuth(token || '', userData);
+    }
+  };
+
   return {
     user,
     token,
@@ -70,6 +85,7 @@ export function useAuth() {
     login,
     register: registerMutation.mutate,
     logout,
+    refreshUser,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
     loginError: loginMutation.error,

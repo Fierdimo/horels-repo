@@ -25,10 +25,30 @@ export const getAllSettings = async (req: Request, res: Response): Promise<void>
   try {
     const settings = await PlatformSetting.findAll();
     
-    // Convert array to object
+    // Map database keys to frontend keys
+    const keyMapping: Record<string, string> = {
+      'marketplace_commission_rate': 'commissionRate',
+      'swap_fee': 'swapFee',
+      'credit_conversion_fee': 'creditConversionFee',
+      'charge_swap_fee_to_requester': 'chargeSwapFeeToRequester',
+      'charge_swap_fee_to_responder': 'chargeSwapFeeToResponder',
+      'credit_to_eur_rate': 'creditToEurRate',
+      'auto_approve_guests': 'autoApproveGuests',
+      'auto_approve_staff': 'autoApproveStaff',
+      'require_email_verification': 'requireEmailVerification',
+      'email_notifications': 'emailNotifications',
+      'booking_alerts': 'bookingAlerts',
+      'system_alerts': 'systemAlerts',
+      'maintenance_mode': 'maintenanceMode',
+      'allow_registrations': 'allowRegistrations',
+    };
+    
+    // Convert array to object with defaults
     const settingsObject: Record<string, string> = { ...DEFAULT_SETTINGS };
     settings.forEach((setting: any) => {
-      settingsObject[setting.setting_key] = setting.setting_value;
+      const dbKey = setting.get('key');
+      const frontendKey = keyMapping[dbKey] || dbKey;
+      settingsObject[frontendKey] = setting.get('value');
     });
 
     // Obtener creditToEurRate dinámicamente desde el servicio
@@ -56,7 +76,7 @@ export const getSetting = async (req: Request, res: Response): Promise<void> => 
     const { key } = req.params;
 
     const setting = await PlatformSetting.findOne({
-      where: { setting_key: key },
+      where: { key: key },
     });
 
     if (!setting) {
@@ -70,8 +90,8 @@ export const getSetting = async (req: Request, res: Response): Promise<void> => 
     res.json({
       success: true,
       setting: {
-        key: (setting as any).setting_key,
-        value: (setting as any).setting_value,
+        key: setting.get('key'),
+        value: setting.get('value'),
       },
     });
   } catch (error: any) {
@@ -89,6 +109,8 @@ export const getSetting = async (req: Request, res: Response): Promise<void> => 
 export const updateSettings = async (req: Request, res: Response): Promise<void> => {
   try {
     const { settings } = req.body;
+    
+    console.log('🔍 Backend received settings:', settings);
 
     if (!settings || typeof settings !== 'object') {
       res.status(400).json({
@@ -98,31 +120,54 @@ export const updateSettings = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    // Map frontend keys to database keys
+    const keyMapping: Record<string, string> = {
+      'commissionRate': 'marketplace_commission_rate',
+      'swapFee': 'swap_fee',
+      'creditConversionFee': 'credit_conversion_fee',
+      'chargeSwapFeeToRequester': 'charge_swap_fee_to_requester',
+      'chargeSwapFeeToResponder': 'charge_swap_fee_to_responder',
+      'creditToEurRate': 'credit_to_eur_rate',
+      'autoApproveGuests': 'auto_approve_guests',
+      'autoApproveStaff': 'auto_approve_staff',
+      'requireEmailVerification': 'require_email_verification',
+      'emailNotifications': 'email_notifications',
+      'bookingAlerts': 'booking_alerts',
+      'systemAlerts': 'system_alerts',
+      'maintenanceMode': 'maintenance_mode',
+      'allowRegistrations': 'allow_registrations',
+    };
+
     // Update or create each setting
-    const promises = Object.entries(settings).map(async ([key, value]) => {
+    const promises = Object.entries(settings).map(async ([frontendKey, value]) => {
+      const dbKey = keyMapping[frontendKey] || frontendKey;
+      
+      console.log(`💾 Saving: ${frontendKey} → ${dbKey} = ${value}`);
+      
       const [setting, created] = await PlatformSetting.findOrCreate({
-        where: { setting_key: key },
+        where: { key: dbKey },
         defaults: {
-          setting_key: key,
-          setting_value: String(value),
-          setting_type: 'STRING',
+          key: dbKey,
+          value: String(value),
         },
       });
 
       if (!created) {
-        await setting.update({ setting_value: String(value) });
+        await setting.update({ value: String(value) });
       }
 
       return setting;
     });
 
     await Promise.all(promises);
+    
+    console.log('✅ Settings saved successfully');
 
     // Fetch updated settings
     const updatedSettings = await PlatformSetting.findAll();
     const settingsObject: Record<string, string> = { ...DEFAULT_SETTINGS };
     updatedSettings.forEach((setting: any) => {
-      settingsObject[setting.setting_key] = setting.setting_value;
+      settingsObject[setting.get('key')] = setting.get('value');
     });
 
     res.json({
@@ -156,24 +201,23 @@ export const updateSetting = async (req: Request, res: Response): Promise<void> 
     }
 
     const [setting, created] = await PlatformSetting.findOrCreate({
-      where: { setting_key: key },
+      where: { key: key },
       defaults: {
-        setting_key: key,
-        setting_value: String(value),
-        setting_type: 'STRING',
+        key: key,
+        value: String(value),
       },
     });
 
     if (!created) {
-      await setting.update({ setting_value: String(value) });
+      await setting.update({ value: String(value) });
     }
 
     res.json({
       success: true,
       message: 'Setting updated successfully',
       setting: {
-        key: (setting as any).setting_key,
-        value: (setting as any).setting_value,
+        key: setting.get('key'),
+        value: setting.get('value'),
       },
     });
   } catch (error: any) {
@@ -193,7 +237,7 @@ export const deleteSetting = async (req: Request, res: Response): Promise<void> 
     const { key } = req.params;
 
     const deleted = await PlatformSetting.destroy({
-      where: { setting_key: key },
+      where: { key: key },
     });
 
     if (!deleted) {
@@ -248,10 +292,10 @@ export const resetSettings = async (req: Request, res: Response): Promise<void> 
 export const getSwapFee = async (req: Request, res: Response): Promise<void> => {
   try {
     const setting = await PlatformSetting.findOne({
-      where: { setting_key: 'swapFee' },
+      where: { key: 'swapFee' },
     });
 
-    const swapFee = setting ? (setting as any).setting_value : DEFAULT_SETTINGS.swapFee;
+    const swapFee = setting ? setting.get('value') : DEFAULT_SETTINGS.swapFee;
 
     res.json({
       success: true,

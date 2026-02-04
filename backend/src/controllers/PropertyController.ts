@@ -48,6 +48,17 @@ class PropertyController {
         count: properties.length
       });
     } catch (error: any) {
+      // If table doesn't exist (V1 legacy), return empty list
+      if (error.name === 'SequelizeDatabaseError' && error.original?.code === 'ER_NO_SUCH_TABLE') {
+        res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'Legacy properties table not available. Use V2 API: /api/admin/properties'
+        });
+        return;
+      }
+      
       console.error('Error listing properties:', error);
       res.status(500).json({
         success: false,
@@ -81,12 +92,12 @@ class PropertyController {
 
       // Return PMS connection status without credentials
       const responseData: any = property.toJSON();
-      if (property.pms_provider && property.pms_provider !== 'none') {
+      if (property.pms_provider) {
         responseData.pms_configured = true;
         responseData.pms_fields_configured = {
           provider: !!property.pms_provider,
           property_id: !!property.pms_property_id,
-          credentials: !!property.pms_credentials
+          credentials: !!property.pms_credentials_encrypted
         };
       }
 
@@ -208,8 +219,8 @@ class PropertyController {
         return;
       }
 
-      // Soft delete by setting status to inactive
-      await property.update({ status: 'inactive' });
+      // Soft delete by setting is_active to false
+      await property.update({ is_active: false });
 
       res.json({
         success: true,
@@ -242,7 +253,7 @@ class PropertyController {
         return;
       }
 
-      if (!property.pms_provider || property.pms_provider === 'none') {
+      if (!property.pms_provider) {
         res.status(400).json({
           success: false,
           error: 'Property has no PMS provider configured'
@@ -250,7 +261,7 @@ class PropertyController {
         return;
       }
 
-      if (!property.pms_credentials) {
+      if (!property.pms_credentials_encrypted) {
         res.status(400).json({
           success: false,
           error: 'Property has no PMS credentials configured'
@@ -259,13 +270,12 @@ class PropertyController {
       }
 
       // Desencriptar credenciales guardadas
-      const credentials = decryptPMSCredentials(property.pms_credentials);
+      const credentials = decryptPMSCredentials(property.pms_credentials_encrypted.toString('utf8'));
 
       // Test connection using factory
       const result = await PMSFactory.testConnection(
         property.pms_provider,
-        credentials,
-        property.pms_property_id || undefined
+        credentials
       );
 
       res.json(result);
@@ -274,6 +284,139 @@ class PropertyController {
       res.status(500).json({
         success: false,
         error: 'Failed to test PMS connection',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Test new PMS credentials before saving (Phase 7: Admin Tools)
+   * POST /api/admin/properties/pms/test-credentials
+   */
+  async testNewPMSCredentials(req: Request, res: Response): Promise<void> {
+    try {
+      const { provider, credentials, property_id } = req.body;
+
+      if (!provider || !credentials) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required fields: provider, credentials'
+        });
+        return;
+      }
+
+      // Validate provider
+      const validProviders = ['mews', 'cloudbeds', 'opera', 'resnexus', 'other'];
+      if (!validProviders.includes(provider)) {
+        res.status(400).json({
+          success: false,
+          error: `Invalid provider. Must be one of: ${validProviders.join(', ')}`
+        });
+        return;
+      }
+
+      // Test connection without saving
+      const result = await PMSFactory.testConnection(
+        provider,
+        credentials
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error testing new PMS credentials:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to test PMS credentials',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Configure PMS for a property (Phase 7: Admin Tools)
+   * PUT /api/admin/properties/:id/pms
+   */
+  async configurePMS(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { provider, property_id, credentials, sync_enabled } = req.body;
+
+      const property = await Property.findByPk(id);
+      if (!property) {
+        res.status(404).json({
+          success: false,
+          error: 'Property not found'
+        });
+        return;
+      }
+
+      // Update PMS configuration
+      const updateData: any = {};
+      
+      if (provider !== undefined) updateData.pms_provider = provider;
+      if (property_id !== undefined) updateData.pms_property_id = property_id;
+      if (sync_enabled !== undefined) updateData.pms_sync_enabled = sync_enabled;
+      
+      // Encrypt and save credentials if provided
+      if (credentials) {
+        updateData.pms_credentials = encryptPMSCredentials(credentials);
+      }
+
+      await property.update(updateData);
+
+      // Return without exposing credentials
+      const responseData: any = property.toJSON();
+      delete responseData.pms_credentials_encrypted;
+      responseData.pms_configured = !!(property.pms_provider && property.pms_credentials_encrypted);
+
+      res.json({
+        success: true,
+        data: responseData,
+        message: 'PMS configuration updated successfully'
+      });
+    } catch (error: any) {
+      console.error('Error configuring PMS:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to configure PMS',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Remove PMS configuration (Phase 7: Admin Tools)
+   * DELETE /api/admin/properties/:id/pms
+   */
+  async removePMSConfiguration(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const property = await Property.findByPk(id);
+      if (!property) {
+        res.status(404).json({
+          success: false,
+          error: 'Property not found'
+        });
+        return;
+      }
+
+      // Clear PMS configuration
+      await property.update({
+        pms_provider: undefined,
+        pms_property_id: undefined,
+        pms_credentials_encrypted: undefined
+      });
+
+      res.json({
+        success: true,
+        message: 'PMS configuration removed successfully'
+      });
+    } catch (error: any) {
+      console.error('Error removing PMS configuration:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to remove PMS configuration',
         message: error.message
       });
     }
@@ -297,7 +440,7 @@ class PropertyController {
         return;
       }
 
-      if (!property.pms_sync_enabled) {
+      if (!property.pms_provider) {
         res.status(400).json({
           success: false,
           error: 'PMS sync is not enabled for this property'
@@ -390,7 +533,7 @@ class PropertyController {
         return;
       }
 
-      if (!property.pms_provider || property.pms_provider === 'none') {
+      if (!property.pms_provider) {
         res.status(400).json({
           success: false,
           error: 'Property does not have PMS configured'
@@ -400,7 +543,14 @@ class PropertyController {
 
       // Get adapter and fetch availability
       const adapter = await PMSFactory.getAdapter(parseInt(id));
-      const availability = await adapter.getAvailability(params);
+      const today = new Date();
+      const nextMonth = new Date(today);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      
+      const availability = await adapter.getAvailability({
+        checkIn: today,
+        checkOut: nextMonth
+      });
 
       res.json({
         success: true,

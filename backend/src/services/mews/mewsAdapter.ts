@@ -1,4 +1,5 @@
-import { IPMSAdapter } from '../pms/PMSFactory';
+// Legacy file - use services/pms/MewsAdapter.ts instead
+// import { IPMSAdapter } from '../pms/PMSFactory';
 
 export type PriceResult = {
   success: boolean
@@ -13,7 +14,7 @@ export type AddResult = {
   reason?: string
 }
 
-export interface IMewsAdapter extends IPMSAdapter {
+export interface IMewsAdapter { // extends IPMSAdapter {
   priceReservation(payload: any): Promise<PriceResult>
   addReservation(payload: any): Promise<AddResult>
 }

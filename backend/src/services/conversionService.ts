@@ -118,7 +118,7 @@ class ConversionService {
       }
 
       // Check if user is already an owner
-      const userRole = (user as any).Role?.name;
+      const userRole = user.role; // V2: direct role field
       if (userRole !== 'guest') {
         throw new Error('User is not a guest');
       }
@@ -140,15 +140,8 @@ class ConversionService {
         throw new Error('Payment failed');
       }
 
-      // Get owner role ID
-      const Role = require('../models/Role').default;
-      const ownerRole = await Role.findOne({ where: { name: 'owner' } });
-      if (!ownerRole) {
-        throw new Error('Owner role not found');
-      }
-
-      // Update user role to owner
-      await user.update({ role_id: ownerRole.id });
+      // Update user role to owner (V2: role is a direct field)
+      await user.update({ role: 'owner' });
 
       // Record the fee payment
       await this.recordFeePayment(

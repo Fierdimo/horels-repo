@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { User, Role } from '../models';
+import UserV2 from '../models/v2/User'; // V2 model
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -20,13 +21,13 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
     
-    const user = await User.findByPk(decoded.id, { include: Role });
+    // Use V2 model (no Role include needed, role is in user table)
+    const user = await UserV2.findByPk(decoded.id);
     if (!user) {
       console.log('❌ User not found for ID:', decoded.id);
       return res.status(401).json({ error: 'User not found' });
     }
     
-    const userWithRole = user as any;
     req.user = user;
     next();
   } catch (error) {
@@ -38,7 +39,8 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
 export const authorizeRole = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user;
-    if (!user || !user.Role || !roles.includes(user.Role.name)) {
+    // V2: role is directly in user object
+    if (!user || !roles.includes(user.role)) {
       return res.status(403).json({ error: 'Forbidden: insufficient role' });
     }
     next();

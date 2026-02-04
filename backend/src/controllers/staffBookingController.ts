@@ -1,44 +1,56 @@
 import { Response } from 'express';
-import { Booking, Room, Property, Week, User } from '../models';
 import { AuthRequest } from '../middleware/authMiddleware';
-import bookingStatusService from '../services/bookingStatusService';
-import RoomEnrichmentService from '../services/roomEnrichmentService';
 import { Op } from 'sequelize';
+
+// V2 Models
+import V2Booking from '../models/v2/V2Booking';
+import TimeshareProperty from '../models/v2/TimeshareProperty';
+import WeekAllocation from '../models/v2/WeekAllocation';
+import UserV2 from '../models/v2/User';
 
 class StaffBookingController {
   /**
-   * Get all pending bookings for staff's property
+   * Get all pending bookings for staff's property (V2)
+   * Returns bookings from v2_bookings table
    */
   async getPendingBookings(req: AuthRequest, res: Response): Promise<void> {
     try {
+      // 🔍 DEBUG: Verificar contenido del token JWT
+      console.log('\n=== JWT TOKEN DEBUG ===');
+      console.log('Full req.user:', JSON.stringify(req.user, null, 2));
+      console.log('property_id value:', req.user?.property_id);
+      console.log('property_id type:', typeof req.user?.property_id);
+      console.log('=====================\n');
+
       const propertyId = req.user?.property_id;
 
       if (!propertyId) {
         res.status(403).json({
           success: false,
-          error: 'Staff user must be associated with a property'
+          error: 'Staff user must be associated with a property. Please log out and log in again.'
         });
         return;
       }
 
-      const pendingBookings = await Booking.findAll({
+      // V2: Get bookings with status PENDING (not pending_confirmation)
+      const pendingBookings = await V2Booking.findAll({
         where: {
           property_id: propertyId,
-          status: 'pending'
+          status: 'PENDING'
         },
         include: [
           {
-            model: Room,
-            as: 'Room',
-            attributes: ['id', 'pmsResourceId', 'roomTypeId', 'customPrice', 'isMarketplaceEnabled', 'images']
+            model: TimeshareProperty,
+            as: 'property',
+            attributes: ['id', 'name', 'city', 'country']
           },
           {
-            model: Property,
-            as: 'Property',
-            attributes: ['id', 'name', 'location']
+            model: WeekAllocation,
+            as: 'weekAllocations',
+            attributes: ['id', 'start_date', 'end_date', 'status']
           }
         ],
-        order: [['created_at', 'ASC']] // Más antiguas primero
+        order: [['created_at', 'ASC']]
       });
 
       res.json({
@@ -57,17 +69,17 @@ class StaffBookingController {
   }
 
   /**
-   * Get all bookings (with filters) for staff's property
+   * Get all bookings (with filters) for staff's property (V2)
    */
   async getAllBookings(req: AuthRequest, res: Response): Promise<void> {
     try {
       const propertyId = req.user?.property_id;
-      const { status, start_date, end_date, room_id } = req.query;
+      const { status, start_date, end_date } = req.query;
 
       if (!propertyId) {
         res.status(403).json({
           success: false,
-          error: 'Staff user must be associated with a property'
+          error: 'Staff user must be associated with a property. Please log out and log in again.'
         });
         return;
       }
@@ -80,23 +92,24 @@ class StaffBookingController {
         where.status = status;
       }
 
-      if (room_id) {
-        where.room_id = room_id;
-      }
-
       if (start_date || end_date) {
         where.check_in = {};
         if (start_date) where.check_in[Op.gte] = new Date(start_date as string);
         if (end_date) where.check_in[Op.lte] = new Date(end_date as string);
       }
 
-      const bookings = await Booking.findAll({
+      const bookings = await V2Booking.findAll({
         where,
         include: [
           {
-            model: Room,
-            as: 'Room',
-            attributes: ['id', 'pmsResourceId', 'roomTypeId', 'customPrice', 'isMarketplaceEnabled', 'images']
+            model: TimeshareProperty,
+            as: 'property',
+            attributes: ['id', 'name', 'city']
+          },
+          {
+            model: WeekAllocation,
+            as: 'weekAllocations',
+            attributes: ['id', 'start_date', 'end_date', 'week_number']
           }
         ],
         order: [['created_at', 'DESC']]
@@ -118,7 +131,8 @@ class StaffBookingController {
   }
 
   /**
-   * Approve a pending booking
+   * Approve a pending booking (V2)
+   * Changes status from pending_confirmation to confirmed
    */
   async approveBooking(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -133,19 +147,12 @@ class StaffBookingController {
         return;
       }
 
-      // Buscar el booking pendiente
-      const booking = await Booking.findOne({
+      const booking = await V2Booking.findOne({
         where: {
           id,
           property_id: propertyId,
-          status: 'pending'
-        },
-        include: [
-          {
-            model: Room,
-            as: 'Room'
-          }
-        ]
+          status: 'PENDING'
+        }
       });
 
       if (!booking) {
@@ -156,74 +163,9 @@ class StaffBookingController {
         return;
       }
 
-      // Verificar disponibilidad nuevamente (por si hubo cambios)
-      if (booking.room_id) {
-        const isAvailable = await bookingStatusService.checkRoomAvailability(
-          booking.room_id,
-          booking.check_in,
-          booking.check_out
-        );
-
-        if (!isAvailable) {
-          res.status(409).json({
-            success: false,
-            error: 'Room is no longer available for these dates'
-          });
-          return;
-        }
-      }
-
-      // Cambiar estado a confirmed
-      booking.status = 'confirmed';
+      // V2: Simple status change
+      booking.status = 'CONFIRMED';
       await booking.save();
-
-      // Actualizar estado de la habitación
-      if (booking.room_id) {
-        await bookingStatusService.onBookingCreated(booking.id);
-      }
-
-      // CREATE WEEK with room's accommodation type when booking is approved
-      const room = booking.get('Room') as any;
-      if (booking.room_id && room) {
-        // Enriquecer room con datos del PMS para obtener el tipo
-        let enrichedRoom;
-        try {
-          enrichedRoom = await RoomEnrichmentService.enrichRoom(room);
-        } catch (error: any) {
-          console.warn('Warning: Could not enrich room:', error.message);
-          enrichedRoom = { type: 'Standard' } as any; // Fallback
-        }
-
-        // Find or create owner (guest becomes owner of this week)
-        let owner = await User.findOne({
-          where: { email: booking.guest_email }
-        });
-
-        if (!owner) {
-          // Create a user for the guest
-          owner = await User.create({
-            email: booking.guest_email,
-            firstName: booking.guest_name.split(' ')[0],
-            lastName: booking.guest_name.split(' ').slice(1).join(' ') || '',
-            role_id: 3, // Assuming role 3 is 'owner'
-            status: 'approved',
-            password: '' // Will need to set password via email reset link
-          });
-        }
-
-        // Create week with room's accommodation type
-        await Week.create({
-          owner_id: owner.id,
-          property_id: booking.property_id,
-          start_date: booking.check_in,
-          end_date: booking.check_out,
-          accommodation_type: enrichedRoom.type || 'Standard',
-          status: 'confirmed'
-        });
-      }
-
-      // TODO: Enviar email de confirmación al guest
-      // TODO: Procesar pago si es necesario
 
       res.json({
         success: true,
@@ -249,21 +191,15 @@ class StaffBookingController {
       const { reason } = req.body;
       const propertyId = req.user?.property_id;
 
-      if (!propertyId) {
-        res.status(403).json({
-          success: false,
-          error: 'Staff user must be associated with a property'
-        });
-        return;
+      // Build where clause
+      const where: any = { id, status: 'pending' };
+      if (propertyId) {
+        where.property_id = propertyId;
       }
 
       // Buscar el booking pendiente
-      const booking = await Booking.findOne({
-        where: {
-          id,
-          property_id: propertyId,
-          status: 'pending'
-        }
+      const booking = await V2Booking.findOne({
+        where
       });
 
       if (!booking) {
@@ -275,7 +211,7 @@ class StaffBookingController {
       }
 
       // Cambiar estado a cancelled
-      booking.status = 'cancelled';
+      booking.status = 'CANCELLED';
       await booking.save();
 
       // TODO: Enviar email de rechazo al guest con la razón
@@ -296,7 +232,107 @@ class StaffBookingController {
   }
 
   /**
-   * Get booking statistics for staff dashboard
+   * Check-in a booking (V2)
+   */
+  async checkInBooking(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const propertyId = req.user?.property_id;
+
+      if (!propertyId) {
+        res.status(403).json({
+          success: false,
+          error: 'Staff user must be associated with a property'
+        });
+        return;
+      }
+
+      const booking = await V2Booking.findOne({
+        where: {
+          id,
+          property_id: propertyId,
+          status: 'confirmed'
+        }
+      });
+
+      if (!booking) {
+        res.status(404).json({
+          success: false,
+          error: 'Confirmed booking not found'
+        });
+        return;
+      }
+
+      booking.status = 'CHECKED_IN';
+      await booking.save();
+
+      res.json({
+        success: true,
+        message: 'Check-in completed successfully',
+        data: booking
+      });
+    } catch (error: any) {
+      console.error('Error during check-in:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to complete check-in',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Check-out a booking (V2)
+   */
+  async checkOutBooking(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const propertyId = req.user?.property_id;
+
+      if (!propertyId) {
+        res.status(403).json({
+          success: false,
+          error: 'Staff user must be associated with a property'
+        });
+        return;
+      }
+
+      const booking = await V2Booking.findOne({
+        where: {
+          id,
+          property_id: propertyId,
+          status: 'checked_in'
+        }
+      });
+
+      if (!booking) {
+        res.status(404).json({
+          success: false,
+          error: 'Checked-in booking not found'
+        });
+        return;
+      }
+
+      booking.status = 'CHECKED_OUT';
+      await booking.save();
+
+      res.json({
+        success: true,
+        message: 'Check-out completed successfully',
+        data: booking
+      });
+    } catch (error: any) {
+      console.error('Error during check-out:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to complete check-out',
+        message: error.message
+      });
+    }
+  }
+
+  /**
+   * Get booking statistics for staff dashboard (V2)
    */
   async getBookingStats(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -310,20 +346,22 @@ class StaffBookingController {
         return;
       }
 
-      const [totalBookings, pendingCount, confirmedCount, checkedInCount] = await Promise.all([
-        Booking.count({ where: { property_id: propertyId } }),
-        Booking.count({ where: { property_id: propertyId, status: 'pending' } }),
-        Booking.count({ where: { property_id: propertyId, status: 'confirmed' } }),
-        Booking.count({ where: { property_id: propertyId, status: 'checked_in' } })
+      const baseWhere: any = { property_id: propertyId };
+
+      const [total, pending, confirmed, checkedIn] = await Promise.all([
+        V2Booking.count({ where: baseWhere }),
+        V2Booking.count({ where: { ...baseWhere, status: 'PENDING' } }),
+        V2Booking.count({ where: { ...baseWhere, status: 'CONFIRMED' } }),
+        V2Booking.count({ where: { ...baseWhere, status: 'CHECKED_IN' } })
       ]);
 
       res.json({
         success: true,
         data: {
-          total: totalBookings,
-          pending: pendingCount,
-          confirmed: confirmedCount,
-          checkedIn: checkedInCount
+          total: total,
+          pending: pending,
+          confirmed: confirmed,
+          checkedIn: checkedIn
         }
       });
     } catch (error: any) {

@@ -44,7 +44,20 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    // Don't redirect to login for public marketplace/checkout endpoints
+    const isPublicEndpoint = error.config?.url?.includes('/marketplace/') || 
+                             error.config?.url?.includes('/public/') ||
+                             error.config?.url?.includes('/checkout');
+    
+    console.log('🔍 API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      isPublicEndpoint,
+      willRedirect: error.response?.status === 401 && !isPublicEndpoint
+    });
+    
+    if (error.response?.status === 401 && !isPublicEndpoint) {
+      console.log('❌ Redirecting to login...');
       // Clear auth from all storage locations
       localStorage.removeItem('sw2_token');
       localStorage.removeItem('sw2_user');

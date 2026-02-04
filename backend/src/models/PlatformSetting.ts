@@ -8,26 +8,16 @@ const PlatformSetting = sequelize.define('PlatformSetting', {
     autoIncrement: true,
     primaryKey: true,
   },
-  setting_key: {
-    type: DataTypes.STRING(100),
+  key: {
+    type: DataTypes.STRING(128),
     allowNull: false,
     unique: true,
+    field: 'key',
   },
-  setting_value: {
+  value: {
     type: DataTypes.TEXT,
     allowNull: false,
-  },
-  setting_type: {
-    type: DataTypes.ENUM('STRING', 'NUMBER', 'BOOLEAN', 'JSON'),
-    allowNull: false,
-  },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  updated_by: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
+    field: 'value',
   },
 }, {
   tableName: 'platform_settings',

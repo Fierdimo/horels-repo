@@ -23,22 +23,18 @@ const roomController = {
    */
   async createRoom(req: Request, res: Response) {
     try {
-      const { pmsResourceId, propertyId, roomTypeId, customPrice, isMarketplaceEnabled, images } = req.body;
+      const { name, description, capacity } = req.body;
       
-      if (!pmsResourceId || !propertyId) {
+      if (!name) {
         return res.status(400).json({ 
-          error: 'pmsResourceId and propertyId are required' 
+          error: 'name is required' 
         });
       }
 
       const room = await Room.create({ 
-        pmsResourceId, 
-        propertyId, 
-        roomTypeId, 
-        customPrice, 
-        isMarketplaceEnabled: isMarketplaceEnabled || false,
-        images: images || [],
-        pmsLastSync: new Date()
+        name,
+        description,
+        capacity: capacity || 1
       });
       
       const enriched = await RoomEnrichmentService.enrichRoom(room);
@@ -55,16 +51,15 @@ const roomController = {
   async updateRoom(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { roomTypeId, customPrice, isMarketplaceEnabled, images } = req.body;
+      const { name, description, capacity } = req.body;
       
       const room = await Room.findByPk(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
       
       await room.update({ 
-        ...(roomTypeId !== undefined && { roomTypeId }),
-        ...(customPrice !== undefined && { customPrice }),
-        ...(isMarketplaceEnabled !== undefined && { isMarketplaceEnabled }),
-        ...(images !== undefined && { images })
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(capacity !== undefined && { capacity })
       });
       
       const enriched = await RoomEnrichmentService.enrichRoom(room);

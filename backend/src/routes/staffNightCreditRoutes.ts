@@ -265,26 +265,16 @@ router.get(
         });
       }
 
-      const { Role, User } = require('../models');
+      const { User } = require('../models');
       
-      // Get owner role
-      const ownerRole = await Role.findOne({ where: { name: 'owner' } });
-      
-      if (!ownerRole) {
-        return res.status(404).json({ 
-          success: false,
-          error: 'Owner role not found' 
-        });
-      }
-
       // Get all active owners (staff can assign periods to any owner for their property)
       const owners = await User.findAll({
         where: { 
-          role_id: ownerRole.id
+          role: 'owner'
           // Temporalmente sin filtro de status para ver todos los owners
         },
-        attributes: ['id', 'firstName', 'lastName', 'email', 'status'],
-        order: [['firstName', 'ASC'], ['lastName', 'ASC']]
+        attributes: ['id', 'first_name', 'last_name', 'email', 'status'],
+        order: [['first_name', 'ASC'], ['last_name', 'ASC']]
       });
 
       console.log('Found owners:', owners.length);

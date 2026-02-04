@@ -200,20 +200,39 @@ class CreditBookingService {
           throw new Error('Payment method required for cash payment');
         }
 
-        // TODO: Integrate with StripeService for actual charge
-        // For now, just validate and record
-        cashPaid = request.cashAmount;
-        stripeChargeId = `ch_simulated_${Date.now()}`; // Placeholder
+        // Get user details for Stripe
+        const { User } = await import('../models');
+        const owner = await User.findByPk(request.ownerId);
+        if (!owner) {
+          throw new Error('Owner not found');
+        }
 
-        // Actual implementation would be:
-        // const charge = await StripeService.charge({
-        //   amount: request.cashAmount,
-        //   currency: 'eur',
-        //   paymentMethodId: request.stripePaymentMethodId,
-        //   customerId: owner.stripe_customer_id,
-        //   description: `Booking payment for inventory #${request.inventoryItemId}`
-        // });
-        // stripeChargeId = charge.id;
+        // Integrate with StripeService for actual charge
+        const { StripeService } = await import('./stripeService');
+        const stripeService = new StripeService();
+
+        // Get or create Stripe customer
+        const customerId = await stripeService.getOrCreateCustomer(
+          request.ownerId,
+          owner.email,
+          `${owner.first_name || ''} ${owner.last_name || ''}`.trim()
+        );
+
+        // Create and confirm payment intent
+        const paymentIntent = await stripeService.createCreditMarketplacePaymentIntent({
+          amount: request.cashAmount,
+          currency: 'eur',
+          customerId,
+          paymentMethodId: request.stripePaymentMethodId,
+          inventoryItemId: request.inventoryItemId,
+          weekId: item.week_id,
+          propertyId: item.property_id,
+          creditsUsed: request.creditsToUse,
+          description: `Hybrid payment for inventory #${request.inventoryItemId} (${request.creditsToUse} credits + €${request.cashAmount})`
+        });
+
+        cashPaid = request.cashAmount;
+        stripeChargeId = paymentIntent.id;
       }
 
       // 5. Create booking record

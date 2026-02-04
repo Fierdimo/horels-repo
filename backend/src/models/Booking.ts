@@ -166,7 +166,7 @@ Booking.init({
 }, {
   sequelize,
   modelName: 'Booking',
-  tableName: 'bookings',
+  tableName: 'v2_bookings', // V2: usando v2_bookings table
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',

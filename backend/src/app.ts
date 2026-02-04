@@ -31,6 +31,29 @@ import invitationRoutes, { publicInvitationRoutes } from './routes/invitationRou
 import roomAvailabilityRoutes from './routes/roomAvailabilityRoutes';
 import bookingRoutes from './routes/bookingRoutes';
 import marketplaceRoutes from './routes/marketplaceRoutes';
+import prepaidInventoryRoutes from './routes/prepaidInventoryRoutes';
+import unifiedSearchRoutes from './routes/unifiedSearchRoutes';
+import mockPMSRoutes from './routes/mockPMSRoutes';
+import marketplaceV2Routes from './routes/marketplaceV2Routes';
+
+// V2 Routes (New Architecture)
+import weekReleaseRoutes from './routes/v2/weekReleaseRoutes';
+import creditRoutesV2 from './routes/v2/creditRoutes';
+import ownershipRoutes from './routes/v2/ownershipRoutes';
+import searchRoutes from './routes/v2/searchRoutes';
+import bookingRoutesV2 from './routes/v2/bookingRoutes';
+import ownerRoutes from './routes/ownerRoutes';
+import adminCreditConfigRoutesV2 from './routes/v2/adminCreditConfigRoutes';
+
+// Admin Routes (Phase 7: Admin Tools)
+import adminUnitsRoutes from './routes/admin/units';
+import adminOwnershipsRoutes from './routes/admin/ownerships';
+import adminUnitOwnershipsRoutes from './routes/admin/unit-ownerships';
+import adminUserOwnershipsRoutes from './routes/admin/user-ownerships';
+import adminPropertiesRoutes from './routes/admin/properties';
+import adminOwnershipImportRoutes from './routes/admin/ownership-import';
+import adminAllocationsRoutes from './routes/admin/allocations';
+
 import { authenticateToken } from './middleware/authMiddleware';
 import { authorize } from './middleware/authorizationMiddleware';
 import { logAction } from './middleware/loggingMiddleware';
@@ -50,6 +73,12 @@ import {
   enforceHttps,
   addSecurityHeaders
 } from './middleware/securityLogger';
+
+// Initialize V2 Models
+import sequelize from './config/database';
+import { initV2Models } from './models/v2';
+initV2Models(sequelize);
+
 const app = express();
 
 // IMPORTANT: Webhook routes MUST be registered BEFORE express.json() 
@@ -102,9 +131,44 @@ app.use('/hotels/api/admin/credit-config', authenticateToken, adminCreditConfigR
 app.use('/hotels/api/rooms', roomAvailabilityRoutes); // Room availability with correct types from PMS
 app.use('/hotels/api/bookings', authenticateToken, bookingRoutes); // User booking management (cancel, invoice, etc.)
 app.use('/hotels/api/marketplace', authenticateToken, marketplaceRoutes); // Unified credit marketplace (release, search, book)
+app.use('/hotels/admin/prepaid-inventory', prepaidInventoryRoutes); // Prepaid inventory management (admin/staff)
+app.use('/hotels/api/unified-search', unifiedSearchRoutes); // Unified search with prepaid prioritization (public/authenticated)
+
+// ============================================
+// V2 API Routes (New Architecture)
+// ============================================
+app.use('/api/owner', authenticateToken, ownerRoutes); // Owner dashboard & weeks (V2)
+app.use('/api/v2/weeks', authenticateToken, weekReleaseRoutes); // Week release operations (owner)
+app.use('/api/v2/credits', authenticateToken, creditRoutesV2); // Credit account & transactions
+app.use('/api/v2/ownerships', authenticateToken, ownershipRoutes); // Ownership management (admin/owner)
+app.use('/api/v2/search', authenticateToken, searchRoutes); // Unified search (timeshare + hotels)
+app.use('/api/v2/bookings', authenticateToken, bookingRoutesV2); // Booking management (create, view, cancel)
+
+// ============================================
+// Admin API Routes (Phase 7: Admin Tools)
+// ============================================
+app.use('/api/admin/credits', authenticateToken, adminCreditConfigRoutesV2); // Credit system configuration (V2)
+app.use('/api/admin/properties', authenticateToken, adminPropertiesRoutes); // Property management with PMS
+app.use('/api/admin/units', authenticateToken, adminUnitsRoutes); // Unit management (admin/staff)
+app.use('/api/admin/ownerships', authenticateToken, adminOwnershipsRoutes); // Ownership management (admin/staff)
+app.use('/api/admin/ownerships/import', authenticateToken, adminOwnershipImportRoutes); // CSV import
+app.use('/api/admin/units', authenticateToken, adminUnitOwnershipsRoutes); // Unit-specific ownerships
+app.use('/api/admin/users', authenticateToken, adminUserOwnershipsRoutes); // User-specific ownerships
+app.use('/api/admin/allocations', authenticateToken, adminAllocationsRoutes); // Week allocation generation
+
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);
 app.use('/hotels', healthRoutes);
+
+// ============================================
+// Mock PMS API Routes (Development/Testing)
+// ============================================
+app.use('/hotels/api/mock-pms', mockPMSRoutes); // Mock PMS management endpoints
+
+// ============================================
+// Marketplace V2 Routes (Mock PMS Integration)
+// ============================================
+app.use('/hotels/api/marketplace', marketplaceV2Routes); // Marketplace with Mock PMS data
 
 // Root route
 app.get('/hotels', (req: Request, res: Response) => {

@@ -35,21 +35,22 @@ export default function AdminDashboard() {
     }
   });
 
-  // Fetch rooms statistics
-  const { data: roomsData } = useQuery({
-    queryKey: ['rooms-stats'],
+  // Fetch dashboard statistics (aggregate endpoint)
+  const { data: dashboardStats } = useQuery({
+    queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/admin/rooms');
+      const { data } = await apiClient.get('/admin/dashboard-stats');
       return data;
     }
   });
 
   const pendingCount = pendingRequests?.requests?.length || 0;
   
-  // Calculate statistics
-  const totalUsers = Array.isArray(usersData?.users) ? usersData.users.length : (Array.isArray(usersData) ? usersData.length : 0);
-  const activeProperties = Array.isArray(propertiesData?.data) ? propertiesData.data.length : (Array.isArray(propertiesData) ? propertiesData.length : 0);
-  const totalRooms = Array.isArray(roomsData?.data) ? roomsData.data.length : (Array.isArray(roomsData) ? roomsData.length : 0);
+  // Calculate statistics from aggregated data
+  const totalUsers = dashboardStats?.data?.users?.total || 0;
+  const activeProperties = dashboardStats?.data?.properties || 0;
+  const totalRooms = dashboardStats?.data?.rooms || 0;
+  const pendingApprovals = dashboardStats?.data?.pendingApprovals || 0;
 
   return (
     <div className="space-y-6">

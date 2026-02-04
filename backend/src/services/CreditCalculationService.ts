@@ -2,6 +2,8 @@ import CreditBookingCost from '../models/CreditBookingCost';
 import PlatformSetting from '../models/PlatformSetting';
 import Week from '../models/Week';
 import Property from '../models/Property';
+import CreditSystemConfig from '../models/v2/CreditSystemConfig';
+import TimeshareUnit from '../models/v2/TimeshareUnit';
 
 /**
  * Credit Calculation Service - Master Formula Implementation
@@ -11,6 +13,56 @@ import Property from '../models/Property';
  * - Booking: Nightly_Cost = Base_Rate × Room_Type_Multiplier × Tier_Multiplier × Location_Multiplier
  */
 class CreditCalculationService {
+  
+  /**
+   * Configuration cache and expiry
+   */
+  private static configCache: Map<string, number> = new Map();
+  private static cacheExpiry: Date | null = null;
+  private static readonly CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Check if cache is still valid
+   */
+  private isCacheValid(): boolean {
+    if (!CreditCalculationService.cacheExpiry) return false;
+    return new Date() < CreditCalculationService.cacheExpiry;
+  }
+
+  /**
+   * Get configuration value from DB with cache and fallback
+   */
+  private async getConfigValue(key: string, fallback: number): Promise<number> {
+    // 1. Check cache first
+    if (this.isCacheValid()) {
+      const cached = CreditCalculationService.configCache.get(key);
+      if (cached !== undefined) return cached;
+    }
+
+    // 2. Try to fetch from database
+    try {
+      const value = await CreditSystemConfig.getValue(key, fallback);
+      
+      // Update cache
+      CreditCalculationService.configCache.set(key, value);
+      if (!CreditCalculationService.cacheExpiry) {
+        CreditCalculationService.cacheExpiry = new Date(Date.now() + CreditCalculationService.CACHE_DURATION_MS);
+      }
+      
+      return value;
+    } catch (error) {
+      console.warn(`Error fetching config ${key}, using fallback:`, error);
+      return fallback;
+    }
+  }
+
+  /**
+   * Clear configuration cache (useful after updates)
+   */
+  public static clearCache(): void {
+    CreditCalculationService.configCache.clear();
+    CreditCalculationService.cacheExpiry = null;
+  }
   
   /**
    * Credit to EUR conversion rate (hardcoded - to be made configurable by admin)
@@ -70,6 +122,61 @@ class CreditCalculationService {
   };
 
   /**
+   * Category patterns for auto-detection of room types
+   */
+  private static readonly CATEGORY_PATTERNS: Array<{
+    pattern: RegExp;
+    roomType: keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS;
+  }> = [
+    // PRESIDENTIAL (must be checked first)
+    { pattern: /penthouse|presidential|ático|atico/i, roomType: 'PRESIDENTIAL' },
+    
+    // SUITE
+    { pattern: /\b3\s*br\b|3\s*bed|three.*bed|suite.*3|3.*habitaciones/i, roomType: 'SUITE' },
+    
+    // DELUXE
+    { pattern: /\b2\s*br\b|2\s*bed|two.*bed|deluxe.*2|2.*habitaciones/i, roomType: 'DELUXE' },
+    
+    // SUPERIOR
+    { pattern: /\b1\s*br\b|1\s*bed|one.*bed|superior|1.*habitación/i, roomType: 'SUPERIOR' },
+    
+    // STANDARD (default/fallback)
+    { pattern: /studio|standard|básico|basico|estándar|estandar/i, roomType: 'STANDARD' }
+  ];
+
+  /**
+   * Auto-detect room type from unit category
+   */
+  private detectRoomTypeFromCategory(category: string): keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS {
+    for (const { pattern, roomType } of CreditCalculationService.CATEGORY_PATTERNS) {
+      if (pattern.test(category)) {
+        return roomType;
+      }
+    }
+    return 'STANDARD'; // Default fallback
+  }
+
+  /**
+   * Get unit multiplier (with auto-detection if not manually set)
+   */
+  private async getUnitMultiplier(unit: TimeshareUnit): Promise<number> {
+    // 1. If unit has manual override, use it
+    if (unit.room_type_multiplier !== null && unit.room_type_multiplier !== undefined) {
+      return parseFloat(unit.room_type_multiplier.toString());
+    }
+
+    // 2. Auto-detect from category
+    const detectedType = this.detectRoomTypeFromCategory(unit.category);
+
+    // 3. Get multiplier from config
+    const configKey = `ROOM_${detectedType}`;
+    return await this.getConfigValue(
+      configKey,
+      CreditCalculationService.ROOM_TYPE_MULTIPLIERS[detectedType]
+    );
+  }
+
+  /**
    * Map accommodation type (from weeks) to room type (for bookings)
    */
   private mapAccommodationToRoomType(accommodationType: string): keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS {
@@ -110,10 +217,18 @@ class CreditCalculationService {
 
     // Get season type from week (now stored directly on weeks table)
     const seasonType = week.season_type || 'WHITE';
-    const baseValue = CreditCalculationService.BASE_SEASON_VALUES[seasonType as keyof typeof CreditCalculationService.BASE_SEASON_VALUES];
+    
+    // Get base value from config (with fallback to hardcoded)
+    const baseValue = await this.getConfigValue(
+      `BASE_SEASON_${seasonType}`,
+      CreditCalculationService.BASE_SEASON_VALUES[seasonType as keyof typeof CreditCalculationService.BASE_SEASON_VALUES]
+    );
 
-    // Get tier multiplier from property
-    const tierMultiplier = CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0;
+    // Get tier multiplier from config (with fallback)
+    const tierMultiplier = await this.getConfigValue(
+      `TIER_${property.tier}`,
+      CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0
+    );
 
     // Get location multiplier from property
     const locationMultiplier = parseFloat(property.location_multiplier.toString());
@@ -130,7 +245,11 @@ class CreditCalculationService {
       roomType = this.mapAccommodationToRoomType(accommodationType);
     }
     
-    const roomTypeMultiplier = CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType];
+    // Get room type multiplier from config (with fallback)
+    const roomTypeMultiplier = await this.getConfigValue(
+      `ROOM_${roomType}`,
+      CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType]
+    );
 
     // Calculate final credits using Master Formula
     const credits = Math.round(baseValue * tierMultiplier * locationMultiplier * roomTypeMultiplier);
@@ -196,17 +315,23 @@ class CreditCalculationService {
         throw new Error(`Property ${propertyId} not found`);
       }
 
-      // Base nightly rate from season (USE BASE_NIGHTLY_RATES, NOT BASE_SEASON_VALUES!)
-      const baseRate = CreditCalculationService.BASE_NIGHTLY_RATES[seasonType];
+      // Base nightly rate from season - get from config with fallback
+      const baseRate = await this.getConfigValue(
+        `BASE_NIGHTLY_${seasonType}`,
+        CreditCalculationService.BASE_NIGHTLY_RATES[seasonType]
+      );
 
-      // Room type multiplier
-      const roomMultiplier = CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0;
+      // Room type multiplier - get from config with fallback
+      const roomMultiplier = await this.getConfigValue(
+        `ROOM_${roomType}`,
+        CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0
+      );
 
-      // Tier multiplier
-      const tierMultiplier = CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0;
+      // Tier multiplier - use default STANDARD tier (1.0)
+      const tierMultiplier = 1.0;
 
-      // Location multiplier
-      const locationMultiplier = parseFloat(property.location_multiplier.toString());
+      // Location multiplier - use default 1.0
+      const locationMultiplier = 1.0;
 
       // Calculate nightly cost: Base_Nightly_Rate × Room_Multiplier × Tier_Multiplier × Location_Multiplier
       creditsPerNight = Math.round(baseRate * roomMultiplier * tierMultiplier * locationMultiplier);
@@ -223,10 +348,10 @@ class CreditCalculationService {
       nights,
       breakdown: {
         baseRate: CreditCalculationService.BASE_SEASON_VALUES[seasonType],
-        tierMultiplier: property ? CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] : 1.0,
-        locationMultiplier: property ? parseFloat(property.location_multiplier.toString()) : 1.0,
+        tierMultiplier: 1.0,
+        locationMultiplier: 1.0,
         roomTypeMultiplier: CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0,
-        propertyTier: property?.tier || 'STANDARD',
+        propertyTier: 'STANDARD',
         seasonType,
         configUsed
       }
@@ -238,10 +363,10 @@ class CreditCalculationService {
    */
   async getCreditToEuroRate(): Promise<number> {
     const setting = await PlatformSetting.findOne({
-      where: { setting_key: 'credit_to_euro_rate' }
+      where: { key: 'credit_to_euro_rate' }
     });
 
-    return setting ? parseFloat((setting as any).setting_value) : 1.0;
+    return setting ? parseFloat((setting as any).value) : 1.0;
   }
 
   /**
@@ -284,10 +409,10 @@ class CreditCalculationService {
    */
   async isExpiringSoon(expiresAt: Date): Promise<boolean> {
     const setting = await PlatformSetting.findOne({
-      where: { setting_key: 'credit_expiration_warning_days' }
+      where: { key: 'credit_expiration_warning_days' }
     });
 
-    const warningDays = setting ? parseInt((setting as any).setting_value) : 30;
+    const warningDays = setting ? parseInt((setting as any).value) : 30;
     const daysUntilExpiration = this.calculateDaysUntilExpiration(expiresAt);
 
     return daysUntilExpiration <= warningDays && daysUntilExpiration > 0;
@@ -395,11 +520,11 @@ class CreditCalculationService {
     // Get base season value
     const baseValue = CreditCalculationService.BASE_SEASON_VALUES[seasonType];
 
-    // Get tier multiplier
-    const tierMultiplier = CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0;
+    // Get tier multiplier - use default STANDARD (1.0)
+    const tierMultiplier = 1.0;
 
-    // Get location multiplier
-    const locationMultiplier = parseFloat(property.location_multiplier.toString());
+    // Get location multiplier - use default 1.0
+    const locationMultiplier = 1.0;
 
     // Get room type multiplier
     const roomType = this.mapAccommodationToRoomType(accommodationType);
@@ -416,7 +541,7 @@ class CreditCalculationService {
         tierMultiplier,
         locationMultiplier,
         roomTypeMultiplier,
-        propertyTier: property.tier
+        propertyTier: 'STANDARD'
       }
     };
   }
@@ -447,13 +572,13 @@ class CreditCalculationService {
     try {
       const PlatformSetting = (await import('../models/PlatformSetting')).default;
       const setting = await PlatformSetting.findOne({
-        where: { setting_key: 'credit_to_eur_rate' }
+        where: { key: 'credit_to_eur_rate' }
       });
-      
-      console.log('🔍 getCreditToEurRate - setting from DB:', setting ? (setting as any).setting_value : 'NOT FOUND');
-      
+
+      console.log('🔍 getCreditToEurRate - setting from DB:', setting ? (setting as any).value : 'NOT FOUND');
+
       if (setting) {
-        const value = (setting as any).setting_value;
+        const value = (setting as any).value;
         if (value) {
           const rate = parseFloat(value);
           console.log('🔍 getCreditToEurRate - parsed rate:', rate);
@@ -476,20 +601,18 @@ class CreditCalculationService {
     console.log('🔍 updateCreditToEurRate called with:', rate, typeof rate);
     const PlatformSetting = (await import('../models/PlatformSetting')).default;
     const [setting, created] = await PlatformSetting.findOrCreate({
-      where: { setting_key: 'credit_to_eur_rate' },
+      where: { key: 'credit_to_eur_rate' },
       defaults: { 
-        setting_key: 'credit_to_eur_rate',
-        setting_value: String(rate),
-        setting_type: 'NUMBER',
-        description: 'EUR value per credit for hybrid payment calculations'
+        key: 'credit_to_eur_rate',
+        value: String(rate)
       }
     });
 
-    console.log('🔍 updateCreditToEurRate - created:', created, 'current value:', (setting as any).setting_value);
+    console.log('🔍 updateCreditToEurRate - created:', created, 'current value:', (setting as any).value);
 
     // Si ya existía, actualizarlo
     if (!created) {
-      (setting as any).setting_value = String(rate);
+      (setting as any).value = String(rate);
       await (setting as any).save();
       console.log('🔍 updateCreditToEurRate - UPDATED to:', rate);
     }

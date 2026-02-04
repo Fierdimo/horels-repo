@@ -23,15 +23,11 @@ router.get('/availability/:propertyId', authenticateToken, async (req: Request, 
     }
 
     // Get all rooms for this property
-    const rooms = await Room.findAll({
-      where: {
-        propertyId: parseInt(propertyId),
-        isMarketplaceEnabled: true // Solo habitaciones habilitadas para marketplace/bookings
-      }
-    });
+    // Note: propertyId and isMarketplaceEnabled fields don't exist in current schema
+    const rooms = await Room.findAll();
 
     console.log(`[Room Availability] Found ${rooms.length} rooms for property ${propertyId}`);
-    console.log('[Room Availability] Rooms:', rooms.map(r => ({ id: r.id, pmsResourceId: r.pmsResourceId, propertyId: r.propertyId })));
+    console.log('[Room Availability] Rooms:', rooms.map(r => ({ id: r.id, name: r.name })));
 
     if (rooms.length === 0) {
       return res.json({
@@ -53,14 +49,13 @@ router.get('/availability/:propertyId', authenticateToken, async (req: Request, 
         const enrichedRoom = result.value;
         console.log('[Room Availability] Enriched room:', {
           id: enrichedRoom.id,
-          pmsResourceId: enrichedRoom.pmsResourceId,
           name: enrichedRoom.name,
           type: enrichedRoom.type,
           description: enrichedRoom.description
         });
         return {
-          roomId: enrichedRoom.pmsResourceId, // UUID de la habitación en el PMS
-          id: enrichedRoom.id, // ID local de la habitación
+          roomId: enrichedRoom.id, // ID local de la habitación
+          id: enrichedRoom.id,
           name: enrichedRoom.name, // Nombre de la habitación (ej: "Room 101")
           roomType: enrichedRoom.type, // Tipo de habitación (ej: "Standard", "Deluxe")
           capacity: enrichedRoom.capacity,

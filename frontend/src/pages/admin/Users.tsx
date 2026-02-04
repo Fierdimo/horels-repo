@@ -456,8 +456,21 @@ function EditUserModal({ user, onClose, onUpdate }: any) {
     phone: user?.phone || '',
     address: user?.address || '',
     status: user?.status || 'pending',
-    role: user?.Role?.name || 'guest'
+    role: user?.Role?.name || 'guest',
+    propertyId: ''
   });
+
+  // Fetch properties for staff assignment
+  const { data: propertiesData } = useQuery({
+    queryKey: ['admin-properties-list'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/api/mock-pms/properties');
+      return data;
+    },
+    enabled: formData.role === 'staff'
+  });
+
+  const properties = propertiesData?.data || [];
 
   // Update form data when user changes
   useEffect(() => {
@@ -469,7 +482,8 @@ function EditUserModal({ user, onClose, onUpdate }: any) {
         phone: user.phone || '',
         address: user.address || '',
         status: user.status || 'pending',
-        role: user.Role?.name || 'guest'
+        role: user.Role?.name || user.role || 'guest',
+        propertyId: ''
       });
     }
   }, [user]);
@@ -527,6 +541,30 @@ function EditUserModal({ user, onClose, onUpdate }: any) {
               </select>
             </div>
           </div>
+
+          {/* Property Selection for Staff */}
+          {formData.role === 'staff' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('admin.users.property')}
+              </label>
+              <select
+                value={formData.propertyId}
+                onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">{t('admin.users.selectProperty')}</option>
+                {properties.map((property: any) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name} - {property.city}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                {t('admin.users.staffPropertyHelp')}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -27,32 +27,40 @@ const parseArray = (data: any): string[] => {
 };
 
 interface Room {
-  id: number;
+  id: string | number;
   name: string;
-  type: string;
+  type?: string;
   description: string;
   capacity: number;
   basePrice: number;
-  customPrice: number | null;
-  guestPrice: number;
+  customPrice?: number | null;
+  guestPrice?: number;
+  rate?: number; // For Mock PMS
   amenities: string[];
   images: string[];
-  status: string;
-  isMarketplaceEnabled: boolean;
+  status?: string;
+  isMarketplaceEnabled?: boolean;
+  available?: boolean;
+  availableRooms?: number;
+  totalRooms?: number;
 }
 
 interface Property {
-  id: number;
+  id: string | number;
   name: string;
-  location: string;
+  location?: string;
+  address?: string;
   description: string;
   city: string;
   country: string;
-  stars: number;
+  stars?: number;
   images: string[];
   amenities: string[];
-  check_in_time: string;
-  check_out_time: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  roomTypes?: Room[];
 }
 
 export default function PropertyDetails() {
@@ -80,7 +88,9 @@ export default function PropertyDetails() {
   const { data: propertyData, isLoading: loadingProperty } = useQuery({
     queryKey: ['property', id],
     queryFn: async () => {
-      const { data } = await apiClient.get(`/public/properties/${id}`);
+      const { data } = await apiClient.get(`/api/marketplace/properties/${id}`);
+      console.log('🏨 Property Data received:', data);
+      console.log('🏨 Property roomTypes:', data?.data?.roomTypes);
       return data;
     },
     enabled: !!id
@@ -90,28 +100,219 @@ export default function PropertyDetails() {
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
     queryKey: ['property-rooms', id, guests, checkIn, checkOut],
     queryFn: async () => {
-      const params: any = {};
-      if (guests) params.min_capacity = guests;
-      if (checkIn) params.checkIn = checkIn;
-      if (checkOut) params.checkOut = checkOut;
+      console.log('🔍 Fetching rooms with:', { checkIn, checkOut, guests });
       
-      const { data } = await apiClient.get(`/public/properties/${id}/rooms`, { params });
-      return data;
+      // For Mock PMS, rooms are included in property details
+      // But we can also check availability if dates are provided
+      if (checkIn && checkOut) {
+        try {
+          const params = new URLSearchParams({
+            checkIn,
+            checkOut
+          });
+          console.log('📅 Fetching availability for dates:', checkIn, checkOut);
+          const { data } = await apiClient.get(`/api/marketplace/properties/${id}/availability?${params}`);
+          console.log('✅ Availability response:', data);
+          return data;
+        } catch (error) {
+          console.warn('⚠️ Could not fetch availability, using property room types:', error);
+          console.log('🔄 Fallback to propertyData:', propertyData?.data);
+          // Return property data as fallback
+          return { data: propertyData?.data || null };
+        }
+      }
+      // Return property data when no dates selected
+      console.log('📋 No dates selected, using property data:', propertyData?.data);
+      return { data: propertyData?.data || null };
     },
-    enabled: !!id
+    enabled: !!id && !!propertyData,
+    staleTime: 30000 // 30 seconds
   });
 
   const property: Property | null = propertyData?.data || null;
-  const rooms: Room[] = roomsData?.data || [];
+  
+  console.log('🏢 Property object:', property);
+  console.log('🛏️ roomsData:', roomsData);
+  console.log('🗓️ checkIn/checkOut:', checkIn, checkOut);
+  
+  // Log complete property.roomTypes to see what fields we have
+  if (property?.roomTypes) {
+    console.log('📋 property.roomTypes FULL:', JSON.stringify(property.roomTypes, null, 2));
+  }
+  
+  // Get rooms from either roomsData or property.roomTypes (Mock PMS)
+  let rooms: Room[] = [];
+  
+  // Priority 0: If PMS availability data with details exists (has roomCategory, description, etc.)
+  if (checkIn && checkOut && roomsData?.data?.details && Array.isArray(roomsData.data.details)) {
+    console.log('✅ Priority 0: Using PMS details data');
+    console.log('📦 PMS details:', roomsData.data.details);
+    rooms = roomsData.data.details.map((rt: any) => ({
+      id: rt.roomCategory, // Use roomCategory as ID
+      name: rt.roomCategory, // This is the room type name from PMS (e.g., "Studios", "Deluxe Suite")
+      description: rt.description || '',
+      capacity: rt.capacity || 2,
+      basePrice: rt.rate || 0,
+      rate: rt.rate || 0,
+      guestPrice: rt.rate || 0,
+      amenities: rt.amenities || [],
+      images: rt.images || [],
+      available: (rt.availableRooms || 0) > 0,
+      availableRooms: rt.availableRooms || 0,
+      totalRooms: rt.totalRooms || 0,
+      type: rt.roomCategory || '',
+      bedrooms: rt.bedrooms,
+      bathrooms: rt.bathrooms,
+      sizeSqm: rt.sizeSqm
+    }));
+  }
+  // Priority 1: If dates are selected and availability data exists
+  else if (checkIn && checkOut && roomsData?.data?.availability && roomsData.data.availability.length > 0) {
+    console.log('✅ Priority 1: Using availability data');
+    console.log('📦 Raw availability data:', roomsData.data.availability);
+    
+    // Create a map of availability by unitId for quick lookup
+    const availabilityMap = new Map(
+      roomsData.data.availability.map((avail: any) => [avail.unitId, avail])
+    );
+    
+    // Merge property.roomTypes with availability data
+    if (property?.roomTypes && property.roomTypes.length > 0) {
+      console.log('🔄 Merging property.roomTypes with availability data');
+      rooms = property.roomTypes.map((rt: any) => {
+        const availData = availabilityMap.get(rt.id);
+        console.log(`  Room ${rt.id}:`, { 
+          originalRoom: rt, 
+          availData,
+          merged: availData ? true : false 
+        });
+        
+        return {
+          id: rt.id,
+          name: availData?.unitName || rt.name || rt.roomTypeName || rt.type || `Room ${rt.id}`,
+          description: rt.description || '',
+          capacity: rt.capacity || rt.maxOccupancy || rt.maxGuests || 2,
+          basePrice: availData?.price || rt.basePrice || rt.rate || 0,
+          rate: availData?.price || rt.rate || rt.basePrice || 0,
+          guestPrice: availData?.price || rt.guestPrice || rt.basePrice || rt.rate || 0,
+          amenities: rt.amenities || [],
+          images: rt.images || [],
+          available: availData ? availData.available : (rt.available !== false),
+          availableRooms: availData ? availData.availableUnits : rt.quantity,
+          totalRooms: availData ? availData.totalUnits : rt.quantity,
+          bookedUnits: availData ? availData.bookedUnits : 0,
+          releasedWeeks: availData ? availData.releasedWeeks : 0,
+          type: rt.type || '',
+          bedrooms: rt.bedrooms,
+          bathrooms: rt.bathrooms,
+          sizeSqm: rt.sizeSqm
+        };
+      });
+    } else {
+      console.log('⚠️ No property.roomTypes to merge, using availability data only');
+      // Fallback: use only availability data (will have limited info)
+      rooms = roomsData.data.availability.map((avail: any) => ({
+        id: avail.unitId,
+        name: `Room ${avail.unitId}`,
+        description: '',
+        capacity: 2,
+        basePrice: avail.price,
+        rate: avail.price,
+        guestPrice: avail.price,
+        amenities: [],
+        images: [],
+        available: avail.available,
+        availableRooms: avail.availableUnits,
+        totalRooms: avail.totalUnits,
+        bookedUnits: avail.bookedUnits,
+        releasedWeeks: avail.releasedWeeks,
+        type: ''
+      }));
+    }
+  } 
+  // Priority 2: Use room types from property data (Mock PMS or default)
+  else if (property?.roomTypes && property.roomTypes.length > 0) {
+    console.log('✅ Priority 2: Using property.roomTypes');
+    console.log('📦 property.roomTypes:', property.roomTypes);
+    rooms = property.roomTypes.map((rt: any) => ({
+      id: rt.id,
+      name: rt.name,
+      description: rt.description || '',
+      capacity: rt.capacity || 2,
+      basePrice: rt.basePrice || rt.rate || 0,
+      rate: rt.basePrice || rt.rate || 0,
+      guestPrice: rt.guestPrice || rt.basePrice || rt.rate || 0,
+      amenities: rt.amenities || [],
+      images: rt.images || [],
+      available: rt.available !== false,
+      availableRooms: rt.quantity
+    }));
+  } 
+  // Priority 3: Check if roomsData.data is directly the rooms array
+  else if (roomsData?.data && Array.isArray(roomsData.data)) {
+    console.log('✅ Priority 3: Using roomsData.data array');
+    rooms = roomsData.data;
+  }
+  // Priority 4: Check if roomsData.data.data exists (nested structure)
+  else if (roomsData?.data?.data && Array.isArray(roomsData.data.data)) {
+    console.log('✅ Priority 4: Using roomsData.data.data array (nested)');
+    rooms = roomsData.data.data;
+  }
+  else {
+    console.log('⚠️ NO ROOMS FOUND - Debug info:');
+    console.log('  - checkIn:', checkIn);
+    console.log('  - checkOut:', checkOut);
+    console.log('  - roomsData?.data?.availability:', roomsData?.data?.availability);
+    console.log('  - property?.roomTypes:', property?.roomTypes);
+    console.log('  - roomsData?.data:', roomsData?.data);
+  }
+  
+  console.log('🎯 Final rooms array:', rooms);
+  console.log('🎯 Final rooms count:', rooms.length);
 
-  const handleBookRoom = (roomId: number) => {
+  const handleBookRoom = (roomType: string) => {
+    console.log('🔵 handleBookRoom called with roomType:', roomType);
+    console.log('🔵 checkIn:', checkIn);
+    console.log('🔵 checkOut:', checkOut);
+    console.log('🔵 guests:', guests);
+    console.log('🔵 user:', user);
+    console.log('🔵 user.role:', user?.role);
+    
     if (!checkIn || !checkOut) {
+      console.log('❌ Missing dates - showing alert');
       alert(t('marketplace.selectDates'));
       return;
     }
-    navigate(`${getMarketplaceBasePath()}/properties/${id}/rooms/${roomId}/book`, {
-      state: { checkIn, checkOut, guests }
-    });
+    
+    // Find the room data to pass pricing info
+    const selectedRoom = rooms.find(r => r.name === roomType || r.roomCategory === roomType);
+    console.log('🔵 selectedRoom:', selectedRoom);
+    
+    // Always use /guest/marketplace path for checkout (public access)
+    const navigationPath = `/guest/marketplace/properties/${id}/room-types/${encodeURIComponent(roomType)}/checkout`;
+    const navigationState = { 
+      checkIn, 
+      checkOut, 
+      guests,
+      // Pass room pricing data
+      roomData: selectedRoom ? {
+        name: selectedRoom.name || selectedRoom.roomCategory,
+        description: selectedRoom.description,
+        basePrice: selectedRoom.basePrice || selectedRoom.rate,
+        guestPrice: selectedRoom.guestPrice || selectedRoom.rate,
+        rate: selectedRoom.rate
+      } : null,
+      // Pre-fill guest info if user is logged in
+      guestName: user?.email ? `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() : '',
+      guestEmail: user?.email || '',
+      guestPhone: (user as any)?.phone || ''
+    };
+    
+    console.log('✅ Navigating to:', navigationPath);
+    console.log('✅ With state:', navigationState);
+    
+    // Navigate directly to checkout (skip intermediate booking form)
+    navigate(navigationPath, { state: navigationState });
   };
 
   if (loadingProperty) {
@@ -252,11 +453,15 @@ export default function PropertyDetails() {
           <div className="grid grid-cols-2 gap-4 mb-8 p-4 bg-blue-50 rounded-lg">
             <div>
               <p className="text-sm text-gray-600 mb-1">{t('marketplace.checkInTime')}</p>
-              <p className="text-lg font-semibold text-gray-900">{property.check_in_time || '15:00'}</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {property.check_in_time || property.checkInTime || '15:00'}
+              </p>
             </div>
             <div>
               <p className="text-sm text-gray-600 mb-1">{t('marketplace.checkOutTime')}</p>
-              <p className="text-lg font-semibold text-gray-900">{property.check_out_time || '11:00'}</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {property.check_out_time || property.checkOutTime || '11:00'}
+              </p>
             </div>
           </div>
         </div>
@@ -337,8 +542,8 @@ export default function PropertyDetails() {
             </div>
           ) : (
             <div className="space-y-6">
-              {rooms.map((room) => (
-                <div key={room.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row">
+              {rooms.map((room, index) => (
+                <div key={room.id || `room-${index}`} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row">
                   {/* Room Image */}
                   <div className="w-full md:w-80 h-64 bg-gradient-to-br from-gray-300 to-gray-500">
                     <img
@@ -355,10 +560,10 @@ export default function PropertyDetails() {
                   <div className="flex-1 p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        <h3 className="text-3xl font-bold text-blue-600 mb-2">
                           {room.name}
                         </h3>
-                        <p className="text-sm text-gray-600 mb-2">{room.type}</p>
+                        {room.type && <p className="text-sm text-gray-600 mb-2">{room.type}</p>}
                         <div className="flex items-center gap-2 text-gray-600">
                           <Users className="h-4 w-4" />
                           <span className="text-sm">
@@ -369,9 +574,24 @@ export default function PropertyDetails() {
                       <div className="text-right">
                         <div className="flex items-center justify-end gap-1 text-3xl font-bold text-gray-900">
                           <Euro className="h-7 w-7" />
-                          {room.guestPrice.toFixed(2)}
+                          {Number(room.guestPrice || room.rate || room.basePrice || 0).toFixed(2)}
                         </div>
                         <p className="text-sm text-gray-600">{t('marketplace.perNight')}</p>
+                        {room.availableRooms !== undefined && (
+                          <div className="mt-1 text-sm">
+                            <p className={`font-medium ${room.availableRooms > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {room.availableRooms > 0 
+                                ? `${room.availableRooms} disponibles` 
+                                : 'No disponible'}
+                            </p>
+                            {room.totalRooms !== undefined && (
+                              <p className="text-gray-500 text-xs">
+                                de {room.totalRooms} unidades totales
+                                {(room as any).bookedUnits !== undefined && ` (${(room as any).bookedUnits} reservadas)`}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -395,12 +615,14 @@ export default function PropertyDetails() {
 
                     {/* Book Button */}
                     <button
-                      onClick={() => handleBookRoom(room.id)}
-                      disabled={!checkIn || !checkOut}
+                      onClick={() => handleBookRoom(room.name)}
+                      disabled={!checkIn || !checkOut || (room.available === false)}
                       className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                     >
                       {!checkIn || !checkOut 
                         ? t('marketplace.selectDatesToBook') 
+                        : room.available === false
+                        ? 'No disponible'
                         : t('marketplace.bookNow')
                       }
                     </button>

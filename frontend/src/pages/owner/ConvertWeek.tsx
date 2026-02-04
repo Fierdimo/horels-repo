@@ -1,51 +1,50 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, AlertCircle, ArrowRight, CheckCircle } from 'lucide-react';
-import { format, parseISO, differenceInDays, addMonths } from 'date-fns';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tantml:invoke>
+<invoke name="timeshareApi } from '@/api/timeshare';
+import { 
+  ArrowLeft, Coins, Calendar, Home,
+  AlertCircle, Loader2, CheckCircle, TrendingUp
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import apiClient from '@/api/client';
 
 export default function ConvertWeek() {
   const { weekId } = useParams<{ weekId: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  // Fetch week details
-  const { data: week, isLoading } = useQuery({
-    queryKey: ['week', weekId],
-    queryFn: async () => {
-      const response = await apiClient.get(`/timeshare/weeks/${weekId}`);
-      return response.data.data;
-    },
+  // Fetch week preview
+  const { data: preview, isLoading, error } = useQuery({
+    queryKey: ['week-release-preview', weekId],
+    queryFn: () => timeshareApi.previewWeekRelease(Number(weekId)),
+    enabled: !!weekId,
+    retry: 1
   });
 
-  // Convert mutation
-  const convertMutation = useMutation({
-    mutationFn: async (weekId: string) => {
-      const response = await apiClient.post(`/timeshare/weeks/${weekId}/convert`);
-      return response.data;
-    },
+  // Release mutation
+  const releaseMutation = useMutation({
+    mutationFn: () => timeshareApi.releaseWeekToCredits(Number(weekId)),
     onSuccess: () => {
-      toast.success(t('owner.credits.convertSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['night-credits'] });
-      queryClient.invalidateQueries({ queryKey: ['weeks'] });
-      navigate('/owner/credits');
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || t('common.error'));
-    },
+      queryClient.invalidateQueries({ queryKey: ['owner-weeks-v2'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-balance'] });
+    }
   });
 
-  const handleConvert = () => {
-    if (!confirmed) {
-      toast.error(t('owner.credits.confirmRequired'));
-      return;
+  const handleConfirmRelease = async () => {
+    setConfirming(true);
+    try {
+      const result = await releaseMutation.mutateAsync();
+      toast.success(`¡Semana convertida exitosamente! Ganaste ${result.creditsEarned} créditos.`);
+      navigate('/owner/my-weeks');
+    } catch (error: any) {
+      console.error('Error releasing week:', error);
+      toast.error(error.response?.data?.error || 'Error al convertir la semana. Por favor intenta de nuevo.');
+    } finally {
+      setConfirming(false);
     }
-    convertMutation.mutate(weekId!);
   };
 
   if (isLoading) {

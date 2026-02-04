@@ -28,7 +28,7 @@ interface Property {
 }
 
 export default function BookingForm() {
-  const { propertyId, roomId } = useParams<{ propertyId: string; roomId: string }>();
+  const { propertyId, roomType } = useParams<{ propertyId: string; roomType: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -82,15 +82,16 @@ export default function BookingForm() {
 
   // Fetch credit calculation when credits payment method is selected
   const { data: creditCalcData } = useQuery({
-    queryKey: ['credit-calculation', propertyId, roomId, checkIn, checkOut],
+    queryKey: ['credit-calculation', propertyId, roomType, checkIn, checkOut],
     queryFn: async () => {
+      const decodedRoomType = decodeURIComponent(roomType!);
       const { data } = await apiClient.post(
-        `/public/properties/${propertyId}/rooms/${roomId}/calculate-credit-cost`,
+        `/public/properties/${propertyId}/room-types/${encodeURIComponent(decodedRoomType)}/calculate-credit-cost`,
         { checkIn, checkOut }
       );
       return data.data;
     },
-    enabled: !!(paymentMethod === 'credits' && propertyId && roomId && checkIn && checkOut),
+    enabled: !!(paymentMethod === 'credits' && propertyId && roomType && checkIn && checkOut),
     staleTime: 60000 // 1 minute
   });
 
@@ -113,12 +114,18 @@ export default function BookingForm() {
 
   // Fetch room details
   const { data: roomData, isLoading: loadingRoom } = useQuery({
-    queryKey: ['room-details', propertyId, roomId],
+    queryKey: ['room-type-details', propertyId, roomType],
     queryFn: async () => {
-      const { data } = await apiClient.get(`/public/properties/${propertyId}/rooms/${roomId}`);
+      const decodedRoomType = decodeURIComponent(roomType!);
+      const { data } = await apiClient.get(`/public/properties/${propertyId}/room-types/${encodeURIComponent(decodedRoomType)}`, {
+        params: {
+          checkIn: state.checkIn,
+          checkOut: state.checkOut
+        }
+      });
       return data;
     },
-    enabled: !!propertyId && !!roomId
+    enabled: !!propertyId && !!roomType && !!state.checkIn && !!state.checkOut
   });
 
   const room: Room | null = roomData?.data || null;
@@ -159,7 +166,7 @@ export default function BookingForm() {
     }
 
     // Redirigir al checkout de Stripe con la información del formulario
-    navigate(`${getMarketplaceBasePath()}/properties/${propertyId}/rooms/${roomId}/checkout`, {
+    navigate(`${getMarketplaceBasePath()}/properties/${propertyId}/room-types/${encodeURIComponent(roomType!)}/checkout`, {
       state: {
         checkIn,
         checkOut,
@@ -408,7 +415,7 @@ export default function BookingForm() {
                     </button>
                     <CreditPaymentOption
                       propertyId={propertyId!}
-                      roomId={roomId!}
+                      roomType={roomType!}
                       checkIn={checkIn}
                       checkOut={checkOut}
                       guests={state.guests || 1}

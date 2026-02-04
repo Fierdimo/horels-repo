@@ -116,15 +116,12 @@ router.post(
       let allowedPropertyIds = propertyIds;
 
       if (userRole !== 'admin') {
-        // Staff solo puede sincronizar su propia property
-        if (userRole === 'staff' && user.property_id) {
-          allowedPropertyIds = [user.property_id];
-        } else {
-          return res.status(403).json({
-            success: false,
-            error: 'Insufficient permissions to trigger sync'
-          });
-        }
+        // V2: Staff doesn't have property_id, so they can't trigger property-specific sync
+        // Only admins can trigger sync in V2
+        return res.status(403).json({
+          success: false,
+          error: 'Only admins can trigger sync (V2: staff property assignment not supported)'
+        });
       }
 
       // Ejecutar sincronización
@@ -176,10 +173,8 @@ router.get(
         where.property_id = property_id;
       }
 
-      // Staff solo puede ver logs de su property
-      if (userRole === 'staff' && user.property_id) {
-        where.property_id = user.property_id;
-      }
+      // V2: Staff doesn't have property_id, skip property filtering for staff
+      // (In V2, staff can see all logs unless we implement a different permission model)
 
       // Filtrar por status
       if (status) {

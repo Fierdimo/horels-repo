@@ -82,9 +82,9 @@ export default function MarketplaceHome() {
       const params: any = {};
       if (searchTerm) params.search = searchTerm;
       if (selectedCity) params.city = selectedCity;
-      if (selectedStars) params.stars = selectedStars;
+      // Note: stars filter not available in Mock PMS yet
 
-      const { data } = await apiClient.get('/public/properties', { params });
+      const { data } = await apiClient.get('/api/marketplace/properties', { params });
       return data;
     }
   });
@@ -93,7 +93,7 @@ export default function MarketplaceHome() {
   const { data: citiesData } = useQuery({
     queryKey: ['marketplace-cities'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/public/cities');
+      const { data } = await apiClient.get('/api/marketplace/cities');
       return data;
     }
   });

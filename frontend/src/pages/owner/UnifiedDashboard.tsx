@@ -55,8 +55,9 @@ export default function UnifiedDashboard() {
 
   // Process data
   const stats = dashboardData?.stats || { totalWeeks: 0, availableWeeks: 0, activeSwaps: 0, upcomingBookings: 0 };
-  const totalBalance = wallet?.wallet?.totalBalance || 0;
-  const expiringIn30Days = wallet?.expirations?.in30Days || 0;
+  const credits = dashboardData?.credits || { total: 0, available: 0, expiringSoon: 0 };
+  const totalBalance = wallet?.balance || credits.total || 0;
+  const expiringIn30Days = credits.expiringSoon || 0;
   const allBookings = Array.isArray(bookings) ? bookings : [];
   const pendingBookings = allBookings.filter((b: any) => b.status === 'pending_approval');
   const confirmedBookings = allBookings.filter((b: any) => b.status === 'confirmed');
@@ -138,6 +139,38 @@ export default function UnifiedDashboard() {
                 {t('owner.unified.review')}
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Quick Actions V2 */}
+        <div className="bg-gradient-to-r from-blue-50 to-emerald-50 rounded-xl shadow-md p-6 mb-8 border-2 border-blue-200">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Gestiona tus Semanas 2026</h2>
+              <p className="text-sm text-gray-600">Ver, convertir y gestionar todas tus semanas asignadas</p>
+            </div>
+            <Link
+              to="/owner/my-weeks"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-lg hover:from-blue-700 hover:to-emerald-700 font-medium shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"
+            >
+              <Calendar className="h-5 w-5" />
+              Ver Mis Semanas
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-2xl font-bold text-blue-600">{stats.totalWeeks}</div>
+              <div className="text-xs text-gray-600 mt-1">Total Semanas</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-2xl font-bold text-emerald-600">{stats.availableWeeks}</div>
+              <div className="text-xs text-gray-600 mt-1">Disponibles</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 shadow-sm">
+              <div className="text-2xl font-bold text-purple-600">{confirmedBookings.length}</div>
+              <div className="text-xs text-gray-600 mt-1">Reservadas</div>
+            </div>
           </div>
         </div>
 

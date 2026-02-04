@@ -6,9 +6,11 @@ interface AuthState {
   token: string | null;
   user: User | null;
   isAuthenticated: boolean;
+  hasHydrated: boolean;
   setAuth: (token: string, user: User) => void;
   setUser: (user: User) => void;
   clearAuth: () => void;
+  setHasHydrated: (state: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -17,12 +19,17 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       isAuthenticated: false,
+      hasHydrated: false,
       setAuth: (token, user) => set({ token, user, isAuthenticated: true }),
       setUser: (user) => set({ user }),
-      clearAuth: () => set({ token: null, user: null, isAuthenticated: false })
+      clearAuth: () => set({ token: null, user: null, isAuthenticated: false }),
+      setHasHydrated: (state) => set({ hasHydrated: state })
     }),
     {
-      name: 'sw2-auth'
+      name: 'sw2-auth',
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      }
     }
   )
 );

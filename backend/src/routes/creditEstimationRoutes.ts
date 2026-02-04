@@ -6,10 +6,7 @@ interface AuthRequest extends Request {
   user?: {
     id: number;
     email: string;
-    role_id: number;
-    Role?: {
-      name: string;
-    };
+    role: 'admin' | 'owner' | 'guest' | 'staff';
   };
 }
 

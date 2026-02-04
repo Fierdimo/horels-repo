@@ -23,7 +23,7 @@ export class PaymentMethodService {
     // Create new Stripe customer
     const customer = await stripe.customers.create({
       email: user.email,
-      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
       metadata: {
         user_id: userId.toString(),
       },
@@ -78,8 +78,7 @@ export class PaymentMethodService {
       },
     });
 
-    // Save to user record
-    await user.update({ stripe_payment_method_id: paymentMethodId });
+    // V2: Don't store payment_method_id on user, retrieve from Stripe when needed
   }
 
   /**
@@ -109,11 +108,7 @@ export class PaymentMethodService {
     }
 
     await stripe.paymentMethods.detach(paymentMethodId);
-
-    // If this was the default, clear it
-    if (user.stripe_payment_method_id === paymentMethodId) {
-      await user.update({ stripe_payment_method_id: null });
-    }
+    // V2: Payment method ID is not stored on user, so no need to clear it
   }
 
   /**
@@ -121,7 +116,18 @@ export class PaymentMethodService {
    */
   static async hasPaymentMethod(userId: number): Promise<boolean> {
     const user = await User.findByPk(userId);
-    return !!user?.stripe_payment_method_id;
+    if (!user?.stripe_customer_id) {
+      return false;
+    }
+    
+    // V2: Check Stripe for payment methods instead of user field
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: user.stripe_customer_id,
+      type: 'card',
+      limit: 1
+    });
+    
+    return paymentMethods.data.length > 0;
   }
 
   /**
@@ -129,15 +135,23 @@ export class PaymentMethodService {
    */
   static async chargeSwapFee(userId: number, amount: number, swapId: number): Promise<string> {
     const user = await User.findByPk(userId);
-    if (!user || !user.stripe_customer_id || !user.stripe_payment_method_id) {
+    if (!user || !user.stripe_customer_id) {
       throw new Error('User has no payment method configured');
+    }
+
+    // V2: Get default payment method from Stripe customer
+    const customer = await stripe.customers.retrieve(user.stripe_customer_id);
+    const defaultPaymentMethod = (customer as any).invoice_settings?.default_payment_method;
+    
+    if (!defaultPaymentMethod) {
+      throw new Error('User has no default payment method configured');
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency: 'eur',
       customer: user.stripe_customer_id,
-      payment_method: user.stripe_payment_method_id,
+      payment_method: defaultPaymentMethod,
       off_session: true,
       confirm: true,
       metadata: {

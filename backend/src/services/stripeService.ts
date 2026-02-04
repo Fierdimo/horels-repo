@@ -44,7 +44,7 @@ export class StripeService {
     // Crear nuevo customer en Stripe
     const customer = await stripe.customers.create({
       email,
-      name: name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || email,
+      name: name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || email,
       metadata: {
         user_id: userId.toString()
       }
@@ -176,6 +176,61 @@ export class StripeService {
   }
 
   /**
+   * Crear Payment Intent para pagos híbridos del marketplace de créditos
+   * Se usa cuando el usuario no tiene suficientes créditos y paga la diferencia con tarjeta
+   */
+  async createCreditMarketplacePaymentIntent(params: {
+    amount: number;
+    currency: string;
+    customerId: string;
+    paymentMethodId: string;
+    inventoryItemId: number;
+    weekId?: number | null;
+    propertyId: number;
+    creditsUsed: number;
+    description: string;
+  }) {
+    const {
+      amount,
+      currency,
+      customerId,
+      paymentMethodId,
+      inventoryItemId,
+      weekId,
+      propertyId,
+      creditsUsed,
+      description
+    } = params;
+
+    // Create and confirm payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to cents
+      currency: currency.toLowerCase(),
+      customer: customerId,
+      payment_method: paymentMethodId,
+      confirm: true, // Confirm immediately
+      off_session: true, // For saved payment methods
+      description,
+      metadata: {
+        type: 'credit_marketplace_hybrid',
+        inventory_item_id: inventoryItemId.toString(),
+        week_id: weekId?.toString() || '',
+        property_id: propertyId.toString(),
+        credits_used: creditsUsed.toString(),
+        cash_amount: amount.toString()
+      },
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/marketplace/booking-success`
+    });
+
+    // Check if payment succeeded
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`Payment failed with status: ${paymentIntent.status}`);
+    }
+
+    return paymentIntent;
+  }
+
+  /**
    * Confirmar booking después de pago exitoso
    * Nota: Guest permanece como guest. Solo se convierte a owner mediante compra de propiedad/timeshare.
    * Retorna: { booking, user } - user puede ser null si no está registrado
@@ -227,25 +282,19 @@ export class StripeService {
         // Si el usuario no existe, crear un usuario guest
         console.log(`[StripeService] Creating new guest user for email: ${metadata.guest_email}`);
         
-        const guestRole = await Role.findOne({ where: { name: 'guest' } });
-          
-        if (!guestRole) {
-          throw new Error('Guest role not found in database');
-        }
-
+        // Create guest user with V2 schema
         guestUser = await User.create({
           email: metadata.guest_email,
-          password: `temp_${Date.now()}`, // Contraseña temporal
-          role_id: guestRole.id,
-          status: 'approved',
-          firstName: metadata.guest_name?.split(' ')[0] || 'Guest',
-          lastName: metadata.guest_name?.split(' ').slice(1).join(' ') || ''
+          password_hash: `temp_${Date.now()}`, // Contraseña temporal
+          role: 'guest', // V2: direct role field
+          status: 'active', // V2: 'active' instead of 'approved'
+          first_name: metadata.guest_name?.split(' ')[0] || 'Guest',
+          last_name: metadata.guest_name?.split(' ').slice(1).join(' ') || ''
         });
 
-        await guestUser.reload({ include: [{ model: Role }] });
         console.log(`[StripeService] New guest user ${guestUser.id} (${guestUser.email}) created from booking`);
       } else {
-        console.log(`[StripeService] User ${guestUser.id} found with role: ${(guestUser as any).Role?.name}`);
+        console.log(`[StripeService] User ${guestUser.id} found with role: ${guestUser.role}`);
       }
 
       userRecord = guestUser;

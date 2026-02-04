@@ -49,8 +49,7 @@ router.get('/seasonal-calendar/:propertyId/season', adminOrStaff, async (req: an
     console.log('🔍 User accessing seasonal calendar:', {
       id: req.user?.id,
       email: req.user?.email,
-      role: req.user?.Role?.name,
-      hasRole: !!req.user?.Role
+      role: req.user?.role
     });
     
     const propertyId = parseInt(req.params.propertyId);

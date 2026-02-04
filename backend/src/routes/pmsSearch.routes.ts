@@ -3,6 +3,8 @@ import { Op } from 'sequelize';
 import { authenticateToken } from '../middleware/authMiddleware';
 import PMSFactory from '../services/pms/PMSFactory';
 import { Property } from '../models';
+import { TimeshareProperty } from '../models/v2';
+import { MockPMSManager } from '../services/pms/MockPMSService';
 
 const router = Router();
 
@@ -25,7 +27,7 @@ router.get('/providers', (req: Request, res: Response) => {
 
 /**
  * @route   GET /api/pms-search/search?q=hotel+name
- * @desc    Search for properties in platform AND PMS
+ * @desc    Search for properties in platform AND Mock PMS
  * @access  Public (for staff registration)
  */
 router.get('/search', async (req: Request, res: Response) => {
@@ -40,24 +42,24 @@ router.get('/search', async (req: Request, res: Response) => {
     }
 
     const results: Array<{
-      id?: number;
+      id?: string | number;
       propertyId: string;
       name: string;
       location?: string;
       city?: string;
       country?: string;
       alreadyRegistered: boolean;
-      source: 'platform' | 'pms';
+      source: 'platform' | 'mock-pms';
     }> = [];
 
-    // 1. Search in registered properties (platform)
-    const platformProperties = await Property.findAll({
+    // 1. Search in registered V2 properties (platform)
+    const platformProperties = await TimeshareProperty.findAll({
       where: {
         name: {
           [Op.like]: `%${searchQuery}%`
         }
       },
-      attributes: ['id', 'name', 'location', 'city', 'country', 'pms_property_id', 'pms_provider'],
+      attributes: ['id', 'name', 'city', 'country', 'address'],
       limit: 10,
       order: [['name', 'ASC']]
     });
@@ -66,9 +68,9 @@ router.get('/search', async (req: Request, res: Response) => {
     platformProperties.forEach(p => {
       results.push({
         id: p.id,
-        propertyId: p.pms_property_id || '',
+        propertyId: p.id.toString(),
         name: p.name,
-        location: p.location,
+        location: p.address || undefined,
         city: p.city,
         country: p.country,
         alreadyRegistered: true,
@@ -76,56 +78,47 @@ router.get('/search', async (req: Request, res: Response) => {
       });
     });
 
-    // 2. Search in PMS (if configured)
+    // 2. Search in Mock PMS
     try {
-      const pms_provider = process.env.PMS_PROVIDER || 'mews';
-      const pms_credentials = {
-        clientToken: process.env.MEWS_CLIENT_ID,
-        accessToken: process.env.MEWS_CLIENT_SECRET
-      };
+      const mockPMS = new MockPMSManager();
+      const allMockProperties = mockPMS.getAllProperties();
+      
+      // Filter by search query
+      const matchingMockProperties = allMockProperties.filter((p: any) => 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.city.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
-      if (pms_credentials.clientToken && pms_credentials.accessToken) {
-        const adapter = PMSFactory.createAdapter(pms_provider, pms_credentials);
-        const connectionTest = await adapter.testConnection();
+      // Add Mock PMS results (check if already registered)
+      for (const mockProp of matchingMockProperties) {
+        // Check if already in platform results
+        const existsInPlatform = results.some(r => r.propertyId === mockProp.id);
         
-        if (connectionTest.success) {
-          const propertyInfo = await adapter.getPropertyInfo();
-          
-          if (propertyInfo.success && propertyInfo.data) {
-            const pmsProperty = propertyInfo.data;
-            
-            // Check if property name matches search (case-insensitive)
-            if (pmsProperty.name && pmsProperty.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-              // Check if already in platform results
-              const existsInPlatform = results.some(r => r.propertyId === pmsProperty.propertyId);
-              
-              if (!existsInPlatform) {
-                // Check if registered but not in search results
-                const existingProperty = await Property.findOne({
-                  where: {
-                    pms_provider: pms_provider,
-                    pms_property_id: pmsProperty.propertyId
-                  }
-                });
+        if (!existsInPlatform) {
+          // Check if registered in platform (only query necessary fields)
+          const existingProperty = await TimeshareProperty.findOne({
+            where: {
+              name: mockProp.name,
+              city: mockProp.city
+            },
+            attributes: ['id', 'name', 'city', 'country']
+          });
 
-                results.push({
-                  id: existingProperty?.id,
-                  propertyId: pmsProperty.propertyId,
-                  name: pmsProperty.name,
-                  location: [pmsProperty.city, pmsProperty.country].filter(Boolean).join(', '),
-                  city: pmsProperty.city,
-                  country: pmsProperty.country,
-                  alreadyRegistered: !!existingProperty,
-                  source: 'pms'
-                });
-              }
-            }
-          }
+          results.push({
+            id: existingProperty?.id || mockProp.id,
+            propertyId: mockProp.id,
+            name: mockProp.name,
+            location: mockProp.address,
+            city: mockProp.city,
+            country: mockProp.country,
+            alreadyRegistered: !!existingProperty,
+            source: 'mock-pms'
+          });
         }
       }
-    } catch (pmsError) {
-      console.error('Error searching in PMS (non-fatal):', pmsError);
-      // Continue with platform results even if PMS fails
+    } catch (mockPMSError) {
+      console.error('Error searching in Mock PMS (non-fatal):', mockPMSError);
+      // Continue with platform results even if Mock PMS fails
     }
 
     res.json({
@@ -136,7 +129,8 @@ router.get('/search', async (req: Request, res: Response) => {
     console.error('Error searching properties:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to search properties'
+      error: 'Failed to search properties',
+      message: error.message
     });
   }
 });
@@ -166,8 +160,15 @@ router.post('/properties', async (req: Request, res: Response) => {
     }
 
     // Create adapter with platform's credentials
-    const adapter = PMSFactory.createAdapter(provider, credentials);
+    const adapter = PMSFactory.create(provider as any, credentials as any);
 
+    // Legacy route - needs refactoring
+    return res.status(501).json({
+      success: false,
+      error: 'This endpoint needs refactoring for new PMS adapter'
+    });
+
+    /*
     // Test connection
     const connectionTest = await adapter.testConnection();
     if (!connectionTest.success) {
@@ -212,6 +213,7 @@ router.post('/properties', async (req: Request, res: Response) => {
         existingPropertyId: existingProperty?.id || null
       }
     });
+    */
   } catch (error: any) {
     console.error('Error searching PMS properties:', error);
     res.status(500).json({
@@ -246,8 +248,15 @@ router.post('/validate-property', async (req: Request, res: Response) => {
     };
 
     // Create adapter with platform credentials
-    const adapter = PMSFactory.createAdapter(provider, credentials);
+    const adapter = PMSFactory.create(provider as any, credentials as any);
     
+    // Legacy route - needs refactoring
+    return res.status(501).json({
+      success: false,
+      error: 'This endpoint needs refactoring for new PMS adapter'
+    });
+    
+    /*
     // Get detailed property info
     const propertyInfo = await adapter.getPropertyInfo();
 
@@ -273,7 +282,7 @@ router.post('/validate-property', async (req: Request, res: Response) => {
         error: 'Property already registered in the system',
         propertyId: existingProperty.id,
         propertyName: existingProperty.name,
-        status: existingProperty.status
+        is_active: existingProperty.is_active
       });
     }
 
@@ -292,6 +301,7 @@ router.post('/validate-property', async (req: Request, res: Response) => {
         canRegister: true
       }
     });
+    */
   } catch (error: any) {
     console.error('Error validating property:', error);
     res.status(500).json({

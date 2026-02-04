@@ -257,7 +257,7 @@ export function Header() {
                     {t('nav.dashboard')}
                   </Link>
                   <Link
-                    to="/owner/weeks"
+                    to="/owner/my-weeks"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors hover:bg-accent"
                   >
