@@ -652,6 +652,11 @@ export default function RegisterWizard() {
                   </div>
                 </button>
               ))}
+              {propertyResults.length > 0 && propertyResults.filter(p => p.source === 'platform').length === 0 && (
+                <div className="px-4 py-3 text-sm text-gray-600">
+                  No registered hotels found. Please contact the administrator to register your hotel first.
+                </div>
+              )}
             </div>
           )}
         </div>
