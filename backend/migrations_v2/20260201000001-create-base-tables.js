@@ -47,8 +47,8 @@ module.exports = {
           allowNull: false
         },
         status: {
-          type: Sequelize.ENUM('active', 'suspended', 'inactive'),
-          defaultValue: 'active',
+          type: Sequelize.ENUM('pending', 'approved', 'rejected', 'inactive'),
+          defaultValue: 'pending',
           allowNull: false
         },
         email_verified: {
