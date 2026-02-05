@@ -37,36 +37,38 @@ async function createAdminUser() {
     if (existing.length > 0) {
       console.log('✅ Admin user already exists');
       console.log('   Email:', existing[0].email);
-      console.log('   Role:', existing[0].role);
+      console.log('   Role ID:', existing[0].role_id);
       console.log('   Status:', existing[0].status);
+      console.log('');
+      console.log('💡 To update this user, run: node update-admin.js');
       return;
     }
 
     console.log('📝 Creating admin user...');
     
+    // Get admin role_id
+    const [roles] = await sequelize.query("SELECT id FROM roles WHERE name = 'admin'");
+    const adminRoleId = roles.length > 0 ? roles[0].id : 1;
+    
     await sequelize.query(`
       INSERT INTO users (
         email, 
-        password_hash, 
+        password, 
         first_name, 
         last_name, 
-        role, 
+        role_id,
         status, 
-        email_verified, 
-        email_verified_at,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        createdAt,
+        updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
     `, {
       replacements: [
         'admin@sw2.com',
         passwordHash,
         'Admin',
         'System',
-        'admin',
-        'active',
-        true,
-        new Date()
+        adminRoleId,
+        'approved'
       ]
     });
 

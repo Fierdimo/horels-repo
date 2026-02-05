@@ -42,27 +42,31 @@ async function updateAdminUser() {
     const newPasswordHash = await bcrypt.hash('admin123', 10);
 
     console.log('🔄 Updating admin user...');
+    
+    // Get admin role_id
+    const [roles] = await sequelize.query("SELECT id FROM roles WHERE name = 'admin'");
+    const adminRoleId = roles.length > 0 ? roles[0].id : 1; // Default to 1 if not found
+    
     await sequelize.query(`
       UPDATE users 
       SET 
-        password_hash = ?,
-        role = 'admin',
-        status = 'active',
-        email_verified = 1,
-        email_verified_at = NOW(),
+        password = ?,
+        role_id = ?,
+        status = 'approved',
         first_name = 'Admin',
-        last_name = 'System'
+        last_name = 'System',
+        updatedAt = NOW()
       WHERE email = 'admin@sw2.com'
     `, {
-      replacements: [newPasswordHash]
+      replacements: [newPasswordHash, adminRoleId]
     });
 
     console.log('✅ Admin user updated successfully!\n');
     console.log('📋 New login credentials:');
     console.log('   Email: admin@sw2.com');
     console.log('   Password: admin123');
-    console.log('   Role: admin');
-    console.log('   Status: active');
+    console.log('   Role ID:', adminRoleId);
+    console.log('   Status: approved');
     console.log('');
     console.log('⚠️  IMPORTANT: Change this password after first login!');
 
