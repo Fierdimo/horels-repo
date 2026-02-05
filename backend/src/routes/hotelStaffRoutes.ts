@@ -199,9 +199,13 @@ router.get('/inventory/units', authenticateToken, authorizeRole(['staff', 'admin
     const property_id = req.user?.property_id;
     const role = req.user?.role;
 
+    // DEBUG LOG
+    console.log('[inventory/units] User:', { id: req.user?.id, email: req.user?.email, role, property_id });
+
     // Admin can see all properties
     // Staff must be assigned to a property
     if (role !== 'admin' && !property_id) {
+      console.log('[inventory/units] BLOCKED: Staff without property_id');
       return res.status(403).json({
         success: false,
         error: 'Staff user must be assigned to a property'
