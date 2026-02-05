@@ -90,15 +90,15 @@ export default function StaffInvitationsList() {
       return response.data;
     },
     staleTime: 0, // Always consider data stale, refetch immediately
-    keepPreviousData: true, // Keep previous data while fetching new page
+    placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: true, // Refetch when window regains focus
     refetchOnMount: true, // Always refetch when component mounts
   });
 
-  const ownerships: Ownership[] = ownershipsData?.data || [];
-  const totalCount: number = ownershipsData?.pagination?.total || 0;
-  const totalPages: number = ownershipsData?.pagination?.totalPages || 1;
-  const currentPageFromServer: number = ownershipsData?.pagination?.page || 1;
+  const ownerships: Ownership[] = (ownershipsData as any)?.data || [];
+  const totalCount: number = (ownershipsData as any)?.pagination?.total || 0;
+  const totalPages: number = (ownershipsData as any)?.pagination?.totalPages || 1;
+  const currentPageFromServer: number = (ownershipsData as any)?.pagination?.page || 1;
 
   // Helper function to determine display status based on dates and ownership status
   const getDisplayStatus = (ownership: Ownership): string => {
@@ -227,7 +227,7 @@ export default function StaffInvitationsList() {
   };
 
   // Count by status from backend
-  const statusCounts = ownershipsData?.statusCounts || {};
+  const statusCounts = (ownershipsData as any)?.statusCounts || {};
   const activeCount = statusCounts.ACTIVE || 0;
   const inUseCount = statusCounts.IN_USE || 0;
   const usedCount = statusCounts.USED || 0;

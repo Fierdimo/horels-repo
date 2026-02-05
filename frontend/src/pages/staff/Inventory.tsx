@@ -196,6 +196,7 @@ export default function StaffInventory() {
   const uniqueTypes = Array.from(new Set(rooms.map((r: any) => r.type).filter(Boolean)));
   const uniqueProperties = Array.from(new Set(rooms.map((r: any) => r.propertyName).filter(Boolean)));
   const uniqueCapacities = Array.from(new Set(rooms.map((r: any) => r.capacity).filter(Boolean))).sort((a: any, b: any) => a - b);
+  const uniqueFloors = Array.from(new Set(rooms.map((r: any) => r.floor).filter(Boolean))).sort((a: any, b: any) => a - b);
 
   // Filter rooms
   const filteredRooms = rooms.filter((room: any) => {
@@ -379,8 +380,8 @@ export default function StaffInventory() {
               >
                 <option value="all">{t('common.all') || 'All Properties'}</option>
                 {uniqueProperties.map((property) => (
-                  <option key={property} value={property}>
-                    {property}
+                  <option key={property as string} value={property as string}>
+                    {property as string}
                   </option>
                 ))}
               </select>
@@ -412,8 +413,8 @@ export default function StaffInventory() {
               >
                 <option value="all">{t('common.all') || 'All Types'}</option>
                 {uniqueTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
+                  <option key={type as string} value={type as string}>
+                    {type as string}
                   </option>
                 ))}
               </select>
@@ -431,8 +432,8 @@ export default function StaffInventory() {
               >
                 <option value="all">{t('common.all') || 'All Capacities'}</option>
                 {uniqueCapacities.map((capacity) => (
-                  <option key={capacity} value={capacity}>
-                    {capacity} {t('common.guests') || 'guests'}
+                  <option key={capacity as number} value={capacity as string}>
+                    {capacity as number} {t('common.guests') || 'guests'}
                   </option>
                 ))}
               </select>
