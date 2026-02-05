@@ -43,29 +43,25 @@ async function updateAdminUser() {
 
     console.log('🔄 Updating admin user...');
     
-    // Get admin role_id
-    const [roles] = await sequelize.query("SELECT id FROM roles WHERE name = 'admin'");
-    const adminRoleId = roles.length > 0 ? roles[0].id : 1; // Default to 1 if not found
-    
     await sequelize.query(`
       UPDATE users 
       SET 
         password_hash = ?,
-        role_id = ?,
+        role = 'admin',
         status = 'approved',
         first_name = 'Admin',
         last_name = 'System',
         updated_at = NOW()
       WHERE email = 'admin@sw2.com'
     `, {
-      replacements: [newPasswordHash, adminRoleId]
+      replacements: [newPasswordHash]
     });
 
     console.log('✅ Admin user updated successfully!\n');
     console.log('📋 New login credentials:');
     console.log('   Email: admin@sw2.com');
     console.log('   Password: admin123');
-    console.log('   Role ID:', adminRoleId);
+    console.log('   Role: admin');
     console.log('   Status: approved');
     console.log('');
     console.log('⚠️  IMPORTANT: Change this password after first login!');

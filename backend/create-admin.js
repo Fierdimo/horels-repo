@@ -37,7 +37,7 @@ async function createAdminUser() {
     if (existing.length > 0) {
       console.log('✅ Admin user already exists');
       console.log('   Email:', existing[0].email);
-      console.log('   Role ID:', existing[0].role_id);
+      console.log('   Role:', existing[0].role);
       console.log('   Status:', existing[0].status);
       console.log('');
       console.log('💡 To update this user, run: node update-admin.js');
@@ -46,17 +46,13 @@ async function createAdminUser() {
 
     console.log('📝 Creating admin user...');
     
-    // Get admin role_id
-    const [roles] = await sequelize.query("SELECT id FROM roles WHERE name = 'admin'");
-    const adminRoleId = roles.length > 0 ? roles[0].id : 1;
-    
     await sequelize.query(`
       INSERT INTO users (
         email, 
         password_hash, 
         first_name, 
         last_name, 
-        role_id,
+        role,
         status, 
         created_at,
         updated_at
@@ -67,7 +63,7 @@ async function createAdminUser() {
         passwordHash,
         'Admin',
         'System',
-        adminRoleId,
+        'admin',
         'approved'
       ]
     });
