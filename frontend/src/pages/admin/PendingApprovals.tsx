@@ -45,15 +45,29 @@ export default function PendingApprovals() {
   });
 
   const handleApprove = () => {
-    if (!selectedProperty) {
+    // If staff already has property_id, no need to select
+    if (!selectedStaff.property_id && !selectedProperty) {
       toast.error('Please select a property for this staff member');
       return;
     }
     approveMutation.mutate({ 
       userId: selectedStaff.id, 
       action: 'approve',
-      property_id: selectedProperty
+      property_id: selectedProperty || undefined // Send only if manually selected
     });
+  };
+
+  const handleApproveClick = (request: any) => {
+    // If staff already has property_id, approve directly
+    if (request.property_id) {
+      approveMutation.mutate({ 
+        userId: request.id, 
+        action: 'approve'
+      });
+    } else {
+      // No property_id, show modal to select one
+      setSelectedStaff(request);
+    }
   };
 
   if (isLoading) {
@@ -185,7 +199,7 @@ export default function PendingApprovals() {
 
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => setSelectedStaff(request)}
+                      onClick={() => handleApproveClick(request)}
                       disabled={approveMutation.isPending}
                       className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <Check className="h-4 w-4" />
