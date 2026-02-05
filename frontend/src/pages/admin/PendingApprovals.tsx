@@ -63,56 +63,9 @@ export default function PendingApprovals() {
   }
 
   const requests = data?.requests || [];
-  const properties = propertiesData?.data || [];
 
   return (
     <div className="space-y-6">
-      {/* Property Selection Modal */}
-      {selectedStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Assign Property to {selectedStaff.email}
-            </h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Property
-              </label>
-              <select
-                value={selectedProperty}
-                onChange={(e) => setSelectedProperty(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Choose a property...</option>
-                {properties.map((property: any) => (
-                  <option key={property.id} value={property.id}>
-                    {property.name} - {property.city}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setSelectedStaff(null);
-                  setSelectedProperty('');
-                }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleApprove}
-                disabled={!selectedProperty || approveMutation.isPending}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Approve
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{t('admin.pendingApprovals.title')}</h1>
@@ -177,14 +130,14 @@ export default function PendingApprovals() {
 
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => handleApproveClick(request)}
+                      onClick={() => handleApprove(request)}
                       disabled={approveMutation.isPending}
                       className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <Check className="h-4 w-4" />
                       <span>{t('admin.pendingApprovals.approve')}</span>
                     </button>
                     <button
-                      onClick={() => approveMutation.mutate({ userId: request.id, action: 'reject' })}
+                      onClick={() => handleReject(request.id)}
                       disabled={approveMutation.isPending}
                       className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >

@@ -585,9 +585,7 @@ export default function RegisterWizard() {
           {/* Dropdown with search results */}
           {propertyResults.length > 0 && (
             <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-80 overflow-y-auto">
-              {propertyResults
-                .filter(property => property.alreadyRegistered && typeof property.id === 'number' && !isNaN(property.id))
-                .map((property, idx) => (
+              {propertyResults.map((property, idx) => (
                 <button
                   key={property.id || `pms-${idx}`}
                   type="button"
@@ -652,11 +650,6 @@ export default function RegisterWizard() {
                   </div>
                 </button>
               ))}
-              {propertyResults.length > 0 && propertyResults.filter(p => p.alreadyRegistered && typeof p.id === 'number').length === 0 && (
-                <div className="px-4 py-3 text-sm text-gray-600">
-                  No registered hotels found. Please contact the administrator to register your hotel first.
-                </div>
-              )}
             </div>
           )}
         </div>
