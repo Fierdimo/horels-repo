@@ -255,26 +255,25 @@ export default function Register() {
           {selectedRole === 'staff' && (
             <>
               <div>
-                <label htmlFor="hotelName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="property_id" className="block text-sm font-medium text-gray-700">
                   {t('auth.hotelName') || 'Hotel Name'}
                 </label>
-                <input
-                  id="hotelName"
-                  type="text"
-                  list="hotelNames"
-                  {...register('hotelName')}
+                <select
+                  id="property_id"
+                  {...register('property_id')}
                   className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition ${
-                    errors.hotelName ? 'border-red-500' : 'border-gray-300'
+                    errors.property_id ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder={t('auth.hotelNamePlaceholder') || 'Enter or select hotel name'}
-                />
-                <datalist id="hotelNames">
-                  {propertiesData?.properties?.map((property, index) => (
-                    <option key={index} value={property.name} />
+                >
+                  <option value="">{t('auth.selectHotel') || 'Select a hotel'}</option>
+                  {propertiesData?.properties?.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name} - {property.city || property.location}
+                    </option>
                   ))}
-                </datalist>
-                {errors.hotelName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.hotelName.message}</p>
+                </select>
+                {errors.property_id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.property_id.message}</p>
                 )}
               </div>
 
@@ -294,7 +293,6 @@ export default function Register() {
                 {errors.hotelLocation && (
                   <p className="mt-1 text-sm text-red-600">{errors.hotelLocation.message}</p>
                 )}
-              </div>
             </>
           )}
 
