@@ -197,18 +197,27 @@ router.get('/services/history', authenticateToken, authorizeRole(['staff', 'admi
 router.get('/inventory/units', authenticateToken, authorizeRole(['staff', 'admin']), async (req: AuthRequest, res: Response) => {
   try {
     const property_id = req.user?.property_id;
+    const role = req.user?.role;
 
-    if (!property_id) {
+    // Admin can see all properties
+    // Staff must be assigned to a property
+    if (role !== 'admin' && !property_id) {
       return res.status(403).json({
         success: false,
         error: 'Staff user must be assigned to a property'
       });
     }
 
+    // Build query - admin sees all, staff sees only their property
+    const where: any = { is_active: true };
+    if (role !== 'admin') {
+      where.property_id = property_id;
+    }
+
     const units = await TimeshareUnit.findAll({
-      where: { property_id, is_active: true },
-      attributes: ['id', 'category', 'capacity_min', 'capacity_max', 'quantity', 'base_credit_value', 'description'],
-      order: [['category', 'ASC']]
+      where,
+      attributes: ['id', 'category', 'capacity_min', 'capacity_max', 'quantity', 'base_credit_value', 'description', 'property_id'],
+      order: [['property_id', 'ASC'], ['category', 'ASC']]
     });
 
     res.json({
