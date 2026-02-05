@@ -78,9 +78,9 @@ export const bookingsApi = {
     const now = new Date();
     
     // Find booking where check_in <= today <= check_out
-    const activeBooking = bookings.find((booking: Booking) => {
-      const checkIn = new Date(booking.check_in);
-      const checkOut = new Date(booking.check_out);
+    const activeBooking = bookings.find((booking: any) => {
+      const checkIn = new Date(booking.check_in || booking.checkIn);
+      const checkOut = new Date(booking.check_out || booking.checkOut);
       return now >= checkIn && now <= checkOut;
     });
 
@@ -97,8 +97,8 @@ export const bookingsApi = {
     const now = new Date();
     
     // Filter bookings where check_in > today
-    const upcomingBookings = bookings.filter((booking: Booking) => {
-      const checkIn = new Date(booking.check_in);
+    const upcomingBookings = bookings.filter((booking: any) => {
+      const checkIn = new Date(booking.check_in || booking.checkIn);
       return checkIn > now;
     });
 

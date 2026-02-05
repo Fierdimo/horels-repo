@@ -17,7 +17,7 @@ import { timeshareApi } from '@/api/timeshare';
  * - Integración completa con Stripe
  * - Reserva temporal con countdown
  */
-export function RefinedCreditCheckoutPage() {
+export default function RefinedCreditCheckoutPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
 

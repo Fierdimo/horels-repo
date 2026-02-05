@@ -315,8 +315,8 @@ function StripePaymentForm({ amount, onSuccess }: StripePaymentFormProps) {
       // Submit the payment
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
-        elements
-      });
+        card: elements.getElement('card')!
+      } as any);
 
       if (error) {
         toast.error(error.message || 'Error al procesar el pago');
