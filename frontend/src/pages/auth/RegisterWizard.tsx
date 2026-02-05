@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/api/auth';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/client';
-import { useProperties } from '@/hooks/useProperties';
 import {
   Hotel,
   ArrowLeft,
@@ -46,7 +45,6 @@ export default function RegisterWizard() {
   const navigate = useNavigate();
   const { register, user } = useAuth();
   const [searchParams] = useSearchParams();
-  const { data: propertiesData } = useProperties();
   
   // Detect invitation token from URL
   const invitationToken = searchParams.get('invitation');
@@ -181,9 +179,18 @@ export default function RegisterWizard() {
 
       // If staff, include property_id and PMS data
       if (formData.role === 'staff') {
+        console.log('[RegisterWizard] Staff registration - formData:', {
+          propertyId: formData.propertyId,
+          hotelName: formData.hotelName,
+          pmsExternalId: formData.pmsExternalId
+        });
+        
         // Always send property_id if available (from platform properties)
         if (formData.propertyId) {
           registerData.property_id = formData.propertyId;
+          console.log('[RegisterWizard] Adding property_id to registerData:', formData.propertyId);
+        } else {
+          console.log('[RegisterWizard] WARNING: No propertyId in formData!');
         }
         
         // Also send PMS data if property came from PMS
@@ -195,6 +202,8 @@ export default function RegisterWizard() {
           };
         }
       }
+
+      console.log('[RegisterWizard] Final registerData being sent:', registerData);
 
       register(registerData, {
         onSuccess: async (data: any) => {
@@ -550,44 +559,7 @@ export default function RegisterWizard() {
       </div>
 
       <div className="space-y-4">
-        {/* Simple property selector for platform properties */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <Building className="inline h-4 w-4 mr-2" />
-            Select Your Hotel
-          </label>
-          <select
-            value={formData.propertyId || ''}
-            onChange={(e) => {
-              const selectedId = e.target.value;
-              updateFormData('propertyId', selectedId);
-              
-              // Also update hotel name for display
-              const selectedProperty = propertiesData?.properties?.find(
-                (p: any) => p.id.toString() === selectedId
-              );
-              if (selectedProperty) {
-                updateFormData('hotelName', selectedProperty.name);
-                updateFormData('hotelLocation', `${selectedProperty.city}, ${selectedProperty.country}`);
-              }
-            }}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          >
-            <option value="">Select a hotel</option>
-            {propertiesData?.properties?.map((property: any) => (
-              <option key={property.id} value={property.id}>
-                {property.name} - {property.city}, {property.country}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="relative border-t pt-4">
-          <div className="absolute left-0 right-0 -top-3 flex justify-center">
-            <span className="bg-white px-2 text-sm text-gray-500">Or search for your hotel</span>
-          </div>
-          
+        <div className="relative">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <Building className="inline h-4 w-4 mr-2" />
             {t('auth.hotelName')}
@@ -624,9 +596,16 @@ export default function RegisterWizard() {
                     updateFormData('hotelName', property.name);
                     updateFormData('hotelLocation', location);
                     updateFormData('pmsExternalId', property.propertyId);
-                    if (property.id) {
-                      updateFormData('propertyId', property.id.toString());
+                    
+                    // ALWAYS set propertyId if property has id (convert to string)
+                    if (property.id !== undefined && property.id !== null) {
+                      const propertyIdStr = String(property.id);
+                      console.log('[RegisterWizard] Selected property:', property.name, 'ID:', propertyIdStr, 'Type:', typeof property.id);
+                      updateFormData('propertyId', propertyIdStr);
+                    } else {
+                      console.log('[RegisterWizard] WARNING: Property has no ID:', property);
                     }
+                    
                     setPropertyResults([]);
                   }}
                   className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 group"
