@@ -2,11 +2,85 @@
 
 /**
  * Migration to convert V1 users table structure to V2
- * Adds missing columns and renames existing ones
+ * Creates V2 users table if it doesn't exist, or converts V1 structure to V2
  */
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
+    // Check if users table exists
+    const tables = await queryInterface.showAllTables();
+    const usersTableExists = tables.includes('users');
+    
+    // If table doesn't exist, create it with V2 structure
+    if (!usersTableExists) {
+      console.log('Creating users table with V2 structure...');
+      await queryInterface.createTable('users', {
+        id: {
+          type: Sequelize.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        email: {
+          type: Sequelize.STRING(255),
+          allowNull: false,
+          unique: true
+        },
+        password_hash: {
+          type: Sequelize.STRING(255),
+          allowNull: false
+        },
+        first_name: {
+          type: Sequelize.STRING(100),
+          allowNull: true
+        },
+        last_name: {
+          type: Sequelize.STRING(100),
+          allowNull: true
+        },
+        role: {
+          type: Sequelize.ENUM('admin', 'owner', 'guest', 'staff'),
+          allowNull: false,
+          defaultValue: 'guest'
+        },
+        status: {
+          type: Sequelize.ENUM('pending', 'approved', 'rejected', 'inactive'),
+          defaultValue: 'pending'
+        },
+        phone: {
+          type: Sequelize.STRING(50),
+          allowNull: true
+        },
+        email_verified: {
+          type: Sequelize.BOOLEAN,
+          defaultValue: false
+        },
+        email_verified_at: {
+          type: Sequelize.DATE,
+          allowNull: true
+        },
+        last_login_at: {
+          type: Sequelize.DATE,
+          allowNull: true
+        },
+        must_change_password: {
+          type: Sequelize.BOOLEAN,
+          defaultValue: false
+        },
+        created_at: {
+          type: Sequelize.DATE,
+          allowNull: false
+        },
+        updated_at: {
+          type: Sequelize.DATE,
+          allowNull: false
+        }
+      });
+      console.log('✅ Users table created with V2 structure');
+      return;
+    }
+    
+    // Table exists - convert V1 to V2
+    console.log('Converting existing V1 users table to V2...');
     const tableInfo = await queryInterface.describeTable('users');
     
     // Rename password -> password_hash if password exists and password_hash doesn't
