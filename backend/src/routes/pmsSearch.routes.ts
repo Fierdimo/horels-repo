@@ -27,7 +27,7 @@ router.get('/providers', (req: Request, res: Response) => {
 
 /**
  * @route   GET /api/pms-search/search?q=hotel+name
- * @desc    Search for properties in platform AND Mock PMS
+ * @desc    Search for properties in platform only (no Mock PMS)
  * @access  Public (for staff registration)
  */
 router.get('/search', async (req: Request, res: Response) => {
@@ -52,12 +52,21 @@ router.get('/search', async (req: Request, res: Response) => {
       source: 'platform' | 'mock-pms';
     }> = [];
 
-    // 1. Search in registered V2 properties (platform)
+    // Search only in registered V2 properties (platform)
     const platformProperties = await TimeshareProperty.findAll({
       where: {
-        name: {
-          [Op.like]: `%${searchQuery}%`
-        }
+        [Op.or]: [
+          {
+            name: {
+              [Op.like]: `%${searchQuery}%`
+            }
+          },
+          {
+            city: {
+              [Op.like]: `%${searchQuery}%`
+            }
+          }
+        ]
       },
       attributes: ['id', 'name', 'city', 'country', 'address'],
       limit: 10,
@@ -77,49 +86,6 @@ router.get('/search', async (req: Request, res: Response) => {
         source: 'platform'
       });
     });
-
-    // 2. Search in Mock PMS
-    try {
-      const mockPMS = new MockPMSManager();
-      const allMockProperties = mockPMS.getAllProperties();
-      
-      // Filter by search query
-      const matchingMockProperties = allMockProperties.filter((p: any) => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.city.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      // Add Mock PMS results (check if already registered)
-      for (const mockProp of matchingMockProperties) {
-        // Check if already in platform results
-        const existsInPlatform = results.some(r => r.propertyId === mockProp.id);
-        
-        if (!existsInPlatform) {
-          // Check if registered in platform (only query necessary fields)
-          const existingProperty = await TimeshareProperty.findOne({
-            where: {
-              name: mockProp.name,
-              city: mockProp.city
-            },
-            attributes: ['id', 'name', 'city', 'country']
-          });
-
-          results.push({
-            id: existingProperty?.id || mockProp.id,
-            propertyId: mockProp.id,
-            name: mockProp.name,
-            location: mockProp.address,
-            city: mockProp.city,
-            country: mockProp.country,
-            alreadyRegistered: !!existingProperty,
-            source: 'mock-pms'
-          });
-        }
-      }
-    } catch (mockPMSError) {
-      console.error('Error searching in Mock PMS (non-fatal):', mockPMSError);
-      // Continue with platform results even if Mock PMS fails
-    }
 
     res.json({
       success: true,

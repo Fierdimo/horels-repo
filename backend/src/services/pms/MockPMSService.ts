@@ -100,7 +100,7 @@ class MockPMSDatabase {
 
   private initializeMockData() {
     // Property 1: Hotel Emperador Madrid
-    const hotel1Id = 'MOCK-PROP-001';
+    const hotel1Id = '1001';
     this.properties.set(hotel1Id, {
       id: hotel1Id,
       name: 'Hotel Emperador Madrid',
@@ -159,7 +159,7 @@ class MockPMSDatabase {
     });
 
     // Property 2: Barcelona Princess
-    const hotel2Id = 'MOCK-PROP-002';
+    const hotel2Id = '1002';
     this.properties.set(hotel2Id, {
       id: hotel2Id,
       name: 'Barcelona Princess',
@@ -204,7 +204,7 @@ class MockPMSDatabase {
     });
 
     // Property 3: Alfonso XIII Sevilla
-    const hotel3Id = 'MOCK-PROP-003';
+    const hotel3Id = '1003';
     this.properties.set(hotel3Id, {
       id: hotel3Id,
       name: 'Alfonso XIII Sevilla',
