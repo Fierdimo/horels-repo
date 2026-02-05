@@ -49,7 +49,7 @@ export function AllocationForm({ allocation, onSubmit, onClose, isSubmitting }: 
   // Debug: Log properties data
   useEffect(() => {
     console.log('Properties Data:', propertiesData);
-    console.log('Properties Array:', propertiesData?.properties);
+    console.log('Properties Array:', propertiesData?.data);
   }, [propertiesData]);
 
   // Fetch rooms for selected property
@@ -151,7 +151,7 @@ export function AllocationForm({ allocation, onSubmit, onClose, isSubmitting }: 
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
             >
               <option value="">Select a property / hotel</option>
-              {propertiesData?.properties && Array.isArray(propertiesData.properties) && propertiesData.properties.map((property: any, index: number) => (
+              {propertiesData?.data && Array.isArray(propertiesData.data) && propertiesData.data.map((property: any, index: number) => (
                 <option key={property.id || index} value={property.id || index}>
                   {property.name} {property.city && property.country ? `- ${property.city}, ${property.country}` : property.location ? `- ${property.location}` : ''}
                 </option>

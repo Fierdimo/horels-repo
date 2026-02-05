@@ -63,7 +63,7 @@ export default function UnifiedDashboard() {
   const confirmedBookings = allBookings.filter((b: any) => b.status === 'CONFIRMED');
 
   // Get available weeks for quick actions
-  const availableWeeks = weeks.filter(w => w.status === 'ASSIGNED').slice(0, 3);
+  const availableWeeks = weeks.filter((w: any) => w.status === 'available').slice(0, 3);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-emerald-50">
@@ -224,7 +224,7 @@ export default function UnifiedDashboard() {
                     <p className="text-gray-600 text-lg font-medium">{t('owner.dashboard.noWeeksYet')}</p>
                   </div>
                 ) : (
-                  weeks.slice(0, 10).map((week) => {
+                  weeks.slice(0, 10).map((week: any) => {
                     const property = week.Ownership?.Unit?.Property;
                     return (
                     <div key={week.id} className="group border border-gray-200 rounded-xl p-5 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 bg-white">
@@ -255,9 +255,9 @@ export default function UnifiedDashboard() {
                           </div>
                         </div>
                         <span className={`px-4 py-2 rounded-full text-sm font-semibold shadow-sm ${
-                          week.status === 'ASSIGNED' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' :
-                          week.status === 'RELEASED' ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white' :
-                          week.status === 'CONFIRMED' ? 'bg-gradient-to-r from-purple-400 to-indigo-500 text-white' :
+                          week.status === 'available' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' :
+                          week.status === 'confirmed' ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white' :
+                          week.status === 'used' ? 'bg-gradient-to-r from-purple-400 to-indigo-500 text-white' :
                           'bg-gray-200 text-gray-700'
                         }`}>
                           {week.status}

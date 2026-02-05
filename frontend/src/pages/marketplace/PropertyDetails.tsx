@@ -180,7 +180,7 @@ export default function PropertyDetails() {
     if (property?.roomTypes && property.roomTypes.length > 0) {
       console.log('🔄 Merging property.roomTypes with availability data');
       rooms = property.roomTypes.map((rt: any) => {
-        const availData = availabilityMap.get(rt.id);
+        const availData = availabilityMap.get(rt.id) as any;
         console.log(`  Room ${rt.id}:`, { 
           originalRoom: rt, 
           availData,
@@ -285,7 +285,7 @@ export default function PropertyDetails() {
     }
     
     // Find the room data to pass pricing info
-    const selectedRoom = rooms.find(r => r.name === roomType || r.roomCategory === roomType);
+    const selectedRoom = rooms.find(r => r.name === roomType || (r as any).roomCategory === roomType);
     console.log('🔵 selectedRoom:', selectedRoom);
     
     // Always use /guest/marketplace path for checkout (public access)
@@ -296,7 +296,7 @@ export default function PropertyDetails() {
       guests,
       // Pass room pricing data
       roomData: selectedRoom ? {
-        name: selectedRoom.name || selectedRoom.roomCategory,
+        name: selectedRoom.name || (selectedRoom as any).roomCategory,
         description: selectedRoom.description,
         basePrice: selectedRoom.basePrice || selectedRoom.rate,
         guestPrice: selectedRoom.guestPrice || selectedRoom.rate,
@@ -369,9 +369,9 @@ export default function PropertyDetails() {
                   <MapPin className="h-5 w-5" />
                   <span>{property.city}, {property.country}</span>
                 </div>
-                {property.stars > 0 && (
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: property.stars }).map((_, idx) => (
+                {property.stars && property.stars > 0 && (
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: property.stars! }).map((_, idx) => (
                       <Star key={idx} className="h-5 w-5 text-yellow-500 fill-yellow-500" />
                     ))}
                   </div>

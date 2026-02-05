@@ -49,17 +49,17 @@ export function RefinedCreditCheckoutPage() {
   const { data: creditCalculation } = useQuery({
     queryKey: ['credit-calculation-item', itemId],
     queryFn: async () => {
-      if (!previewData?.item) return null;
-      const item = previewData.item;
+      if (!(previewData as any)?.item) return null;
+      const item = (previewData as any).item;
       
       return await timeshareApi.calculateCreditCost({
         propertyId: item.property_id,
-        roomId: item.property_id, // Approximation - adjust based on actual room
+        roomType: item.room_category || 'Standard',
         checkIn: item.start_date || new Date().toISOString(),
         checkOut: item.end_date || new Date().toISOString()
       });
     },
-    enabled: !!previewData?.item,
+    enabled: !!(previewData as any)?.item,
     staleTime: 60000
   });
 
@@ -156,7 +156,7 @@ export function RefinedCreditCheckoutPage() {
     return null;
   }
 
-  const { item } = previewData;
+  const { item } = previewData as any;
   const wallet = walletData.wallet;
   const nights = creditCalculation.nights || 7;
 

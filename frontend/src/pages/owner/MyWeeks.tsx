@@ -313,18 +313,18 @@ export default function MyWeeks() {
                       {week.Ownership.Unit.category}
                     </span>
                   </div>
-                  {week.Ownership.Unit.description && (
+                  {(week.Ownership.Unit as any).description && (
                     <div className="text-sm">
                       <span className="text-gray-600">{t('owner.myWeeks.description')}:</span>
                       <p className="text-gray-700 mt-1 text-xs leading-relaxed">
-                        {week.Ownership.Unit.description}
+                        {(week.Ownership.Unit as any).description}
                       </p>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">{t('owner.myWeeks.dates')}:</span>
                     <span className="font-medium text-gray-900">
-                      {format(new Date(week.start_date), 'dd MMM', { locale: es })} - {format(new Date(week.end_date), 'dd MMM yyyy', { locale: es })}
+                      {format(new Date((week as any).start_date), 'dd MMM', { locale: es })} - {format(new Date((week as any).end_date), 'dd MMM yyyy', { locale: es })}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -413,7 +413,7 @@ export default function MyWeeks() {
                     <div>
                       <p className="text-blue-100 text-sm mb-1">{t('owner.myWeeks.creditsYouWillReceive')}</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold">{preview.estimatedCredits}</span>
+                        <span className="text-4xl font-bold">{(preview as any)?.estimatedCredits}</span>
                         <span className="text-lg text-blue-200">{t('owner.myWeeks.credits')}</span>
                       </div>
                     </div>
@@ -421,7 +421,7 @@ export default function MyWeeks() {
                   </div>
                   <div className="mt-3 pt-3 border-t border-white/20 text-sm text-blue-100">
                     <Calendar className="h-4 w-4 inline mr-2" />
-                    {t('owner.myWeeks.expiresOn', { date: format(new Date(preview.expirationDate), 'dd MMM yyyy', { locale: es }) })}
+                    {t('owner.myWeeks.expiresOn', { date: format(new Date((preview as any)?.expirationDate), 'dd MMM yyyy', { locale: es }) })}
                   </div>
                 </div>
               )}
@@ -433,7 +433,7 @@ export default function MyWeeks() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                 </div>
-              ) : preview ? (
+              ) : (preview as any) ? (
                 <>
                   {/* Week Info */}
                   <div>
@@ -441,21 +441,21 @@ export default function MyWeeks() {
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.property')}:</span>
-                        <span className="font-medium text-gray-900">{preview.weekInfo.propertyName}</span>
+                        <span className="font-medium text-gray-900">{(preview as any)?.weekInfo?.propertyName}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.unit')}:</span>
-                        <span className="font-medium text-gray-900">{preview.weekInfo.unitName}</span>
+                        <span className="font-medium text-gray-900">{(preview as any)?.weekInfo?.unitName}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.weekLabel')}:</span>
-                        <span className="font-medium text-gray-900">{t('owner.myWeeks.weekOf', { number: preview.weekInfo.weekNumber, year: preview.weekInfo.year })}</span>
+                        <span className="font-medium text-gray-900">{t('owner.myWeeks.weekOf', { number: (preview as any)?.weekInfo?.weekNumber, year: (preview as any)?.weekInfo?.year })}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.dates')}:</span>
                         <span className="font-medium text-gray-900">
-                          {format(new Date(preview.weekInfo.startDate), 'dd MMM', { locale: es })} - {' '}
-                          {format(new Date(preview.weekInfo.endDate), 'dd MMM yyyy', { locale: es })}
+                          {format(new Date((preview as any)?.weekInfo?.startDate), 'dd MMM', { locale: es })} - {' '}
+                          {format(new Date((preview as any)?.weekInfo?.endDate), 'dd MMM yyyy', { locale: es })}
                         </span>
                       </div>
                     </div>
@@ -467,24 +467,24 @@ export default function MyWeeks() {
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.seasonBaseValue')}</span>
-                        <span className="font-medium text-gray-900">{preview.breakdown.baseSeason} {t('owner.myWeeks.credits')}</span>
+                        <span className="font-medium text-gray-900">{(preview as any)?.breakdown?.baseSeason} {t('owner.myWeeks.credits')}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.tierMultiplier')}</span>
-                        <span className="font-medium text-gray-900">×{preview.breakdown.tierMultiplier}</span>
+                        <span className="font-medium text-gray-900">×{(preview as any)?.breakdown?.tierMultiplier}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.roomMultiplier')}</span>
-                        <span className="font-medium text-gray-900">×{preview.breakdown.roomMultiplier}</span>
+                        <span className="font-medium text-gray-900">×{(preview as any)?.breakdown?.roomMultiplier}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t('owner.myWeeks.locationMultiplier')}</span>
-                        <span className="font-medium text-gray-900">×{preview.breakdown.locationMultiplier}</span>
+                        <span className="font-medium text-gray-900">×{(preview as any)?.breakdown?.locationMultiplier}</span>
                       </div>
                       <div className="pt-2 mt-2 border-t border-gray-200">
                         <div className="flex justify-between">
                           <span className="font-semibold text-gray-900">{t('owner.myWeeks.total')}</span>
-                          <span className="text-xl font-bold text-blue-600">{preview.estimatedCredits} {t('owner.myWeeks.credits')}</span>
+                          <span className="text-xl font-bold text-blue-600">{(preview as any)?.estimatedCredits} {t('owner.myWeeks.credits')}</span>
                         </div>
                       </div>
                     </div>
