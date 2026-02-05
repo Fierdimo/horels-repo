@@ -565,7 +565,7 @@ router.get('/dashboard/stats', authenticateToken, authorizeRole(['staff', 'admin
 router.get('/properties', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_list_properties'), async (req: AuthRequest, res: Response) => {
   try {
     const properties = await Property.findAll({
-      attributes: ['id', 'name', 'city', 'country', 'location'],
+      attributes: ['id', 'name', 'city', 'country', 'region'],
       order: [['name', 'ASC']]
     });
 

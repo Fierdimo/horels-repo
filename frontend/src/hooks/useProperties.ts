@@ -2,23 +2,26 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 
 interface PropertyOption {
+  id: number;
   name: string;
-  location: string;
+  city: string;
+  country: string;
+  region?: string;
 }
 
 interface PropertiesResponse {
-  properties: PropertyOption[];
+  success: boolean;
+  data: PropertyOption[];
 }
 
 export const useProperties = () => {
   return useQuery({
     queryKey: ['properties'],
     queryFn: async () => {
-      const response = await apiClient.get<PropertiesResponse>('/properties/names');
-      return response.data;
+      const response = await apiClient.get<PropertiesResponse>('/hotel-staff/properties');
+      return { properties: response.data.data };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: false, // Don't retry on failure
-    enabled: false, // Disable this query (v1 legacy endpoint)
+    retry: true,
   });
 };
