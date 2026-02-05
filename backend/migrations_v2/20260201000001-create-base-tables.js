@@ -16,7 +16,7 @@ module.exports = {
       // Create users table if it doesn't exist
       await queryInterface.createTable('users', {
         id: {
-          type: Sequelize.INTEGER.UNSIGNED,
+          type: Sequelize.INTEGER, // Signed int to match V2 structure
           primaryKey: true,
           autoIncrement: true
         },
