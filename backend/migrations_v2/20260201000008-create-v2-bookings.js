@@ -24,7 +24,7 @@ module.exports = {
       
       // Relationships
       guest_id: {
-        type: Sequelize.INTEGER.UNSIGNED, // Match users.id type
+        type: Sequelize.INTEGER, // Match users.id type (signed int)
         allowNull: false,
         references: {
           model: 'users',

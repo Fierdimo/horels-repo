@@ -16,7 +16,7 @@ module.exports = {
         autoIncrement: true
       },
       user_id: {
-        type: Sequelize.INTEGER.UNSIGNED, // Match users.id type
+        type: Sequelize.INTEGER, // Match users.id type (signed int)
         allowNull: false,
         unique: true,
         references: {
