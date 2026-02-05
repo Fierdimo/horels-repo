@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Clock, UserCheck, Check, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -8,8 +7,6 @@ import apiClient from '@/api/client';
 export default function PendingApprovals() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [selectedStaff, setSelectedStaff] = useState<any>(null);
-  const [selectedProperty, setSelectedProperty] = useState('');
   
   const { data, isLoading } = useQuery({
     queryKey: ['staff-requests'],
@@ -19,55 +16,36 @@ export default function PendingApprovals() {
     }
   });
 
-  // Fetch properties for selection
-  const { data: propertiesData } = useQuery({
-    queryKey: ['properties'],
-    queryFn: async () => {
-      const { data } = await apiClient.get('/hotel-staff/properties');
-      return data;
-    }
-  });
-
   const approveMutation = useMutation({
-    mutationFn: async ({ userId, action, property_id }: { userId: number; action: 'approve' | 'reject'; property_id?: string }) => {
-      const { data } = await apiClient.post(`/admin/staff-requests/${userId}`, { action, property_id });
+    mutationFn: async ({ userId, action }: { userId: number; action: 'approve' | 'reject' }) => {
+      const { data } = await apiClient.post(`/admin/staff-requests/${userId}`, { action });
       return data;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['staff-requests'] });
       toast.success(t('admin.pendingApprovals.requestProcessed', { action: t(`admin.pendingApprovals.${variables.action}d`) }));
-      setSelectedStaff(null);
-      setSelectedProperty('');
     },
     onError: () => {
       toast.error(t('admin.pendingApprovals.failedToProcess'));
     }
   });
 
-  const handleApprove = () => {
-    // If staff already has property_id, no need to select
-    if (!selectedStaff.property_id && !selectedProperty) {
-      toast.error('Please select a property for this staff member');
+  const handleApprove = (request: any) => {
+    if (!request.property_id) {
+      toast.error('This staff member has no property assigned. Please contact support.');
       return;
     }
     approveMutation.mutate({ 
-      userId: selectedStaff.id, 
-      action: 'approve',
-      property_id: selectedProperty || undefined // Send only if manually selected
+      userId: request.id, 
+      action: 'approve'
     });
   };
 
-  const handleApproveClick = (request: any) => {
-    // If staff already has property_id, approve directly
-    if (request.property_id) {
-      approveMutation.mutate({ 
-        userId: request.id, 
-        action: 'approve'
-      });
-    } else {
-      // No property_id, show modal to select one
-      setSelectedStaff(request);
-    }
+  const handleReject = (userId: number) => {
+    approveMutation.mutate({ 
+      userId, 
+      action: 'reject'
+    });
   };
 
   if (isLoading) {
