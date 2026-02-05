@@ -1936,5 +1936,34 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
   }
 });
 
+/**
+ * @route   GET /api/public/properties/list/all
+ * @desc    Get simple list of all active properties for registration form
+ * @access  Public (no authentication required)
+ */
+router.get('/properties/list/all', async (req: Request, res: Response) => {
+  try {
+    const { TimeshareProperty } = await import('../models/v2');
+    
+    const properties = await TimeshareProperty.findAll({
+      where: { is_active: true },
+      attributes: ['id', 'name', 'city', 'country', 'region'],
+      order: [['name', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: properties
+    });
+  } catch (error: any) {
+    console.error('Error fetching properties list:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch properties list',
+      message: error.message
+    });
+  }
+});
+
 export default router;
 

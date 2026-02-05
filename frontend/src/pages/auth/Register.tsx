@@ -276,23 +276,6 @@ export default function Register() {
                   <p className="mt-1 text-sm text-red-600">{errors.property_id.message}</p>
                 )}
               </div>
-
-              <div>
-                <label htmlFor="hotelLocation" className="block text-sm font-medium text-gray-700">
-                  {t('auth.hotelLocation') || 'Hotel Location'}
-                </label>
-                <input
-                  id="hotelLocation"
-                  type="text"
-                  {...register('hotelLocation')}
-                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition ${
-                    errors.hotelLocation ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder={t('auth.hotelLocationPlaceholder') || 'Enter hotel location'}
-                />
-                {errors.hotelLocation && (
-                  <p className="mt-1 text-sm text-red-600">{errors.hotelLocation.message}</p>
-                )}
             </>
           )}
 
