@@ -592,6 +592,9 @@ export default function RegisterWizard() {
                     e.preventDefault();
                   }}
                   onClick={() => {
+                    console.log('[RegisterWizard] Property clicked - FULL DATA:', JSON.stringify(property, null, 2));
+                    console.log('[RegisterWizard] Property.id exists?', property.id !== undefined, 'Value:', property.id, 'Type:', typeof property.id);
+                    
                     const location = [property.city, property.country].filter(Boolean).join(', ') || property.location || '';
                     updateFormData('hotelName', property.name);
                     updateFormData('hotelLocation', location);
@@ -600,10 +603,10 @@ export default function RegisterWizard() {
                     // ALWAYS set propertyId if property has id (convert to string)
                     if (property.id !== undefined && property.id !== null) {
                       const propertyIdStr = String(property.id);
-                      console.log('[RegisterWizard] Selected property:', property.name, 'ID:', propertyIdStr, 'Type:', typeof property.id);
+                      console.log('[RegisterWizard] Setting propertyId to:', propertyIdStr);
                       updateFormData('propertyId', propertyIdStr);
                     } else {
-                      console.log('[RegisterWizard] WARNING: Property has no ID:', property);
+                      console.log('[RegisterWizard] WARNING: Property has no ID - property object:', property);
                     }
                     
                     setPropertyResults([]);
