@@ -26,17 +26,13 @@ export const registerSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
   roleName: z.enum(['owner', 'staff', 'admin']),
-  hotelName: z.string().optional(),
-  hotelLocation: z.string().optional()
+  property_id: z.string().optional()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword']
-}).refine((data) => data.roleName !== 'staff' || (data.hotelName && data.hotelName.trim().length > 0), {
-  message: "Hotel name is required for staff registration",
-  path: ['hotelName']
-}).refine((data) => data.roleName !== 'staff' || (data.hotelLocation && data.hotelLocation.trim().length > 0), {
-  message: "Hotel location is required for staff registration",
-  path: ['hotelLocation']
+}).refine((data) => data.roleName !== 'staff' || (data.property_id && data.property_id.trim().length > 0), {
+  message: "Please select a hotel for staff registration",
+  path: ['property_id']
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;

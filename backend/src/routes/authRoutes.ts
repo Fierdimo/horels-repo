@@ -65,6 +65,8 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       // Staff requires admin approval
       userStatus = 'pending';
       
+      console.log(`[Register] Staff registration - property_id received:`, property_id, `(type: ${typeof property_id})`);
+      
       // Use property_id directly from the form
       if (property_id) {
         finalPropertyId = parseInt(property_id, 10);
