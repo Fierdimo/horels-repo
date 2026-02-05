@@ -606,6 +606,14 @@ export default function RegisterWizard() {
                       const propertyIdStr = String(property.id);
                       console.log('[RegisterWizard] Setting propertyId to:', propertyIdStr);
                       updateFormData('propertyId', propertyIdStr);
+                      
+                      // Verify it was set (check after React state update)
+                      setTimeout(() => {
+                        console.log('[RegisterWizard] formData after update:', {
+                          propertyId: formData.propertyId,
+                          hotelName: formData.hotelName
+                        });
+                      }, 100);
                     } else {
                       console.log('[RegisterWizard] WARNING: Property has no ID - property object:', property);
                     }
