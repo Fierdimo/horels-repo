@@ -287,7 +287,7 @@ export class StripeService {
           email: metadata.guest_email,
           password_hash: `temp_${Date.now()}`, // Contraseña temporal
           role: 'guest', // V2: direct role field
-          status: 'active', // V2: 'active' instead of 'approved'
+          status: 'approved', // V2: approved for auto-created guests
           first_name: metadata.guest_name?.split(' ')[0] || 'Guest',
           last_name: metadata.guest_name?.split(' ').slice(1).join(' ') || ''
         });

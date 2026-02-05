@@ -374,7 +374,7 @@ router.post('/create-admin', authenticateToken, authorize(['create_user']), logA
       first_name: firstName || 'Admin',
       last_name: lastName || 'User',
       role: 'admin',
-      status: 'active'
+      status: 'approved'
     } as any);
 
     // Log admin creation
@@ -394,7 +394,7 @@ router.post('/create-admin', authenticateToken, authorize(['create_user']), logA
         firstName: newAdmin.first_name,
         lastName: newAdmin.last_name,
         role: 'admin',
-        status: 'active'
+        status: 'approved'
       }
     });
   } catch (error) {
@@ -411,7 +411,7 @@ router.get('/staff-requests', authenticateToken, authorize(['view_users']), logA
     // V2: role is enum, status uses different values
     const where: any = { 
       role: 'staff',
-      status: 'inactive' // Assuming inactive means pending approval in V2
+      status: 'pending' // V2 uses 'pending' for users awaiting approval
     };
 
     // Note: V2 doesn't have property_id in users table
@@ -449,7 +449,7 @@ router.post('/staff-requests/:userId', authenticateToken, authorize(['update_use
     const user = (req as any).user;
 
     const targetUser = await User.findByPk(userId);
-    if (!targetUser || targetUser.status !== 'inactive') {
+    if (!targetUser || targetUser.status !== 'pending') {
       return res.status(404).json({ error: 'Pending user request not found' });
     }
 
@@ -466,9 +466,9 @@ router.post('/staff-requests/:userId', authenticateToken, authorize(['update_use
     }
 
     if (action === 'approve') {
-      await targetUser.update({ status: 'active' });
+      await targetUser.update({ status: 'approved' });
     } else if (action === 'reject') {
-      await targetUser.update({ status: 'suspended' });
+      await targetUser.update({ status: 'rejected' });
     } else {
       return res.status(400).json({ error: 'Invalid action. Must be "approve" or "reject"' });
     }
@@ -719,7 +719,7 @@ router.get('/owners', authenticateToken, authorize(['manage_users', 'manage_book
     const owners = await User.findAll({
       where: { 
         role: 'owner',
-        status: 'active'
+        status: 'approved'
       },
       attributes: ['id', 'first_name', 'last_name', 'email'],
       order: [['first_name', 'ASC'], ['last_name', 'ASC']]

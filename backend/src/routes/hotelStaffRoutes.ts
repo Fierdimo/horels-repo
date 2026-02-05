@@ -1348,9 +1348,12 @@ router.get('/ownerships',
   async (req: AuthRequest, res: Response) => {
     try {
       const property_id = req.user?.property_id;
+      const userRole = req.user?.role;
       const { page = '1', limit = '10', status, search } = req.query;
 
-      if (!property_id) {
+      // Staff users MUST have a property assigned
+      // Admin users can see all properties
+      if (userRole === 'staff' && !property_id) {
         return res.status(403).json({
           success: false,
           error: 'Staff user must be assigned to a property'
@@ -1362,9 +1365,14 @@ router.get('/ownerships',
       const limitNum = parseInt(limit as string, 10);
       const offset = (pageNum - 1) * limitNum;
 
-      // Get units for this property
+      // Get units - for staff: only their property, for admin: all properties
+      const unitWhere: any = { is_active: true };
+      if (userRole === 'staff' && property_id) {
+        unitWhere.property_id = property_id;
+      }
+      
       const units = await TimeshareUnit.findAll({
-        where: { property_id, is_active: true },
+        where: unitWhere,
         attributes: ['id', 'category']
       });
 

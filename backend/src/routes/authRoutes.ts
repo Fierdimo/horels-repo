@@ -57,11 +57,11 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       });
     }
 
-    let userStatus: 'active' | 'inactive' = 'active'; // V2 uses 'active'/'inactive'
+    let userStatus: 'approved' | 'pending' = 'approved'; // V2 uses 'approved' for active users
     
     if (requestedRole === 'staff') {
       // Staff requires admin approval
-      userStatus = 'inactive';
+      userStatus = 'pending';
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -92,7 +92,7 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       { expiresIn: '24h' }
     );
 
-    const message = userStatus === 'inactive' 
+    const message = userStatus === 'pending' 
       ? 'Registration submitted. Waiting for admin approval.'
       : 'User created successfully';
 
@@ -153,8 +153,8 @@ router.post('/login', validateLogin, validateRequest, async (req: Request, res: 
     console.log('[LOGIN] Password valid, generating token...');
 
     // Check if user is active
-    if (user.status === 'suspended') {
-      return res.status(403).json({ error: 'Account is suspended. Please contact support.' });
+    if (user.status === 'rejected') {
+      return res.status(403).json({ error: 'Account was rejected. Please contact support.' });
     }
 
     if (user.status === 'inactive') {

@@ -128,7 +128,7 @@ export class OwnershipRegistrationService {
       first_name: data.owner_first_name,
       last_name: data.owner_last_name,
       phone: data.owner_phone || null,
-      status: 'active',
+      status: 'approved', // V2: approved for new owner registrations
       must_change_password: true // Forzar cambio de contraseña temporal
     }, { transaction });
 

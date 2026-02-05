@@ -257,7 +257,7 @@ class OwnershipImportService {
         last_name: row.owner_last_name || 'Owner',
         password_hash: this.generateRandomPassword(),
         role: 'owner', // V2: direct role field
-        status: 'active' // V2: 'active' instead of 'approved'
+        status: 'approved' // V2: approved for imported owners
       });
     } else if (!user) {
       throw new Error(`User with email "${row.owner_email}" not found and createUsers is false`);
