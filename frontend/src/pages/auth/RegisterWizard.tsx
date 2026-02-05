@@ -204,6 +204,7 @@ export default function RegisterWizard() {
       }
 
       console.log('[RegisterWizard] Final registerData being sent:', registerData);
+      console.log('[RegisterWizard] About to call register() with property_id:', registerData.property_id);
 
       register(registerData, {
         onSuccess: async (data: any) => {
