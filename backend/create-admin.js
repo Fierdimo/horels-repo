@@ -8,7 +8,7 @@ const { Sequelize, DataTypes } = require('sequelize');
  */
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'sw2_db',
+  process.env.DB_NAME || 'sw2_hotels',
   process.env.DB_USER || 'root',
   process.env.DB_PASSWORD || 'password',
   {
@@ -30,7 +30,7 @@ async function createAdminUser() {
     console.log('🔍 Checking if admin user exists...');
     
     const [existing] = await sequelize.query(
-      'SELECT * FROM v2_users WHERE email = ?',
+      'SELECT * FROM users WHERE email = ?',
       { replacements: ['admin@sw2.com'] }
     );
 
@@ -45,7 +45,7 @@ async function createAdminUser() {
     console.log('📝 Creating admin user...');
     
     await sequelize.query(`
-      INSERT INTO v2_users (
+      INSERT INTO users (
         email, 
         password_hash, 
         first_name, 
