@@ -168,7 +168,7 @@ export function CreditPaymentSelector({
               <div className="flex-1">
                 <div className="font-medium text-gray-900">{t('marketplace.checkout.payWithCreditsOption')}</div>
                 <div className="text-sm text-gray-600">
-                  {t('marketplace.checkout.useCredits', { count: creditPrice.creditsRequired.toLocaleString() })} ({t('marketplace.checkout.remaining', { count: (creditBalance.balance - creditPrice.creditsRequired).toLocaleString() })})
+                  {t('marketplace.checkout.useCredits', { count: creditPrice.creditsRequired })} ({t('marketplace.checkout.remaining', { count: creditBalance.balance - creditPrice.creditsRequired })})
                 </div>
               </div>
               {paymentMethod === 'credits' && (

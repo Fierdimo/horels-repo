@@ -25,14 +25,10 @@ export function RefinedCreditCheckoutPage() {
   const [reservationExpiry, setReservationExpiry] = useState<Date | null>(null);
 
   // Fetch item details and payment options
-  const { data: previewData, isLoading: loadingPreview } = useQuery({
+  const { data: previewData = {}, isLoading: loadingPreview } = useQuery({
     queryKey: ['marketplace-preview', itemId],
     queryFn: () => marketplaceApi.previewBooking(parseInt(itemId!)),
-    enabled: !!itemId,
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Error al cargar detalles');
-      navigate('/marketplace');
-    }
+    enabled: !!itemId
   });
 
   // Fetch credit wallet

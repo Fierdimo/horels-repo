@@ -65,7 +65,7 @@ export class ProductSyncService {
         return result;
       }
 
-      if (!property.pms_credentials) {
+      if (!(property as any).pms_credentials_encrypted) {
         result.errors.push('PMS not configured for this property');
         return result;
       }

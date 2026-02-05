@@ -45,7 +45,7 @@ export default function PendingApproval() {
       const response = await authApi.updateProfile(formData);
       
       // Update user in store with new data
-      if (user) {
+      if (user && response.user) {
         setUser({
           ...user,
           firstName: response.user.firstName,

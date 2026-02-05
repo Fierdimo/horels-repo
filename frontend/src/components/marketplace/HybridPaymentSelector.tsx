@@ -135,9 +135,9 @@ export default function HybridPaymentSelector({
               </p>
               <p>
                 {t('marketplace.creditDeficit', {
-                  credits: creditDeficit.toLocaleString(),
+                  credits: creditDeficit,
                   amount: `€${deficitInEUR.toFixed(2)}`
-                }, `Faltan ${creditDeficit.toLocaleString()} créditos (≈ €${deficitInEUR.toFixed(2)})`)}
+                })}
               </p>
             </div>
           </div>
@@ -206,8 +206,8 @@ export default function HybridPaymentSelector({
                         <span className="text-purple-600">✨</span>
                         <span>
                           {t('marketplace.useCredits', {
-                            credits: option.creditsUsed.toLocaleString()
-                          }, `Usar ${option.creditsUsed.toLocaleString()} créditos`)}
+                            credits: option.creditsUsed
+                          })}
                         </span>
                       </div>
                     )}
@@ -217,7 +217,7 @@ export default function HybridPaymentSelector({
                         <span>
                           {t('marketplace.payWithCard', {
                             amount: `€${option.cashAmount.toFixed(2)}`
-                          }, `Pagar €${option.cashAmount.toFixed(2)} con tarjeta`)}
+                          })}
                         </span>
                       </div>
                     )}
@@ -282,7 +282,7 @@ export default function HybridPaymentSelector({
         <p>
           {t('marketplace.conversionRate', {
             rate: `€${creditToEurRate.toFixed(2)}`
-          }, `Tasa de conversión: 1 crédito = €${creditToEurRate.toFixed(2)}`)}
+          })}
         </p>
       </div>
     </div>

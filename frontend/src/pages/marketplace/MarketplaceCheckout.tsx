@@ -384,9 +384,9 @@ function CheckoutForm({
         {isProcessing 
           ? t('marketplace.checkout.processing') 
           : paymentMethod === 'credits' 
-            ? t('marketplace.checkout.bookWithCredits', { count: creditsToUse.toLocaleString() })
+            ? t('marketplace.checkout.bookWithCredits', { count: creditsToUse })
             : paymentMethod === 'hybrid'
-              ? t('marketplace.checkout.bookWithCreditsAndCard', { count: creditsToUse.toLocaleString() })
+              ? t('marketplace.checkout.bookWithCreditsAndCard', { count: creditsToUse })
               : t('marketplace.checkout.payAmount', { amount: totalAmount.toFixed(2) })
         }
       </button>

@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tantml:invoke>
-<invoke name="timeshareApi } from '@/api/timeshare';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { timeshareApi } from '@/api/timeshare';
 import { 
   ArrowLeft, Coins, Calendar, Home,
-  AlertCircle, Loader2, CheckCircle, TrendingUp
+  AlertCircle, Loader2, CheckCircle, TrendingUp, Clock, ArrowRight
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays, parseISO, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 export default function ConvertWeek() {
+  const { t } = useTranslation();
   const { weekId } = useParams<{ weekId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   // Fetch week preview
   const { data: preview, isLoading, error } = useQuery({
@@ -25,7 +28,7 @@ export default function ConvertWeek() {
   });
 
   // Release mutation
-  const releaseMutation = useMutation({
+  const convertMutation = useMutation({
     mutationFn: () => timeshareApi.releaseWeekToCredits(Number(weekId)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-weeks-v2'] });
@@ -33,10 +36,10 @@ export default function ConvertWeek() {
     }
   });
 
-  const handleConfirmRelease = async () => {
+  const handleConvert = async () => {
     setConfirming(true);
     try {
-      const result = await releaseMutation.mutateAsync();
+      const result = await convertMutation.mutateAsync();
       toast.success(`¡Semana convertida exitosamente! Ganaste ${result.creditsEarned} créditos.`);
       navigate('/owner/my-weeks');
     } catch (error: any) {
@@ -55,7 +58,7 @@ export default function ConvertWeek() {
     );
   }
 
-  if (!week) {
+  if (!preview) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
@@ -64,6 +67,8 @@ export default function ConvertWeek() {
       </div>
     );
   }
+
+  const week = preview as any;
 
   // Handle floating periods (nights field) vs fixed periods (dates)
   const isFloating = !!week.nights && !week.start_date;

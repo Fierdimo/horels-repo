@@ -116,11 +116,11 @@ export class PMSSyncService {
 
       // Save if changed
       if (hasChanges) {
-        booking.pms_synced_at = new Date();
+        booking.pms_last_sync = new Date();
         await booking.save();
       } else {
         // Update sync timestamp even if no changes
-        await booking.update({ pms_synced_at: new Date() });
+        await booking.update({ pms_last_sync: new Date() });
       }
 
       return {
@@ -162,8 +162,8 @@ export class PMSSyncService {
 
         // Not synced recently (or never synced)
         [Op.or]: [
-          { pms_synced_at: { [Op.lt]: threshold } },
-          { pms_synced_at: null },
+          { pms_last_sync: { [Op.lt]: threshold } },
+          { pms_last_sync: null },
         ],
       },
       attributes: ['id'],
@@ -229,7 +229,7 @@ export class PMSSyncService {
 
   /**
    * Retry failed PMS operations
-   * Finds bookings with null pms_synced_at (sync failure indicator)
+   * Finds bookings with null pms_last_sync (sync failure indicator)
    * and attempts to create them in PMS
    * 
    * @returns Array of retry results
@@ -284,14 +284,14 @@ export class PMSSyncService {
           roomCategory: booking.room_category,
           specialRequests: booking.special_requests || undefined,
           internalBookingId: booking.id,
-          internalConfirmationCode: booking.booking_code,
+          internalConfirmationCode: booking.confirmation_code,
         });
 
         if (pmsResponse.success && pmsResponse.pmsBookingId) {
           await booking.update({
             pms_booking_id: pmsResponse.pmsBookingId,
             pms_confirmation_code: pmsResponse.pmsConfirmationCode || null,
-            pms_synced_at: new Date(),
+            pms_last_sync: new Date(),
           });
 
           console.log(`[PMSSyncService] Retry successful for booking ${booking.id}`);

@@ -3,11 +3,7 @@ import { authenticateToken } from '../middleware/authMiddleware';
 import { Ownership, WeekAllocation, TimeshareUnit, TimeshareProperty } from '../models/v2';
 
 interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-    role: string;
-  };
+  user?: any;
 }
 
 const router = Router();

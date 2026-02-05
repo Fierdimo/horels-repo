@@ -63,10 +63,7 @@ export default function MyWeeks() {
     queryKey: ['week-release-preview', convertingWeekId],
     queryFn: () => timeshareApi.previewWeekRelease(convertingWeekId!),
     enabled: !!convertingWeekId && showConvertModal,
-    retry: 1,
-    onSuccess: (data) => {
-      console.log('Preview data received:', data);
-    }
+    retry: 1
   });
 
   // Release mutation
