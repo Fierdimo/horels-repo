@@ -53,6 +53,15 @@ module.exports = {
         allowNull: false,
         defaultValue: 'guest'
       });
+      
+      // Remove role_id column
+      console.log('Removing role_id column...');
+      await queryInterface.removeColumn('users', 'role_id');
+    }
+    else if (tableInfo.role_id && tableInfo.role) {
+      // Both exist - remove role_id
+      console.log('role column exists, removing role_id...');
+      await queryInterface.removeColumn('users', 'role_id');
     }
     
     // Rename createdAt/updatedAt to created_at/updated_at
