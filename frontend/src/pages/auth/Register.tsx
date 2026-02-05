@@ -268,7 +268,7 @@ export default function Register() {
                   <option value="">{t('auth.selectHotel') || 'Select a hotel'}</option>
                   {propertiesData?.properties?.map((property) => (
                     <option key={property.id} value={property.id}>
-                      {property.name} - {property.city || property.location}
+                      {property.name} - {property.city}, {property.country}
                     </option>
                   ))}
                 </select>

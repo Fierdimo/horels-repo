@@ -168,10 +168,7 @@ export default function PendingApprovals() {
                         <p className="text-sm font-medium text-gray-900">{request.email}</p>
                         {request.Property && (
                           <p className="text-sm text-gray-500">
-                            {request.Property.name} - {request.Property.city && request.Property.country
-                              ? `${request.Property.city}, ${request.Property.country}`
-                              : request.Property.location || 'N/A'
-                            }
+                            {request.Property.name} - {request.Property.city}, {request.Property.country}
                           </p>
                         )}
                       </div>
