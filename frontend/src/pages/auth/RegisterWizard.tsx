@@ -585,7 +585,9 @@ export default function RegisterWizard() {
           {/* Dropdown with search results */}
           {propertyResults.length > 0 && (
             <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-80 overflow-y-auto">
-              {propertyResults.map((property, idx) => (
+              {propertyResults
+                .filter(property => property.source === 'platform' && typeof property.id === 'number')
+                .map((property, idx) => (
                 <button
                   key={property.id || `pms-${idx}`}
                   type="button"
