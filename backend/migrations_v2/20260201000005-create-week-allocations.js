@@ -84,7 +84,7 @@ module.exports = {
         comment: 'FK to bookings table'
       },
       booked_by: {
-        type: Sequelize.INTEGER.UNSIGNED, // Match users.id type
+        type: Sequelize.INTEGER, // Match users.id type (signed int)
         allowNull: true,
         references: {
           model: 'users',
