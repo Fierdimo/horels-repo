@@ -466,14 +466,18 @@ router.post('/staff-requests/:userId', authenticateToken, authorize(['update_use
     }
 
     if (action === 'approve') {
-      // Staff must be assigned to a property when approved
-      if (!property_id) {
-        return res.status(400).json({ error: 'property_id is required when approving staff' });
+      // Staff must have a property assigned (either from registration or provided now)
+      const finalPropertyId = property_id || targetUser.property_id;
+      
+      if (!finalPropertyId) {
+        return res.status(400).json({ 
+          error: 'property_id is required when approving staff. Staff must be assigned to a property.' 
+        });
       }
       
       await targetUser.update({ 
         status: 'approved',
-        property_id: property_id
+        property_id: finalPropertyId
       });
     } else if (action === 'reject') {
       await targetUser.update({ status: 'rejected' });
