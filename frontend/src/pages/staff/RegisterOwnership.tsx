@@ -100,7 +100,7 @@ export default function RegisterOwnership() {
           );
           setInvitationData(data.data);
         } catch (error: any) {
-          toast.error(error.response?.data?.error || 'Error al generar invitación');
+          toast.error(error.response?.data?.error || t('staff.registerTimeshare.invitationGenerationError'));
         } finally {
           setIsGeneratingInvitation(false);
         }
@@ -143,7 +143,7 @@ export default function RegisterOwnership() {
       return response.data;
     },
     onSuccess: (result: RegistrationResult) => {
-      toast.success('¡Timeshare registrado exitosamente!');
+      toast.success(t('staff.registerTimeshare.registrationSuccess'));
       
       setRegistrationResult(result);
       // Ir directo al modal de invitación (sin mostrar contraseña temporal)
@@ -170,7 +170,7 @@ export default function RegisterOwnership() {
       queryClient.invalidateQueries({ queryKey: ['staff-inventory-weeks'] });
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Error al registrar timeshare';
+      const message = error.response?.data?.error || t('staff.registerTimeshare.registrationError');
       toast.error(message);
     }
   });
@@ -180,22 +180,22 @@ export default function RegisterOwnership() {
     
     // Validations
     if (!formData.owner_email) {
-      toast.error('Email del propietario es requerido');
+      toast.error(t('staff.registerTimeshare.emailRequired'));
       return;
     }
 
     if (!emailStatus?.exists && (!formData.owner_first_name || !formData.owner_last_name)) {
-      toast.error('Nombre y apellido son requeridos para usuarios nuevos');
+      toast.error(t('staff.registerTimeshare.nameRequired'));
       return;
     }
 
     if (!formData.unit_id) {
-      toast.error('Debes seleccionar una unidad');
+      toast.error(t('staff.registerTimeshare.unitRequired'));
       return;
     }
 
     if (formData.type === 'FIXED_WEEK' && !formData.fixed_week_number) {
-      toast.error('Número de semana es requerido para FIXED_WEEK');
+      toast.error(t('staff.registerTimeshare.weekRequired'));
       return;
     }
 
@@ -228,7 +228,7 @@ export default function RegisterOwnership() {
   const handleCopyLink = () => {
     if (invitationData?.invitationLink) {
       navigator.clipboard.writeText(invitationData.invitationLink);
-      toast.success('Link copiado al portapapeles');
+      toast.success(t('staff.registerTimeshare.linkCopied'));
     }
   };
 
@@ -251,7 +251,7 @@ export default function RegisterOwnership() {
       downloadLink.download = 'invitation-qr.png';
       downloadLink.href = pngFile;
       downloadLink.click();
-      toast.success('QR descargado');
+      toast.success(t('staff.registerTimeshare.qrDownloaded'));
     };
 
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
@@ -265,9 +265,9 @@ export default function RegisterOwnership() {
       await apiClient.post(
         `/hotel-staff/ownerships/${registrationResult.ownership.id}/send-invitation-email`
       );
-      toast.success('¡Email enviado exitosamente!');
+      toast.success(t('staff.registerTimeshare.emailSentSuccess'));
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Error al enviar email');
+      toast.error(error.response?.data?.error || t('staff.registerTimeshare.emailSendError'));
     } finally {
       setIsSendingEmail(false);
     }
@@ -280,7 +280,7 @@ export default function RegisterOwnership() {
       return (
         <div className="flex items-center gap-2 px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Verificando...
+          {t('staff.registerTimeshare.verifying')}
         </div>
       );
     }
@@ -289,7 +289,7 @@ export default function RegisterOwnership() {
       return (
         <div className="flex items-center gap-2 px-3 py-1 text-sm bg-green-100 text-green-700 rounded-full">
           <UserPlus className="h-3 w-3" />
-          Usuario nuevo - Se creará cuenta
+          {t('staff.registerTimeshare.newUser')}
         </div>
       );
     }
@@ -298,7 +298,7 @@ export default function RegisterOwnership() {
       return (
         <div className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-full">
           <CheckCircle className="h-3 w-3" />
-          Guest encontrado - Será convertido a Owner
+          {t('staff.registerTimeshare.guestConverted')}
         </div>
       );
     }
@@ -307,7 +307,7 @@ export default function RegisterOwnership() {
       return (
         <div className="flex items-center gap-2 px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded-full">
           <User className="h-3 w-3" />
-          Owner existente - Timeshare adicional
+          {t('staff.registerTimeshare.existingOwner')}
         </div>
       );
     }
@@ -324,10 +324,10 @@ export default function RegisterOwnership() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <Building2 className="h-8 w-8 text-blue-600" />
-            Registrar Nuevo Timeshare
+            {t('staff.registerTimeshare.title')}
           </h1>
           <p className="text-gray-600 mt-2 text-lg">
-            Ingresa los datos del contrato firmado para registrar el timeshare
+            {t('staff.registerTimeshare.subtitle')}
           </p>
         </div>
 
@@ -338,13 +338,13 @@ export default function RegisterOwnership() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <User className="h-5 w-5 text-blue-600" />
-                Datos del Cliente
+                {t('staff.registerTimeshare.clientData')}
               </h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email del Cliente *
+                  {t('staff.registerTimeshare.clientEmail')} *
                 </label>
                 <input
                   type="email"
@@ -353,14 +353,14 @@ export default function RegisterOwnership() {
                   onChange={handleChange}
                   required
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="juan.perez@email.com"
+                  placeholder={t('staff.registerTimeshare.clientEmailPlaceholder')}
                 />
                 <div className="mt-2">
                   {getScenarioBadge()}
                 </div>
                 {emailStatus?.exists && emailStatus.name && (
                   <p className="mt-1 text-sm text-gray-600">
-                    Usuario encontrado: <strong>{emailStatus.name}</strong> ({emailStatus.role})
+                    {t('staff.registerTimeshare.userFound')}: <strong>{emailStatus.name}</strong> ({emailStatus.role})
                   </p>
                 )}
               </div>
@@ -369,7 +369,7 @@ export default function RegisterOwnership() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nombre *
+                      {t('staff.registerTimeshare.firstName')} *
                     </label>
                     <input
                       type="text"
@@ -378,13 +378,13 @@ export default function RegisterOwnership() {
                       onChange={handleChange}
                       required={requiresUserInfo}
                       className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Juan Carlos"
+                      placeholder={t('staff.registerTimeshare.firstNamePlaceholder')}
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Apellido(s) *
+                      {t('staff.registerTimeshare.lastName')} *
                     </label>
                     <input
                       type="text"
@@ -393,7 +393,7 @@ export default function RegisterOwnership() {
                       onChange={handleChange}
                       required={requiresUserInfo}
                       className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Pérez García"
+                      placeholder={t('staff.registerTimeshare.lastNamePlaceholder')}
                     />
                   </div>
                 </>
@@ -402,7 +402,7 @@ export default function RegisterOwnership() {
               {/* Teléfono - Siempre opcional */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono <span className="text-gray-400 text-xs">(opcional)</span>
+                  {t('staff.registerTimeshare.phone')} <span className="text-gray-400 text-xs">{t('staff.registerTimeshare.optional')}</span>
                 </label>
                 <input
                   type="tel"
@@ -410,7 +410,7 @@ export default function RegisterOwnership() {
                   value={formData.owner_phone}
                   onChange={handleChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="+34 600 123 456"
+                  placeholder={t('staff.registerTimeshare.phonePlaceholder')}
                 />
               </div>
             </div>
@@ -421,14 +421,14 @@ export default function RegisterOwnership() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <FileText className="h-5 w-5 text-gray-600" />
-                  Datos del Contrato
+                  {t('staff.registerTimeshare.contractData')}
                 </h2>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      Fecha de Firma <span className="text-gray-400 text-xs">(opcional)</span>
+                      {t('staff.registerTimeshare.signatureDate')} <span className="text-gray-400 text-xs">{t('staff.registerTimeshare.optional')}</span>
                     </label>
                     <input
                       type="date"
@@ -442,7 +442,7 @@ export default function RegisterOwnership() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Vigencia Desde *
+                        {t('staff.registerTimeshare.validFrom')} *
                       </label>
                       <input
                         type="number"
@@ -458,7 +458,7 @@ export default function RegisterOwnership() {
 
                     <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Vigencia Hasta <span className="text-gray-400 text-xs">(opcional)</span>
+                      {t('staff.registerTimeshare.validUntil')} <span className="text-gray-400 text-xs">{t('staff.registerTimeshare.optional')}</span>
                     </label>
                     <input
                       type="number"
@@ -468,14 +468,14 @@ export default function RegisterOwnership() {
                       min={parseInt(formData.contract_start_year) + 1}
                       max="2100"
                       className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Perpetuo"
+                      placeholder={t('staff.registerTimeshare.validUntilPlaceholder')}
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notas <span className="text-gray-400 text-xs">(opcional)</span>
+                    {t('staff.registerTimeshare.notes')} <span className="text-gray-400 text-xs">{t('staff.registerTimeshare.optional')}</span>
                   </label>
                   <textarea
                     name="notes"
@@ -483,7 +483,7 @@ export default function RegisterOwnership() {
                     onChange={handleChange}
                     rows={3}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="Observaciones sobre el contrato..."
+                    placeholder={t('staff.registerTimeshare.notesPlaceholder')}
                   />
                 </div>
               </div>
@@ -497,13 +497,13 @@ export default function RegisterOwnership() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-purple-600" />
-              Datos del Timeshare
+              {t('staff.registerTimeshare.timeshareData')}
             </h2>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Unidad *
+                  {t('staff.registerTimeshare.unit')} *
                 </label>
                 <select
                   name="unit_id"
@@ -512,10 +512,15 @@ export default function RegisterOwnership() {
                   required
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
-                  <option value="">Seleccionar unidad...</option>
+                  <option value="">{t('staff.registerTimeshare.selectUnit')}</option>
                   {units.map((unit: any) => (
                     <option key={unit.id} value={unit.id}>
-                      {unit.category} • {unit.capacity_min}-{unit.capacity_max} personas • Cantidad: {unit.quantity}
+                      {t('staff.registerTimeshare.unitDescription', { 
+                        category: unit.category, 
+                        min: unit.capacity_min, 
+                        max: unit.capacity_max, 
+                        quantity: unit.quantity 
+                      })}
                     </option>
                   ))}
                 </select>
@@ -523,12 +528,12 @@ export default function RegisterOwnership() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Semana Asignada *
+                  {t('staff.registerTimeshare.assignedWeek')} *
                 </label>
                 {!formData.unit_id && (
                   <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
                     <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                    Selecciona primero una unidad para ver las semanas disponibles
+                    {t('staff.registerTimeshare.selectUnitFirst')}
                   </div>
                 )}
                 {formData.unit_id && (
@@ -547,11 +552,11 @@ export default function RegisterOwnership() {
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2 text-xs">
                       <div className="h-3 w-3 bg-yellow-50 border-2 border-yellow-300 rounded"></div>
-                      <span className="text-gray-600">Parcialmente ocupadas</span>
+                      <span className="text-gray-600">{t('staff.registerTimeshare.partiallyOccupied')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                       <div className="h-3 w-3 bg-gray-100 border-2 border-gray-300 rounded"></div>
-                      <span className="text-gray-600">Completamente llenas</span>
+                      <span className="text-gray-600">{t('staff.registerTimeshare.fullyOccupied')}</span>
                     </div>
                   </div>
                 )}
@@ -565,7 +570,7 @@ export default function RegisterOwnership() {
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
-                Los campos marcados con * son obligatorios
+                {t('staff.registerTimeshare.requiredFields')}
               </div>
               <button
                 type="submit"
@@ -575,12 +580,12 @@ export default function RegisterOwnership() {
               {registerMutation.isPending ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Registrando...
+                  {t('staff.registerTimeshare.registering')}
                 </>
               ) : (
                 <>
                   <CheckCircle className="h-5 w-5" />
-                  Registrar Timeshare
+                  {t('staff.registerTimeshare.registerButton')}
                 </>
               )}
             </button>
@@ -597,7 +602,7 @@ export default function RegisterOwnership() {
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-6 w-6 text-green-500" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  ¡Registro Exitoso!
+                  {t('staff.registerTimeshare.successModalTitle')}
                 </h3>
               </div>
               <button
@@ -611,16 +616,16 @@ export default function RegisterOwnership() {
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-sm text-green-800 mb-2">
-                  Usuario nuevo creado: <strong>{registrationResult.user.email}</strong>
+                  {t('staff.registerTimeshare.newUserCreated')}: <strong>{registrationResult.user.email}</strong>
                 </p>
                 <p className="text-xs text-green-700">
-                  El propietario recibirá un email con las instrucciones de acceso.
+                  {t('staff.registerTimeshare.accessInstructions')}
                 </p>
               </div>
 
               <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
                 <p className="text-sm font-medium text-yellow-900 mb-2">
-                  Contraseña Temporal:
+                  {t('staff.registerTimeshare.temporaryPassword')}
                 </p>
                 <div className="flex items-center gap-2 mb-2">
                   <code className="flex-1 bg-yellow-100 px-3 py-2 rounded border border-yellow-300 text-lg font-mono text-yellow-900">
@@ -629,23 +634,22 @@ export default function RegisterOwnership() {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(registrationResult.temporary_password!);
-                      toast.success('Contraseña copiada al portapapeles');
+                      toast.success(t('staff.registerTimeshare.passwordCopied'));
                     }}
                     className="p-2 bg-yellow-100 border border-yellow-300 rounded hover:bg-yellow-200 text-yellow-700"
-                    title="Copiar contraseña"
+                    title={t('staff.registerTimeshare.copyPassword')}
                   >
                     <Copy className="h-5 w-5" />
                   </button>
                 </div>
                 <p className="text-xs text-yellow-800">
-                  ⚠️ El usuario deberá cambiar esta contraseña en su primer inicio de sesión.
+                  {t('staff.registerTimeshare.passwordWarning')}
                 </p>
               </div>
 
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <p className="text-xs text-gray-700">
-                  <strong>Nota:</strong> Asegúrate de compartir esta contraseña con el propietario 
-                  de forma segura. Esta ventana se cerrará cuando hagas clic en "Entendido".
+                  <strong>Nota:</strong> {t('staff.registerTimeshare.passwordNote')}
                 </p>
               </div>
 
@@ -656,7 +660,7 @@ export default function RegisterOwnership() {
                 }}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
               >
-                Continuar
+                {t('staff.registerTimeshare.continue')}
               </button>
             </div>
           </div>
@@ -671,7 +675,7 @@ export default function RegisterOwnership() {
               <div className="flex items-center gap-2">
                 <Mail className="h-6 w-6 text-blue-600" />
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Invitación para el Propietario
+                  {t('staff.registerTimeshare.invitationModalTitle')}
                 </h3>
               </div>
               <button
@@ -688,17 +692,17 @@ export default function RegisterOwnership() {
             <div className="overflow-y-auto flex-1 p-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
-                  Propietario: <strong>{registrationResult.user.email}</strong>
+                  {t('staff.registerTimeshare.owner')}: <strong>{registrationResult.user.email}</strong>
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
-                  Comparte el link o el código QR con el propietario para que pueda acceder a su cuenta.
+                  {t('staff.registerTimeshare.shareInstructions')}
                 </p>
               </div>
 
               {isGeneratingInvitation ? (
                 <div className="text-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-                  <p className="text-gray-600">Generando invitación...</p>
+                  <p className="text-gray-600">{t('staff.registerTimeshare.generatingInvitation')}</p>
                 </div>
               ) : invitationData ? (
                 <div className="space-y-4">
@@ -708,10 +712,10 @@ export default function RegisterOwnership() {
                       <Mail className="h-6 w-6 text-blue-600" />
                       <div>
                         <p className="text-base font-semibold text-gray-900">
-                          Enviar Invitación por Email
+                          {t('staff.registerTimeshare.sendEmailButton')}
                         </p>
                         <p className="text-sm text-gray-600">
-                          El propietario recibirá un correo con el link y código QR
+                          {t('staff.registerTimeshare.sendEmailDescription')}
                         </p>
                       </div>
                     </div>
@@ -723,12 +727,12 @@ export default function RegisterOwnership() {
                       {isSendingEmail ? (
                         <>
                           <Loader2 className="h-5 w-5 animate-spin" />
-                          Enviando...
+                          {t('staff.registerTimeshare.sending')}
                         </>
                       ) : (
                         <>
                           <Mail className="h-5 w-5" />
-                          Enviar Email de Invitación
+                          {t('staff.registerTimeshare.sendInvitationEmail')}
                         </>
                       )}
                     </button>
@@ -739,7 +743,7 @@ export default function RegisterOwnership() {
                       <div className="w-full border-t border-gray-300"></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-gray-500">o comparte manualmente</span>
+                      <span className="px-2 bg-white text-gray-500">{t('staff.registerTimeshare.orShareManually')}</span>
                     </div>
                   </div>
 
@@ -748,7 +752,7 @@ export default function RegisterOwnership() {
                     <div className="flex items-center gap-2 mb-2">
                       <Link2 className="h-4 w-4 text-gray-600" />
                       <p className="text-sm font-medium text-gray-900">
-                        Link de Invitación
+                        {t('staff.registerTimeshare.invitationLink')}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -761,7 +765,7 @@ export default function RegisterOwnership() {
                       <button
                         onClick={handleCopyLink}
                         className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                        title="Copiar link"
+                        title={t('staff.registerTimeshare.copyLink')}
                       >
                         <Copy className="h-5 w-5" />
                       </button>
@@ -773,7 +777,7 @@ export default function RegisterOwnership() {
                     <div className="flex items-center gap-2 mb-4">
                       <QrCode className="h-4 w-4 text-gray-600" />
                       <p className="text-sm font-medium text-gray-900">
-                        Código QR
+                        {t('staff.registerTimeshare.qrCode')}
                       </p>
                     </div>
                     <div className="flex flex-col items-center gap-4">
@@ -791,7 +795,7 @@ export default function RegisterOwnership() {
                         className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
                       >
                         <Copy className="h-4 w-4" />
-                        Descargar QR
+                        {t('staff.registerTimeshare.downloadQR')}
                       </button>
                     </div>
                   </div>
@@ -808,7 +812,7 @@ export default function RegisterOwnership() {
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                 disabled={isGeneratingInvitation}
               >
-                Cerrar
+                {t('staff.registerTimeshare.close')}
               </button>
             </div>
           </div>

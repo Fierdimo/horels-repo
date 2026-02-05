@@ -8,6 +8,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface WeekAllocation {
   id: number;
@@ -41,6 +42,7 @@ interface WeekAllocation {
 }
 
 export default function MyWeeks() {
+  const { t } = useTranslation();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,12 +75,12 @@ export default function MyWeeks() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['owner-weeks-v2'] });
       queryClient.invalidateQueries({ queryKey: ['credit-balance'] });
-      toast.success(`¡Semana convertida exitosamente! Ganaste ${result.creditsEarned} créditos.`);
+      toast.success(t('owner.myWeeks.conversionSuccess', { credits: result.creditsEarned }));
       setShowConvertModal(false);
       setConvertingWeekId(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Error al convertir la semana');
+      toast.error(error.response?.data?.error || t('owner.myWeeks.conversionError'));
     }
   });
 
@@ -132,11 +134,11 @@ export default function MyWeeks() {
     };
 
     const labels: Record<string, string> = {
-      ASSIGNED: 'Asignada',
-      RELEASED: 'En Créditos',
-      BOOKED: 'Reservada',
-      USED: 'Utilizada',
-      EXPIRED: 'Expirada'
+      ASSIGNED: t('owner.myWeeks.statusAssigned'),
+      RELEASED: t('owner.myWeeks.statusReleased'),
+      BOOKED: t('owner.myWeeks.statusBooked'),
+      USED: t('owner.myWeeks.statusUsed'),
+      EXPIRED: t('owner.myWeeks.statusExpired')
     };
 
     return (
@@ -151,7 +153,7 @@ export default function MyWeeks() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando tus semanas...</p>
+          <p className="text-gray-600">{t('owner.myWeeks.loading')}</p>
         </div>
       </div>
     );
@@ -162,9 +164,9 @@ export default function MyWeeks() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center max-w-md">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar semanas</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('owner.myWeeks.errorLoading')}</h3>
           <p className="text-gray-600">
-            No pudimos cargar tus semanas. Por favor, intenta de nuevo.
+            {t('owner.myWeeks.errorMessage')}
           </p>
         </div>
       </div>
@@ -179,16 +181,16 @@ export default function MyWeeks() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Calendar className="h-7 w-7 text-blue-600" />
-              Mis Semanas
+              {t('owner.myWeeks.pageTitle')}
             </h1>
             <p className="text-gray-600 mt-1">
-              Gestiona tus semanas asignadas y conviértelas en créditos
+              {t('owner.myWeeks.pageSubtitle')}
             </p>
           </div>
 
           {/* Year selector */}
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Año:</label>
+            <label className="text-sm font-medium text-gray-700">{t('owner.myWeeks.year')}:</label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
@@ -205,23 +207,23 @@ export default function MyWeeks() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-gray-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-            <div className="text-xs text-gray-600 mt-1">Total</div>
+            <div className="text-xs text-gray-600 mt-1">{t('owner.myWeeks.totalStats')}</div>
           </div>
           <div className="bg-green-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-green-700">{stats.assigned}</div>
-            <div className="text-xs text-green-700 mt-1">Asignadas</div>
+            <div className="text-xs text-green-700 mt-1">{t('owner.myWeeks.assignedStats')}</div>
           </div>
           <div className="bg-blue-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-blue-700">{stats.released}</div>
-            <div className="text-xs text-blue-700 mt-1">En Créditos</div>
+            <div className="text-xs text-blue-700 mt-1">{t('owner.myWeeks.releasedStats')}</div>
           </div>
           <div className="bg-purple-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-purple-700">{stats.booked}</div>
-            <div className="text-xs text-purple-700 mt-1">Reservadas</div>
+            <div className="text-xs text-purple-700 mt-1">{t('owner.myWeeks.bookedStats')}</div>
           </div>
           <div className="bg-gray-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-gray-700">{stats.used}</div>
-            <div className="text-xs text-gray-700 mt-1">Utilizadas</div>
+            <div className="text-xs text-gray-700 mt-1">{t('owner.myWeeks.usedStats')}</div>
           </div>
         </div>
       </div>
@@ -234,7 +236,7 @@ export default function MyWeeks() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar por propiedad, ciudad o unidad..."
+              placeholder={t('owner.myWeeks.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -249,12 +251,12 @@ export default function MyWeeks() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">Todos los estados</option>
-              <option value="ASSIGNED">Asignadas</option>
-              <option value="RELEASED">En Créditos</option>
-              <option value="BOOKED">Reservadas</option>
-              <option value="USED">Utilizadas</option>
-              <option value="EXPIRED">Expiradas</option>
+              <option value="all">{t('owner.myWeeks.allStatuses')}</option>
+              <option value="ASSIGNED">{t('owner.myWeeks.statusAssigned')}</option>
+              <option value="RELEASED">{t('owner.myWeeks.statusReleased')}</option>
+              <option value="BOOKED">{t('owner.myWeeks.statusBooked')}</option>
+              <option value="USED">{t('owner.myWeeks.statusUsed')}</option>
+              <option value="EXPIRED">{t('owner.myWeeks.statusExpired')}</option>
             </select>
           </div>
         </div>
@@ -265,12 +267,12 @@ export default function MyWeeks() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No se encontraron semanas
+            {t('owner.myWeeks.noWeeksFound')}
           </h3>
           <p className="text-gray-600">
             {searchTerm || statusFilter !== 'all' 
-              ? 'Intenta ajustar los filtros de búsqueda'
-              : `No tienes semanas asignadas para ${selectedYear}`
+              ? t('owner.myWeeks.adjustFilters')
+              : t('owner.myWeeks.noWeeksForYear', { year: selectedYear })
             }
           </p>
         </div>
@@ -309,33 +311,33 @@ export default function MyWeeks() {
                 {/* Unit & Week Info */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Unidad:</span>
+                    <span className="text-gray-600">{t('owner.myWeeks.unit')}:</span>
                     <span className="font-medium text-gray-900">
                       {week.Ownership.Unit.category}
                     </span>
                   </div>
                   {week.Ownership.Unit.description && (
                     <div className="text-sm">
-                      <span className="text-gray-600">Descripción:</span>
+                      <span className="text-gray-600">{t('owner.myWeeks.description')}:</span>
                       <p className="text-gray-700 mt-1 text-xs leading-relaxed">
                         {week.Ownership.Unit.description}
                       </p>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Fechas:</span>
+                    <span className="text-gray-600">{t('owner.myWeeks.dates')}:</span>
                     <span className="font-medium text-gray-900">
                       {format(new Date(week.start_date), 'dd MMM', { locale: es })} - {format(new Date(week.end_date), 'dd MMM yyyy', { locale: es })}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Semana del año:</span>
+                    <span className="text-gray-600">{t('owner.myWeeks.weekNumber')}:</span>
                     <span className="font-medium text-gray-900">
-                      Semana #{week.week_number}
+                      {t('owner.myWeeks.weekHashNumber', { number: week.week_number })}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Contrato:</span>
+                    <span className="text-gray-600">{t('owner.myWeeks.contract')}:</span>
                     <span className="font-mono text-xs text-gray-700">
                       {week.Ownership.contract_reference}
                     </span>
@@ -346,12 +348,12 @@ export default function MyWeeks() {
                 {week.converted_to_credits && week.credits_amount && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-blue-800">Convertida a créditos:</span>
-                      <span className="font-bold text-blue-900">{week.credits_amount} créditos</span>
+                      <span className="text-sm text-blue-800">{t('owner.myWeeks.convertedToCredits')}</span>
+                      <span className="font-bold text-blue-900">{t('owner.myWeeks.creditsAmount', { amount: week.credits_amount })}</span>
                     </div>
                     {week.released_at && (
                       <div className="text-xs text-blue-700 mt-1">
-                        Liberada el {format(new Date(week.released_at), 'dd MMM yyyy', { locale: es })}
+                        {t('owner.myWeeks.releasedOn', { date: format(new Date(week.released_at), 'dd MMM yyyy', { locale: es }) })}
                       </div>
                     )}
                   </div>
@@ -365,14 +367,14 @@ export default function MyWeeks() {
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center text-sm font-medium flex items-center justify-center gap-2"
                     >
                       <Coins className="h-4 w-4" />
-                      Convertir a Créditos
+                      {t('owner.myWeeks.convertToCredits')}
                     </button>
                   </div>
                 )}
 
                 {week.status === 'BOOKED' && (
                   <div className="text-sm text-gray-600 text-center py-2 bg-purple-50 rounded-lg">
-                    Esta semana está reservada
+                    {t('owner.myWeeks.weekIsBooked')}
                   </div>
                 )}
               </div>
@@ -392,7 +394,7 @@ export default function MyWeeks() {
                   <div className="p-2 bg-white/20 rounded-lg">
                     <Coins className="h-6 w-6" />
                   </div>
-                  <h2 className="text-2xl font-bold">Convertir a Créditos</h2>
+                  <h2 className="text-2xl font-bold">{t('owner.myWeeks.modalTitle')}</h2>
                 </div>
                 <button
                   onClick={handleCloseConvertModal}
@@ -406,23 +408,23 @@ export default function MyWeeks() {
               {isLoadingPreview ? (
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 flex items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  <span>Calculando créditos...</span>
+                  <span>{t('owner.myWeeks.calculatingCredits')}</span>
                 </div>
               ) : preview && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-blue-100 text-sm mb-1">Créditos que recibirás</p>
+                      <p className="text-blue-100 text-sm mb-1">{t('owner.myWeeks.creditsYouWillReceive')}</p>
                       <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-bold">{preview.estimatedCredits}</span>
-                        <span className="text-lg text-blue-200">créditos</span>
+                        <span className="text-lg text-blue-200">{t('owner.myWeeks.credits')}</span>
                       </div>
                     </div>
                     <TrendingUp className="h-12 w-12 text-white/40" />
                   </div>
                   <div className="mt-3 pt-3 border-t border-white/20 text-sm text-blue-100">
                     <Calendar className="h-4 w-4 inline mr-2" />
-                    Expiran el {format(new Date(preview.expirationDate), 'dd MMM yyyy', { locale: es })}
+                    {t('owner.myWeeks.expiresOn', { date: format(new Date(preview.expirationDate), 'dd MMM yyyy', { locale: es }) })}
                   </div>
                 </div>
               )}
@@ -438,22 +440,22 @@ export default function MyWeeks() {
                 <>
                   {/* Week Info */}
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Información de la Semana</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('owner.myWeeks.weekInfoTitle')}</h3>
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Propiedad:</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.property')}:</span>
                         <span className="font-medium text-gray-900">{preview.weekInfo.propertyName}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Unidad:</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.unit')}:</span>
                         <span className="font-medium text-gray-900">{preview.weekInfo.unitName}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Semana:</span>
-                        <span className="font-medium text-gray-900">#{preview.weekInfo.weekNumber} del {preview.weekInfo.year}</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.weekLabel')}:</span>
+                        <span className="font-medium text-gray-900">{t('owner.myWeeks.weekOf', { number: preview.weekInfo.weekNumber, year: preview.weekInfo.year })}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Fechas:</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.dates')}:</span>
                         <span className="font-medium text-gray-900">
                           {format(new Date(preview.weekInfo.startDate), 'dd MMM', { locale: es })} - {' '}
                           {format(new Date(preview.weekInfo.endDate), 'dd MMM yyyy', { locale: es })}
@@ -464,28 +466,28 @@ export default function MyWeeks() {
 
                   {/* Calculation Breakdown */}
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Desglose del Cálculo</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">{t('owner.myWeeks.calculationBreakdown')}</h3>
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Valor base de temporada:</span>
-                        <span className="font-medium text-gray-900">{preview.breakdown.baseSeason} créditos</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.seasonBaseValue')}</span>
+                        <span className="font-medium text-gray-900">{preview.breakdown.baseSeason} {t('owner.myWeeks.credits')}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Multiplicador de tier:</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.tierMultiplier')}</span>
                         <span className="font-medium text-gray-900">×{preview.breakdown.tierMultiplier}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Multiplicador de habitación:</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.roomMultiplier')}</span>
                         <span className="font-medium text-gray-900">×{preview.breakdown.roomMultiplier}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Multiplicador de ubicación:</span>
+                        <span className="text-gray-600">{t('owner.myWeeks.locationMultiplier')}</span>
                         <span className="font-medium text-gray-900">×{preview.breakdown.locationMultiplier}</span>
                       </div>
                       <div className="pt-2 mt-2 border-t border-gray-200">
                         <div className="flex justify-between">
-                          <span className="font-semibold text-gray-900">Total:</span>
-                          <span className="text-xl font-bold text-blue-600">{preview.estimatedCredits} créditos</span>
+                          <span className="font-semibold text-gray-900">{t('owner.myWeeks.total')}</span>
+                          <span className="text-xl font-bold text-blue-600">{preview.estimatedCredits} {t('owner.myWeeks.credits')}</span>
                         </div>
                       </div>
                     </div>
@@ -496,11 +498,11 @@ export default function MyWeeks() {
                     <div className="flex gap-3">
                       <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm">
-                        <p className="font-semibold text-amber-900 mb-2">Información Importante</p>
+                        <p className="font-semibold text-amber-900 mb-2">{t('owner.myWeeks.importantInfo')}</p>
                         <ul className="space-y-1 text-amber-800 text-xs">
-                          <li>• Esta acción es <strong>irreversible</strong></li>
-                          <li>• Los créditos expiran en 6 meses</li>
-                          <li>• Podrás usar estos créditos en cualquier propiedad del intercambio</li>
+                          <li>• {t('owner.myWeeks.actionIrreversible')}</li>
+                          <li>• {t('owner.myWeeks.creditsExpire6Months')}</li>
+                          <li>• {t('owner.myWeeks.useCreditsAnywhere')}</li>
                         </ul>
                       </div>
                     </div>
@@ -509,7 +511,7 @@ export default function MyWeeks() {
               ) : (
                 <div className="text-center py-8">
                   <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-                  <p className="text-gray-600">Error al cargar información de la semana</p>
+                  <p className="text-gray-600">{t('owner.myWeeks.errorLoading')}</p>
                 </div>
               )}
             </div>
@@ -521,7 +523,7 @@ export default function MyWeeks() {
                 disabled={releaseMutation.isPending}
                 className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium disabled:opacity-50"
               >
-                Cancelar
+                {t('owner.myWeeks.cancel')}
               </button>
               <button
                 onClick={handleConfirmConvert}
@@ -531,12 +533,12 @@ export default function MyWeeks() {
                 {releaseMutation.isPending ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Procesando...
+                    {t('owner.myWeeks.processing')}
                   </>
                 ) : (
                   <>
                     <CheckCircle className="h-5 w-5" />
-                    Confirmar Conversión
+                    {t('owner.myWeeks.confirmConversion')}
                   </>
                 )}
               </button>

@@ -45,7 +45,7 @@ export default function BookingSuccess() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-4">{t('common.error')}</h2>
-          <p className="text-gray-700 mb-6">{t('marketplace.noBookingInfo')}</p>
+          <p className="text-gray-700 mb-6">{t('marketplace.checkout.noBookingInfo')}</p>
           <button
             onClick={() => navigate(getMarketplaceBasePath())}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
@@ -72,10 +72,10 @@ export default function BookingSuccess() {
 
           {/* Success Message */}
           <h1 className="text-3xl font-bold text-center mb-4">
-            {t('marketplace.bookingSuccessTitle') || 'Booking Confirmed!'}
+            {t('marketplace.checkout.bookingSuccessTitle')}
           </h1>
           <p className="text-gray-600 text-center mb-2">
-            {state.message || t('marketplace.bookingSuccessMessage')}
+            {state.message || t('marketplace.checkout.bookingSuccessMessage')}
           </p>
           <p className="text-2xl font-bold text-center text-blue-600 mb-8">
             {booking.confirmationNumber}
@@ -83,7 +83,7 @@ export default function BookingSuccess() {
 
           {/* Booking Details */}
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-bold mb-4">{t('marketplace.bookingDetails') || 'Booking Details'}</h2>
+            <h2 className="text-xl font-bold mb-4">{t('marketplace.checkout.bookingDetails')}</h2>
             <div className="space-y-4">
               <div className="flex items-start">
                 <Home className="w-5 h-5 mr-3 text-gray-400 mt-1" />
@@ -96,21 +96,21 @@ export default function BookingSuccess() {
               <div className="flex items-center text-gray-700">
                 <Calendar className="w-5 h-5 mr-3 text-gray-400" />
                 <div>
-                  <span className="font-medium">Check-in:</span> {format(parseISO(booking.checkIn), 'PPP')}
+                  <span className="font-medium">{t('marketplace.checkout.checkInLabel')}</span> {format(parseISO(booking.checkIn), 'PPP')}
                 </div>
               </div>
               
               <div className="flex items-center text-gray-700">
                 <Calendar className="w-5 h-5 mr-3 text-gray-400" />
                 <div>
-                  <span className="font-medium">Check-out:</span> {format(parseISO(booking.checkOut), 'PPP')}
+                  <span className="font-medium">{t('marketplace.checkout.checkOutLabel')}</span> {format(parseISO(booking.checkOut), 'PPP')}
                 </div>
               </div>
 
               <div className="flex items-center text-gray-700">
                 <MapPin className="w-5 h-5 mr-3 text-gray-400" />
                 <div>
-                  <span className="font-medium">Guests:</span> {booking.guests}
+                  <span className="font-medium">{t('marketplace.checkout.guestsCount')}</span> {booking.guests}
                 </div>
               </div>
 
@@ -119,30 +119,30 @@ export default function BookingSuccess() {
                 {booking.creditsUsed && booking.creditsUsed > 0 ? (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-purple-600">
-                      <span className="font-medium">Credits Used:</span>
-                      <span className="text-lg font-bold">{booking.creditsUsed.toLocaleString()} credits</span>
+                      <span className="font-medium">{t('marketplace.checkout.creditsUsed')}</span>
+                      <span className="text-lg font-bold">{booking.creditsUsed.toLocaleString()} {t('marketplace.checkout.creditsLabel')}</span>
                     </div>
                     {booking.cashPaid && booking.cashPaid > 0 && (
                       <div className="flex justify-between items-center text-blue-600">
-                        <span className="font-medium">Card Payment:</span>
+                        <span className="font-medium">{t('marketplace.checkout.cardPayment')}</span>
                         <span className="text-lg font-bold">€{booking.cashPaid.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center pt-2 border-t">
-                      <span className="text-lg font-semibold">Total Value:</span>
+                      <span className="text-lg font-semibold">{t('marketplace.checkout.totalValue')}</span>
                       <span className="text-2xl font-bold text-green-600">
                         €{booking.totalAmount.toFixed(2)}
                       </span>
                     </div>
                     {booking.newCreditBalance !== undefined && (
                       <div className="text-sm text-gray-600 text-right">
-                        New credit balance: {booking.newCreditBalance.toLocaleString()} credits
+                        {t('marketplace.checkout.newCreditBalance')} {booking.newCreditBalance.toLocaleString()} {t('marketplace.checkout.creditsLabel')}
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold">Total Paid:</span>
+                    <span className="text-lg font-semibold">{t('marketplace.checkout.totalPaid')}</span>
                     <span className="text-2xl font-bold text-green-600">
                       {booking.currency?.toUpperCase()} {booking.totalAmount.toFixed(2)}
                     </span>
@@ -154,23 +154,19 @@ export default function BookingSuccess() {
 
           {/* Next Steps */}
           <div className="border-t pt-6">
-            <h2 className="text-xl font-bold mb-4">{t('marketplace.nextSteps') || 'What\'s Next?'}</h2>
+            <h2 className="text-xl font-bold mb-4">{t('marketplace.checkout.nextSteps')}</h2>
             <ul className="space-y-3 text-gray-700">
               <li className="flex items-start">
                 <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>A confirmation email has been sent to your email address</span>
+                <span>{t('marketplace.checkout.confirmationEmailSent')}</span>
               </li>
               <li className="flex items-start">
                 <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>You can view and manage your booking in "My Bookings"</span>
+                <span>{t('marketplace.checkout.viewManageBookings')}</span>
               </li>
               <li className="flex items-start">
                 <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>The property will contact you closer to your check-in date</span>
-              </li>
-              <li className="flex items-start">
-                <CheckCircle className="w-5 h-5 mr-3 text-green-600 flex-shrink-0 mt-0.5" />
-                <span>The property will contact you closer to your check-in date</span>
+                <span>{t('marketplace.checkout.propertyWillContact')}</span>
               </li>
             </ul>
           </div>
@@ -182,7 +178,7 @@ export default function BookingSuccess() {
               className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center"
             >
               <Calendar className="w-5 h-5 mr-2" />
-              {t('marketplace.viewMyBookings') || 'View My Bookings'}
+              {t('marketplace.checkout.viewMyBookings')}
             </button>
             <button
               onClick={() => navigate(getMarketplaceBasePath())}

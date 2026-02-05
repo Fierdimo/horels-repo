@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Calendar, MapPin, Coins, X, Check, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import * as marketplaceApi from '@/api/marketplace';
 import type { InventoryItem, Week, ReleaseEstimate } from '@/api/marketplace';
@@ -9,6 +10,7 @@ import type { InventoryItem, Week, ReleaseEstimate } from '@/api/marketplace';
 export default function MarketplacePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   // State
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -18,7 +20,12 @@ export default function MarketplacePage() {
   
   // Filters (simplificado)
   const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [seasonType, setSeasonType] = useState('');
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Debug log
+  console.log('MarketplacePage render:', { hasSearched, itemsCount: items.length, startDate, endDate });
   
   // Week release state
   const [myWeeks, setMyWeeks] = useState<Week[]>([]);
@@ -27,25 +34,28 @@ export default function MarketplacePage() {
   const [releaseEstimate, setReleaseEstimate] = useState<ReleaseEstimate | null>(null);
 
   useEffect(() => {
-    loadData();
+    loadMyWeeks();
   }, []);
 
-  const loadData = async () => {
+  const loadMyWeeks = async () => {
     try {
-      // Cargar inventario disponible y mis semanas en paralelo
-      const [inventory, eligible] = await Promise.all([
-        marketplaceApi.searchInventory({ page: 1, pageSize: 20 }),
-        marketplaceApi.getEligibleWeeks()
-      ]);
-      setItems(inventory.items);
+      // Solo cargar mis semanas, no el inventario
+      const eligible = await marketplaceApi.getEligibleWeeks();
       setMyWeeks(eligible.weeks);
     } catch (error: any) {
-      console.error('Error loading data:', error);
+      console.error('Error loading weeks:', error);
     }
   };
 
   const handleSearch = async () => {
+    // Validar que se hayan seleccionado fechas
+    if (!startDate || !endDate) {
+      toast.error('Por favor selecciona fechas de inicio y fin para buscar');
+      return;
+    }
+
     setIsLoading(true);
+    setHasSearched(true);
     try {
       const result = await marketplaceApi.searchInventory({
         startDate: startDate || undefined,
@@ -113,8 +123,13 @@ export default function MarketplacePage() {
     try {
       const result = await marketplaceApi.releaseWeek(selectedWeek.id);
       toast.success(`¡Ganaste ${result.creditsEarned} créditos!`);
+      
+      // Invalidar queries de créditos para actualizar el balance inmediatamente
+      queryClient.invalidateQueries({ queryKey: ['creditBalance'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-balance'] });
+      
       setShowReleaseModal(false);
-      loadData();
+      loadMyWeeks();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al liberar semana');
     }
@@ -230,6 +245,19 @@ export default function MarketplacePage() {
 
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha de fin
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || undefined}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Temporada
               </label>
               <select
@@ -260,10 +288,35 @@ export default function MarketplacePage() {
         {/* Resultados */}
         <div>
           <h2 className="text-2xl font-bold mb-6">
-            Semanas Disponibles ({items.length})
+            Semanas Disponibles {hasSearched && startDate && endDate && `(${items.length})`}
           </h2>
           
-          {isLoading ? (
+          {!startDate || !endDate ? (
+            <div className="bg-white rounded-xl shadow-md p-12 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="bg-emerald-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                  <Calendar className="h-10 w-10 text-emerald-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  {t('marketplace.guidance.selectDatesTitle')}
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {t('marketplace.guidance.selectDatesDescription')}
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${startDate && endDate ? 'bg-emerald-500' : 'bg-gray-300'}`}></div>
+                    <span>{t('marketplace.guidance.step1')}</span>
+                  </div>
+                  <span>→</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                    <span>{t('marketplace.guidance.step2')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
             </div>

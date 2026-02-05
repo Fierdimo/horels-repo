@@ -35,7 +35,7 @@ export function useProfile(): UseProfileReturn {
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileData) => {
       const result = await authApi.updateProfile(data);
-      return result.user;
+      return result.data || result.user; // Support both response formats
     },
     onSuccess: (updatedUser) => {
       // Invalidate profile query to refetch
@@ -43,7 +43,7 @@ export function useProfile(): UseProfileReturn {
       
       // Update auth store with new user data
       const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
+      if (currentUser && updatedUser) {
         useAuthStore.setState({
           user: {
             ...currentUser,

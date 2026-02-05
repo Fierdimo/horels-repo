@@ -54,12 +54,7 @@ export default function BookingDetails() {
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/owner/weeks')}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </button>
+          
           <h1 className="text-2xl font-bold text-gray-900">
             {t('guest.booking.details')}
           </h1>

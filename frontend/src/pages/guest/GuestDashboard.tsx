@@ -1,142 +1,163 @@
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
-import { useBridge } from '@/hooks/useBridge';
-import { Calendar, Utensils, Coffee, Bell, QrCode, FileText, Loader2, MapPin, User, CreditCard, Search } from 'lucide-react';
-import { bookingsApi } from '@/api/bookings';
-import { ActiveStayCard } from '@/components/guest/ActiveStayCard';
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { Calendar, MapPin, CreditCard, Search, User, TrendingUp, Clock, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { timeshareApi } from '@/api/timeshare';
+import { Link } from 'react-router-dom';
+import { format, parseISO, isAfter, isBefore, differenceInDays } from 'date-fns';
+import { es, enUS, fr, de, it } from 'date-fns/locale';
+import type { Locale } from 'date-fns';
+import type { Booking } from '@/api/bookings';
+
+const localeMap: Record<string, Locale> = {
+  es,
+  en: enUS,
+  fr,
+  de,
+  it
+};
 
 export default function GuestDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
-  const { isWebView } = useBridge();
-  const [hasProducts, setHasProducts] = useState(false);
+  const currentLocale = localeMap[i18n.language] || enUS;
 
-  // Get active booking
-  const { data: activeBookingData, isLoading: loadingActive } = useQuery({
-    queryKey: ['activeBooking'],
-    queryFn: bookingsApi.getActiveBooking,
-    enabled: !!user?.id,
+  // Get all bookings using V2 API
+  const { data: bookingsData, isLoading } = useQuery({
+    queryKey: ['myBookings'],
+    queryFn: timeshareApi.getMyBookings,
   });
 
-  // Get upcoming bookings count
-  const { data: upcomingData, isLoading: loadingUpcoming } = useQuery({
-    queryKey: ['upcomingBookings'],
-    queryFn: bookingsApi.getUpcomingBookings,
-    enabled: !!user?.id,
+  const bookings = bookingsData || [];
+  const now = new Date();
+
+  // Find active booking (currently staying)
+  const activeBooking = bookings.find((booking: Booking) => {
+    const checkIn = booking.checkIn || booking.check_in;
+    const checkOut = booking.checkOut || booking.check_out;
+    if (!checkIn || !checkOut || booking.status !== 'confirmed') return false;
+    const checkInDate = parseISO(checkIn);
+    const checkOutDate = parseISO(checkOut);
+    return isBefore(checkInDate, now) && isAfter(checkOutDate, now);
   });
 
-  const activeBooking = activeBookingData?.booking;
-  const upcomingBookings = upcomingData?.bookings || [];
-  const hasActiveBooking = !!activeBooking;
+  // Find upcoming bookings (future check-in)
+  const upcomingBookings = bookings
+    .filter((booking: Booking) => {
+      const checkIn = booking.checkIn || booking.check_in;
+      if (!checkIn || booking.status === 'cancelled') return false;
+      return isAfter(parseISO(checkIn), now);
+    })
+    .sort((a: Booking, b: Booking) => {
+      const dateA = parseISO(a.checkIn || a.check_in || '');
+      const dateB = parseISO(b.checkIn || b.check_in || '');
+      return dateA.getTime() - dateB.getTime();
+    });
 
-  // Check if property has products available
-  useEffect(() => {
-    const checkProducts = async () => {
-      if (activeBooking?.property_id) {
-        try {
-          const response = await axios.get(`/api/public/properties/${activeBooking.property_id}/products`);
-          setHasProducts(response.data.data && response.data.data.length > 0);
-        } catch (error) {
-          setHasProducts(false);
-        }
-      }
-    };
+  // Statistics
+  const stats = {
+    totalBookings: bookings.length,
+    activeStays: activeBooking ? 1 : 0,
+    upcomingStays: upcomingBookings.length,
+    completedStays: bookings.filter((b: Booking) => b.status === 'checked_out').length
+  };
 
-    if (activeBooking) {
-      checkProducts();
-    }
-  }, [activeBooking]);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {t('guest.dashboard.welcome') || 'Welcome'}
-              </h1>
-              <p className="text-sm text-gray-600">{user?.email}</p>
-              {isWebView && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
-                  WebView
-                </span>
-              )}
-            </div>
-           
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {t('guest.dashboard.welcome')}, {user?.firstName || user?.email?.split('@')[0]}
+            </h1>
+            <p className="mt-1 text-sm text-gray-600">
+              {t('guest.dashboard.subtitle') || 'Manage your reservations and explore properties'}
+            </p>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Active Booking Section */}
-        {loadingActive ? (
-          <div className="flex justify-center items-center py-12 mb-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Bookings */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t('guest.dashboard.totalBookings')}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalBookings}</p>
+              </div>
+              <div className="bg-blue-100 rounded-lg p-3">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+            <Link
+              to="/guest/bookings"
+              className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            >
+              {t('common.viewAll')} <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
-        ) : hasActiveBooking ? (
-          <div className="mb-8">
-            <ActiveStayCard 
-              booking={activeBooking}
-              hasProducts={hasProducts}
-              onRequestService={() => {
-                // Navigate to request service page
-                window.location.href = `/guest/bookings/${activeBooking.id}/services`;
-              }}
-            />
+
+          {/* Active Stay */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t('guest.dashboard.activeStay')}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.activeStays}</p>
+              </div>
+              <div className="bg-green-100 rounded-lg p-3">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+            {activeBooking && (
+              <p className="mt-4 text-xs text-gray-500">
+                {activeBooking.property?.name || activeBooking.Property?.name || 'Current Stay'}
+              </p>
+            )}
           </div>
-        ) : null}
 
-        {/* Service Request Cards - Only show if has active booking AND has products */}
-        {hasActiveBooking && hasProducts && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              {t('guest.dashboard.quickServices') || 'Quick Service Requests'}
-            </h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <button
-                onClick={() => window.location.href = `/guest/bookings/${activeBooking.id}/services?type=room_service`}
-                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition text-left"
-              >
-                <Utensils className="h-8 w-8 text-orange-600 mb-2" />
-                <h3 className="font-semibold text-gray-900">Room Service</h3>
-                <p className="text-xs text-gray-500 mt-1">Order food & drinks</p>
-              </button>
+          {/* Upcoming Stays */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t('guest.dashboard.upcomingStays')}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.upcomingStays}</p>
+              </div>
+              <div className="bg-orange-100 rounded-lg p-3">
+                <Clock className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+            {upcomingBookings.length > 0 && (
+              <p className="mt-4 text-xs text-gray-500">
+                Next: {format(parseISO(upcomingBookings[0].checkIn || upcomingBookings[0].check_in || ''), 'MMM d', { locale: currentLocale })}
+              </p>
+            )}
+          </div>
 
-              <button
-                onClick={() => window.location.href = `/guest/bookings/${activeBooking.id}/services?type=housekeeping`}
-                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition text-left"
-              >
-                <Coffee className="h-8 w-8 text-blue-600 mb-2" />
-                <h3 className="font-semibold text-gray-900">Housekeeping</h3>
-                <p className="text-xs text-gray-500 mt-1">Request cleaning</p>
-              </button>
-
-              <button
-                onClick={() => window.location.href = `/guest/bookings/${activeBooking.id}/services?type=maintenance`}
-                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition text-left"
-              >
-                <Bell className="h-8 w-8 text-red-600 mb-2" />
-                <h3 className="font-semibold text-gray-900">Maintenance</h3>
-                <p className="text-xs text-gray-500 mt-1">Report an issue</p>
-              </button>
-
-              <button
-                onClick={() => window.location.href = `/guest/bookings/${activeBooking.id}/services?type=concierge`}
-                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition text-left"
-              >
-                <FileText className="h-8 w-8 text-purple-600 mb-2" />
-                <h3 className="font-semibold text-gray-900">Concierge</h3>
-                <p className="text-xs text-gray-500 mt-1">Get assistance</p>
-              </button>
+          {/* Completed */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">{t('guest.dashboard.completed') || 'Completed'}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.completedStays}</p>
+              </div>
+              <div className="bg-purple-100 rounded-lg p-3">
+                <TrendingUp className="h-6 w-6 text-purple-600" />
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Main Navigation Cards */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -176,24 +197,6 @@ export default function GuestDashboard() {
             </p>
           </a>
 
-          {/* Payment History Card */}
-          <a
-            href="/guest/payments"
-            className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition cursor-pointer"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <CreditCard className="h-6 w-6 text-purple-600" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('guest.dashboard.paymentHistory') || 'Payment History'}
-              </h2>
-            </div>
-            <p className="text-sm text-gray-600">
-              {t('guest.dashboard.viewPayments') || 'View your payment history and receipts'}
-            </p>
-          </a>
-
           {/* My Profile Card */}
           <a
             href="/guest/profile"
@@ -212,63 +215,141 @@ export default function GuestDashboard() {
             </p>
           </a>
 
-          {/* Destinations Card */}
-          <a
-            href="/guest/destinations"
-            className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition cursor-pointer"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-pink-100 rounded-lg">
-                <MapPin className="h-6 w-6 text-pink-600" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('guest.dashboard.destinations') || 'Destinations'}
-              </h2>
-            </div>
-            <p className="text-sm text-gray-600">
-              {t('guest.dashboard.exploreDestinations') || 'Discover amazing destinations around the world'}
-            </p>
-          </a>
+
         </div>
 
-        {/* Quick Summary Section */}
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {t('guest.dashboard.summary') || 'Summary'}
-          </h3>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            {loadingUpcoming ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        {/* Active Booking Card - if exists */}
+        {activeBooking && (
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {t('guest.dashboard.currentStay') || 'Current Stay'}
+            </h3>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-1">
+                    {activeBooking.property?.name || activeBooking.Property?.name || 'Your Stay'}
+                  </h3>
+                  <div className="flex items-center gap-2 text-blue-100">
+                    <MapPin className="h-4 w-4" />
+                    <span className="text-sm">
+                      {activeBooking.property?.location || activeBooking.Property?.location || activeBooking.Property?.city || 'Location'}
+                    </span>
+                  </div>
+                </div>
+                <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold">
+                  {t('guest.dashboard.active') || 'Active'}
+                </span>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                  <span className="text-sm font-medium text-gray-700">
-                    {t('guest.dashboard.currentStay') || 'Current Stay'}
-                  </span>
-                  <span className={`text-sm font-medium ${hasActiveBooking ? 'text-green-600' : 'text-gray-500'}`}>
-                    {hasActiveBooking ? activeBooking.Property?.name : t('guest.dashboard.noActiveBooking') || 'No active booking'}
-                  </span>
+
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <div>
+                  <p className="text-blue-100 text-xs mb-1">{t('guest.dashboard.checkIn')}</p>
+                  <p className="font-semibold">
+                    {format(parseISO(activeBooking.checkIn || activeBooking.check_in || ''), 'MMM d, yyyy', { locale: currentLocale })}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                  <span className="text-sm font-medium text-gray-700">
-                    {t('guest.dashboard.upcomingBookings') || 'Upcoming Bookings'}
-                  </span>
-                  <span className="text-sm font-medium text-gray-900">{upcomingBookings.length}</span>
-                </div>
-                <div className="flex items-center justify-between py-3">
-                  <span className="text-sm font-medium text-gray-700">
-                    {t('guest.dashboard.totalBookings') || 'Total Bookings'}
-                  </span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {(hasActiveBooking ? 1 : 0) + upcomingBookings.length}
-                  </span>
+                <div>
+                  <p className="text-blue-100 text-xs mb-1">{t('guest.dashboard.checkOut')}</p>
+                  <p className="font-semibold">
+                    {format(parseISO(activeBooking.checkOut || activeBooking.check_out || ''), 'MMM d, yyyy', { locale: currentLocale })}
+                  </p>
                 </div>
               </div>
-            )}
+
+              {activeBooking.roomCategory || activeBooking.room_type ? (
+                <div className="mt-4 pt-4 border-t border-white/20">
+                  <p className="text-blue-100 text-xs mb-1">{t('guest.bookings.room')}</p>
+                  <p className="font-semibold">{activeBooking.roomCategory || activeBooking.room_type}</p>
+                </div>
+              ) : null}
+
+              <div className="mt-6">
+                <Link
+                  to={`/guest/bookings/${activeBooking.id}`}
+                  className="block w-full bg-white text-blue-600 text-center py-2 rounded-lg font-medium hover:bg-blue-50 transition"
+                >
+                  {t('common.viewDetails')}
+                </Link>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Upcoming Bookings List */}
+        {upcomingBookings.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {t('guest.dashboard.upcomingBookings') || 'Upcoming Bookings'}
+              </h3>
+              <Link to="/guest/bookings" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                {t('common.viewAll')} <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="space-y-4">
+              {upcomingBookings.slice(0, 3).map((booking: Booking) => {
+                const checkIn = booking.checkIn || booking.check_in || '';
+                const checkOut = booking.checkOut || booking.check_out || '';
+                const daysUntil = differenceInDays(parseISO(checkIn), now);
+
+                return (
+                  <Link
+                    key={booking.id}
+                    to={`/guest/bookings/${booking.id}`}
+                    className="block bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">
+                          {booking.property?.name || booking.Property?.name || 'Property'}
+                        </h4>
+                        <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
+                          <MapPin className="h-4 w-4" />
+                          <span>{booking.property?.location || booking.Property?.location || booking.Property?.city || 'Location'}</span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{format(parseISO(checkIn), 'MMM d', { locale: currentLocale })}</span>
+                          </div>
+                          <span>→</span>
+                          <span>{format(parseISO(checkOut), 'MMM d, yyyy', { locale: currentLocale })}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${daysUntil <= 7 ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                          {daysUntil === 0 ? t('common.today') : `${daysUntil} ${daysUntil === 1 ? t('guest.dashboard.day') : t('common.days') || 'days'}`}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* No bookings message */}
+        {bookings.length === 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow-sm p-12 text-center">
+            <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {t('guest.bookings.noBookings') || 'No bookings yet'}
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {t('guest.bookings.startBooking') || 'Start exploring properties to make your first booking'}
+            </p>
+            <Link
+              to="/guest/marketplace"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            >
+              <Search className="h-5 w-5 mr-2" />
+              {t('guest.dashboard.browseProperties')}
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   );

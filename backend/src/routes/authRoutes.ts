@@ -228,50 +228,11 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
   });
 });
 
+// REMOVED - OLD V1 ENDPOINT - Use endpoint at line ~334 instead
 // Update user profile
-router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'User not authenticated' });
-  }
-
-  try {
-    const { firstName, lastName, phone } = req.body;
-    
-    await User.update(
-      {
-        first_name: firstName || null,
-        last_name: lastName || null,
-        phone: phone || null
-      },
-      { where: { id: req.user.id } }
-    );
-
-    // Get updated user
-    const updatedUser = await User.findByPk(req.user.id, {
-      include: [{
-        model: Role,
-        as: 'Role',
-        attributes: ['name']
-      }]
-    });
-
-    res.json({
-      success: true,
-      user: {
-        id: updatedUser!.id,
-        email: updatedUser!.email,
-        role: updatedUser!.role,
-        status: updatedUser!.status,
-        firstName: updatedUser!.first_name,
-        lastName: updatedUser!.last_name,
-        phone: updatedUser!.phone
-      }
-    });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ error: 'Failed to update profile' });
-  }
-});
+// router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response) => {
+//   [OLD CODE REMOVED]
+// });
 
 // Delete own account (user self-deletion)
 router.delete('/me', authenticateToken, async (req: AuthRequest, res: Response) => {

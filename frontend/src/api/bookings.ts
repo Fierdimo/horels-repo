@@ -2,14 +2,17 @@ import apiClient from './client';
 
 export interface Booking {
   id: number;
-  guest_id: number;
+  guest_id?: number;
   owner_id?: number;
-  property_id: number;
-  check_in: string;
-  check_out: string;
+  property_id?: number;
+  check_in?: string;
+  check_out?: string;
   check_in_date?: string; // Alias
   check_out_date?: string; // Alias
+  checkIn?: string; // V2 format
+  checkOut?: string; // V2 format
   room_type?: string;
+  roomCategory?: string; // V2 format
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
   payment_method?: 'credits' | 'stripe' | 'hybrid';
   total_credits?: number;
@@ -20,6 +23,12 @@ export interface Booking {
   guest_phone?: string;
   special_requests?: string;
   guest_token?: string;
+  confirmationCode?: string; // V2 format
+  source?: string; // V2 format
+  nights?: number; // V2 format
+  guests?: number; // V2 format
+  creditsUsed?: number; // V2 format
+  cancelledAt?: string; // V2 format
   Property?: {
     id: number;
     name: string;
@@ -27,6 +36,11 @@ export interface Booking {
     city?: string;
     country?: string;
     address?: string;
+  };
+  property?: { // V2 format
+    id: number;
+    name: string;
+    location?: string;
   };
   Services?: ServiceRequest[];
 }
@@ -144,6 +158,14 @@ export const bookingsApi = {
   // Cancel booking - uses new dedicated endpoint with refund support
   cancelBooking: async (bookingId: number, reason?: string): Promise<{ success: boolean; message: string; data: any }> => {
     const { data } = await apiClient.post(`/api/bookings/${bookingId}/cancel`, { reason });
+    return data;
+  },
+
+  // Cancel booking V2 - uses V2 endpoint (DELETE)
+  cancelBookingV2: async (bookingId: number, reason?: string): Promise<{ success: boolean; data: any }> => {
+    const { data } = await apiClient.delete(`/api/v2/bookings/${bookingId}`, {
+      data: { reason }
+    });
     return data;
   },
 

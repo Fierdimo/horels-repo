@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface WeekPickerProps {
   selectedWeek: number | null;
@@ -35,6 +36,8 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
   occupiedWeeksInfo = [],
   totalUnits = 1
 }) => {
+  const { t, i18n } = useTranslation();
+  
   /**
    * Calcula la fecha de inicio de una semana ISO
    * Semana 1 = Primera semana con al menos 4 días en el nuevo año
@@ -86,11 +89,11 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
         weekNumber: week,
         startDate,
         endDate,
-        monthName: startDate.toLocaleDateString('es-ES', { month: 'short' })
+        monthName: startDate.toLocaleDateString(i18n.language, { month: 'short' })
       });
     }
     return weeks;
-  }, [year]);
+  }, [year, i18n.language]);
 
   /**
    * Filtra semanas por mes actual
@@ -103,15 +106,25 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
   }, [allWeeks, currentMonth]);
 
   const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    t('weekPicker.months.january'),
+    t('weekPicker.months.february'),
+    t('weekPicker.months.march'),
+    t('weekPicker.months.april'),
+    t('weekPicker.months.may'),
+    t('weekPicker.months.june'),
+    t('weekPicker.months.july'),
+    t('weekPicker.months.august'),
+    t('weekPicker.months.september'),
+    t('weekPicker.months.october'),
+    t('weekPicker.months.november'),
+    t('weekPicker.months.december')
   ];
 
   const formatDateRange = (week: WeekInfo) => {
     const start = week.startDate.getDate();
     const end = week.endDate.getDate();
-    const startMonth = week.startDate.toLocaleDateString('es-ES', { month: 'short' });
-    const endMonth = week.endDate.toLocaleDateString('es-ES', { month: 'short' });
+    const startMonth = week.startDate.toLocaleDateString(i18n.language, { month: 'short' });
+    const endMonth = week.endDate.toLocaleDateString(i18n.language, { month: 'short' });
     
     if (startMonth === endMonth) {
       return `${start}-${end} ${startMonth}`;
@@ -156,11 +169,11 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
           {occupiedWeeksInfo.length > 0 && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-gray-500">
-                {fullyOccupiedWeeks} llenas • {partiallyOccupiedWeeks} parciales
+                {fullyOccupiedWeeks} {t('weekPicker.full')} • {partiallyOccupiedWeeks} {t('weekPicker.partial')}
               </span>
               <span className="text-xs text-gray-300">•</span>
               <span className="text-xs text-gray-400">
-                {occupancyPercentage}% ocupado
+                {occupancyPercentage}% {t('weekPicker.occupied')}
               </span>
             </div>
           )}
@@ -224,7 +237,7 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
                       : 'bg-gray-200 text-gray-700'
                     }
                   `}>
-                    Sem {week.weekNumber}
+                    {t('weekPicker.week')} {week.weekNumber}
                   </span>
                   {isSelected && (
                     <div className="h-2 w-2 bg-blue-600 rounded-full" />
@@ -235,7 +248,7 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
                 </p>
                 {occupiedInfo && (
                   <p className="text-xs text-gray-500 mt-1">
-                    {occupiedInfo.available} de {totalUnits} disponibles
+                    {occupiedInfo.available} {t('weekPicker.of')} {totalUnits} {t('weekPicker.available')}
                   </p>
                 )}
               </button>
@@ -245,10 +258,10 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
                 <div className="absolute z-10 hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48">
                   <div className="bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg">
                     <div className="font-semibold mb-1">
-                      Semana {week.weekNumber}
+                      {t('weekPicker.pastWeekTitle')} {week.weekNumber}
                     </div>
                     <div className="text-gray-300">
-                      Esta semana ya pasó y no puede ser asignada
+                      {t('weekPicker.pastWeekMessage')}
                     </div>
                   </div>
                 </div>
@@ -259,20 +272,20 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
                 <div className="absolute z-10 hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-56">
                   <div className="bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg">
                     <div className="font-semibold mb-2">
-                      Semana {week.weekNumber}
+                      {t('weekPicker.pastWeekTitle')} {week.weekNumber}
                     </div>
                     <div className="space-y-1 mb-2">
                       <div className="text-yellow-300">
-                        {occupiedInfo.count} de {totalUnits} asignadas
+                        {occupiedInfo.count} {t('weekPicker.of')} {totalUnits} {t('weekPicker.assigned')}
                       </div>
                       <div className="text-green-300">
-                        {occupiedInfo.available} disponibles
+                        {occupiedInfo.available} {t('weekPicker.available')}
                       </div>
                     </div>
                     {occupiedInfo.owners.length > 0 && (
                       <>
                         <div className="border-t border-gray-700 pt-2 mt-2">
-                          <div className="font-semibold mb-1">Propietarios:</div>
+                          <div className="font-semibold mb-1">{t('weekPicker.owners')}</div>
                           {occupiedInfo.owners.map((owner, idx) => (
                             <div key={idx} className="text-gray-300 mb-1">
                               {owner.owner_name || 'Sin nombre'}
@@ -301,7 +314,7 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-900">
-                Semana {selectedWeek} seleccionada
+                {t('weekPicker.pastWeekTitle')} {selectedWeek} {t('weekPicker.weekSelected')}
               </p>
               <p className="text-xs text-gray-600">
                 {formatDateRange(allWeeks[selectedWeek - 1])} • {year}
@@ -313,7 +326,7 @@ export const WeekPicker: React.FC<WeekPickerProps> = ({
 
       {/* Navegación rápida por trimestres */}
       <div className="mt-4 pt-3 border-t">
-        <p className="text-xs text-gray-500 mb-2">Ir a:</p>
+        <p className="text-xs text-gray-500 mb-2">{t('weekPicker.goTo')}</p>
         <div className="flex gap-2">
           {[
             { label: 'Q1', month: 0 },

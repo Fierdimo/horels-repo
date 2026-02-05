@@ -104,20 +104,19 @@ export default function UnifiedDashboard() {
             <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
             <div className="flex-1">
               <h4 className="font-semibold text-blue-900 mb-1">
-                Demo Mode - Mock PMS Data
+                {t('staff.dashboard.demoModeTitle')}
               </h4>
               <p className="text-sm text-blue-700 mb-3">
-                You're viewing demo data from our Mock Property Management System. 
-                Contact an administrator to be assigned to a real property.
+                {t('staff.dashboard.demoModeDescription')}
               </p>
               {mockPMSHotels.length > 0 && (
                 <div className="bg-white rounded p-3 text-sm">
-                  <p className="font-medium text-blue-900 mb-2">Available Demo Hotels:</p>
+                  <p className="font-medium text-blue-900 mb-2">{t('staff.dashboard.availableDemoHotels')}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {mockPMSHotels.map((hotel: any) => (
                       <div key={hotel.id} className="flex items-center gap-2 text-blue-700">
                         <Building2 className="h-4 w-4" />
-                        <span>{hotel.name} ({hotel.city}) - {hotel.totalRooms} rooms</span>
+                        <span>{hotel.name} ({hotel.city}) - {hotel.totalRooms} {t('staff.dashboard.rooms')}</span>
                       </div>
                     ))}
                   </div>
@@ -138,17 +137,17 @@ export default function UnifiedDashboard() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-1">
-                  {pendingBookingsCount} {pendingBookingsCount === 1 ? 'Booking' : 'Bookings'} Pending Approval
+                  {pendingBookingsCount} {pendingBookingsCount === 1 ? t('staff.dashboard.bookingPendingApproval') : t('staff.dashboard.bookingsPendingApproval')}
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Marketplace bookings awaiting your review and approval
+                  {t('staff.dashboard.marketplaceBookingsAwaiting')}
                 </p>
                 <button
                   onClick={() => navigate('/staff/bookings')}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
                 >
                   <Calendar className="h-4 w-4" />
-                  Review Bookings
+                  {t('staff.dashboard.reviewBookings')}
                 </button>
               </div>
             </div>
@@ -158,7 +157,7 @@ export default function UnifiedDashboard() {
                   {pendingBookingsCount}
                 </p>
                 <p className="text-xs text-gray-600 uppercase tracking-wide">
-                  Requires Action
+                  {t('staff.dashboard.requiresAction')}
                 </p>
               </div>
             </div>
@@ -183,179 +182,36 @@ export default function UnifiedDashboard() {
         </div>
       )}
 
-      {/* Stats Cards - Similar to StaffInvitationsList */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-700 font-medium">
-                {t('common.total')}
-              </p>
-              <p className="text-3xl font-bold text-blue-900 mt-1">
-                {totalInvitations}
-              </p>
-            </div>
-            <User className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-
-        <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-yellow-700 font-medium">
-                {t('staff.invitations.statusPending')}
-              </p>
-              <p className="text-3xl font-bold text-yellow-900 mt-1">
-                {pendingInvitations}
-              </p>
-            </div>
-            <Clock className="h-8 w-8 text-yellow-600" />
-          </div>
-        </div>
-
-        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-700 font-medium">
-                {t('staff.invitations.statusAccepted')}
-              </p>
-              <p className="text-3xl font-bold text-green-900 mt-1">
-                {acceptedInvitations}
-              </p>
-            </div>
-            <CheckCircle className="h-8 w-8 text-green-600" />
-          </div>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-700 font-medium">
-                {t('staff.invitations.other')}
-              </p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
-                {cancelledInvitations + expiredInvitations}
-              </p>
-            </div>
-            <Ban className="h-8 w-8 text-gray-600" />
-          </div>
-        </div>
-      </div> */}
-
-      {/* Timeshare Stats - V2 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Bookings Overview</h3>
-          <button
-            onClick={() => navigate('/staff/bookings')}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            View All →
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-yellow-700 font-medium">Pending</p>
-                <p className="text-3xl font-bold text-yellow-900 mt-1">
-                  {pendingBookingsCount}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
-            </div>
-          </div>
-
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-700 font-medium">Confirmed</p>
-                <p className="text-3xl font-bold text-blue-900 mt-1">
-                  {confirmedBookings}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-blue-600" />
-            </div>
-          </div>
-
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-700 font-medium">Checked In</p>
-                <p className="text-3xl font-bold text-green-900 mt-1">
-                  {checkedInBookings}
-                </p>
-              </div>
-              <Users className="h-8 w-8 text-green-600" />
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-700 font-medium">Checked Out</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
-                  {checkedOutBookings}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-gray-600" />
-            </div>
-          </div>
-
-          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-700 font-medium">Total</p>
-                <p className="text-3xl font-bold text-purple-900 mt-1">
-                  {totalBookings}
-                </p>
-              </div>
-              <Calendar className="h-8 w-8 text-purple-600" />
-            </div>
-          </div>
-        </div>
-      </div>
+      
+     
 
       {/* Week Allocations (Inventory) */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Week Allocations</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('staff.dashboard.weekAllocations')}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-emerald-700 font-medium">Available</p>
+                <p className="text-sm text-emerald-700 font-medium">{t('staff.dashboard.available')}</p>
                 <p className="text-3xl font-bold text-emerald-900 mt-1">
                   {availableWeeks}
                 </p>
-                <p className="text-xs text-emerald-600 mt-1">Ready to book</p>
+                <p className="text-xs text-emerald-600 mt-1">{t('staff.dashboard.readyToBook')}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-emerald-600" />
             </div>
-          </div>
-
-          <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-indigo-700 font-medium">Booked</p>
-                <p className="text-3xl font-bold text-indigo-900 mt-1">
-                  {bookedWeeks}
-                </p>
-                <p className="text-xs text-indigo-600 mt-1">Reserved</p>
-              </div>
-              <Calendar className="h-8 w-8 text-indigo-600" />
-            </div>
-          </div>
+          </div> 
 
           <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-700 font-medium">Assigned</p>
+                <p className="text-sm text-orange-700 font-medium">{t('staff.dashboard.assigned')}</p>
                 <p className="text-3xl font-bold text-orange-900 mt-1">
                   {assignedWeeks}
                 </p>
-                <p className="text-xs text-orange-600 mt-1">With owners</p>
+                <p className="text-xs text-orange-600 mt-1">{t('staff.dashboard.withOwners')}</p>
               </div>
               <Users className="h-8 w-8 text-orange-600" />
             </div>
@@ -364,11 +220,11 @@ export default function UnifiedDashboard() {
           <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-purple-700 font-medium">Total Weeks</p>
+                <p className="text-sm text-purple-700 font-medium">{t('staff.dashboard.totalWeeks')}</p>
                 <p className="text-3xl font-bold text-purple-900 mt-1">
                   {totalWeeks}
                 </p>
-                <p className="text-xs text-purple-600 mt-1">All allocations</p>
+                <p className="text-xs text-purple-600 mt-1">{t('staff.dashboard.allAllocations')}</p>
               </div>
               <LayoutDashboard className="h-8 w-8 text-purple-600" />
             </div>
@@ -379,17 +235,17 @@ export default function UnifiedDashboard() {
       {/* Property Info */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Property Overview</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t('staff.dashboard.propertyOverview')}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-700 font-medium">Units</p>
+                <p className="text-sm text-blue-700 font-medium">{t('staff.dashboard.units')}</p>
                 <p className="text-3xl font-bold text-blue-900 mt-1">
                   {totalUnits}
                 </p>
-                <p className="text-xs text-blue-600 mt-1">Timeshare categories</p>
+                <p className="text-xs text-blue-600 mt-1">{t('staff.dashboard.timeshareCategories')}</p>
               </div>
               <Building2 className="h-8 w-8 text-blue-600" />
             </div>
@@ -398,11 +254,11 @@ export default function UnifiedDashboard() {
           <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-teal-700 font-medium">Ownerships</p>
+                <p className="text-sm text-teal-700 font-medium">{t('staff.dashboard.ownerships')}</p>
                 <p className="text-3xl font-bold text-teal-900 mt-1">
                   {totalOwnerships}
                 </p>
-                <p className="text-xs text-teal-600 mt-1">Total owners</p>
+                <p className="text-xs text-teal-600 mt-1">{t('staff.dashboard.totalOwners')}</p>
               </div>
               <Users className="h-8 w-8 text-teal-600" />
             </div>

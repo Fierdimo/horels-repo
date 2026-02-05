@@ -212,16 +212,16 @@ export default function StaffInvitationsList() {
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Ownership cancelado exitosamente');
+      toast.success(t('staff.ownerships.ownershipCancelled'));
       queryClient.invalidateQueries({ queryKey: ['staffOwnerships'] });
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Error cancelando el ownership');
+      toast.error(error.response?.data?.error || t('staff.ownerships.errorCancelling'));
     },
   });
 
   const handleCancelOwnership = (ownership: Ownership) => {
-    if (confirm(`¿Estás seguro de cancelar el timeshare de ${ownership.owner.first_name} ${ownership.owner.last_name}? Esta acción no se puede deshacer.`)) {
+    if (confirm(t('staff.ownerships.confirmCancelOwnership', { owner: `${ownership.owner.first_name} ${ownership.owner.last_name}` }))) {
       cancelOwnershipMutation.mutate(ownership.id);
     }
   };
@@ -249,42 +249,42 @@ export default function StaffInvitationsList() {
       return (
         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
           <CheckCircle className="h-4 w-4" />
-          <span>Activo</span>
+          <span>{t('staff.ownerships.activeStatus')}</span>
         </span>
       );
     } else if (status === 'IN_USE') {
       return (
         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
           <Calendar className="h-4 w-4" />
-          <span>En Uso</span>
+          <span>{t('staff.ownerships.inUseStatusBadge')}</span>
         </span>
       );
     } else if (status === 'USED') {
       return (
         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-900/20 dark:text-slate-400">
           <CheckCircle className="h-4 w-4" />
-          <span>Usado</span>
+          <span>{t('staff.ownerships.usedStatusBadge')}</span>
         </span>
       );
     } else if (status === 'CONVERTED_TO_CREDITS') {
       return (
         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
           <Clock className="h-4 w-4" />
-          <span>Convertido a Créditos</span>
+          <span>{t('staff.ownerships.convertedToCreditsBadge')}</span>
         </span>
       );
     } else if (status === 'CANCELLED') {
       return (
         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400">
           <Clock className="h-4 w-4" />
-          <span>Cancelado</span>
+          <span>{t('staff.ownerships.cancelledStatusBadge')}</span>
         </span>
       );
     } else {
       return (
         <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400">
           <Clock className="h-4 w-4" />
-          <span>Inactivo</span>
+          <span>{t('staff.ownerships.inactiveStatus')}</span>
         </span>
       );
     }
@@ -392,10 +392,10 @@ export default function StaffInvitationsList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Timeshares Registrados
+            {t('staff.ownerships.title')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Gestiona las propiedades registradas y envía invitaciones a los propietarios
+            {t('staff.ownerships.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -404,7 +404,7 @@ export default function StaffInvitationsList() {
             className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-5 w-5" />
-            <span>Registrar Timeshare</span>
+            <span>{t('staff.ownerships.registerTimeshare')}</span>
           </button>
         </div>
       </div>
@@ -415,7 +415,7 @@ export default function StaffInvitationsList() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                Total Registrados
+                {t('staff.ownerships.totalRegistered')}
               </p>
               <p className="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-1">
                 {totalOwnerships}
@@ -429,7 +429,7 @@ export default function StaffInvitationsList() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">
-                En Uso
+                {t('staff.ownerships.inUse')}
               </p>
               <p className="text-3xl font-bold text-amber-900 dark:text-amber-100 mt-1">
                 {inUseCount}
@@ -443,7 +443,7 @@ export default function StaffInvitationsList() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-                Usados
+                {t('staff.ownerships.used')}
               </p>
               <p className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-1">
                 {usedCount}
@@ -457,7 +457,7 @@ export default function StaffInvitationsList() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                Activos
+                {t('staff.ownerships.active')}
               </p>
               <p className="text-3xl font-bold text-green-900 dark:text-green-100 mt-1">
                 {activeCount}
@@ -471,7 +471,7 @@ export default function StaffInvitationsList() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                Convertidos
+                {t('staff.ownerships.converted')}
               </p>
               <p className="text-3xl font-bold text-purple-900 dark:text-purple-100 mt-1">
                 {convertedCount}
@@ -485,7 +485,7 @@ export default function StaffInvitationsList() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                Cancelados
+                {t('staff.ownerships.cancelled')}
               </p>
               <p className="text-3xl font-bold text-red-900 dark:text-red-100 mt-1">
                 {cancelledCount}
@@ -506,7 +506,7 @@ export default function StaffInvitationsList() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por propietario, unidad, o contrato..."
+                placeholder={t('staff.ownerships.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -524,7 +524,7 @@ export default function StaffInvitationsList() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              Todos ({totalOwnerships})
+              {t('staff.ownerships.all')} ({totalOwnerships})
             </button>
             <button
               onClick={() => setStatusFilter('ACTIVE')}
@@ -534,7 +534,7 @@ export default function StaffInvitationsList() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              Activos ({activeCount})
+              {t('staff.ownerships.actives')} ({activeCount})
             </button>
             <button
               onClick={() => setStatusFilter('IN_USE')}
@@ -544,7 +544,7 @@ export default function StaffInvitationsList() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              En Uso ({inUseCount})
+              {t('staff.ownerships.inUseStatus')} ({inUseCount})
             </button>
             <button
               onClick={() => setStatusFilter('USED')}
@@ -554,7 +554,7 @@ export default function StaffInvitationsList() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              Usados ({usedCount})
+              {t('staff.ownerships.usedStatus')} ({usedCount})
             </button>
             <button
               onClick={() => setStatusFilter('CONVERTED_TO_CREDITS')}
@@ -564,7 +564,7 @@ export default function StaffInvitationsList() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              Convertidos ({convertedCount})
+              {t('staff.ownerships.convertedToCredits')} ({convertedCount})
             </button>
             <button
               onClick={() => setStatusFilter('CANCELLED')}
@@ -574,7 +574,7 @@ export default function StaffInvitationsList() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              Cancelados ({cancelledCount})
+              {t('staff.ownerships.cancelledStatus')} ({cancelledCount})
             </button>
           </div>
           </div>
@@ -584,11 +584,11 @@ export default function StaffInvitationsList() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-4">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Mostrando {startIndex + 1}-{endIndex} de {totalCount}
+                  {t('staff.ownerships.showing')} {startIndex + 1}-{endIndex} {t('staff.ownerships.of')} {totalCount}
                 </span>
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-gray-600 dark:text-gray-400">
-                    Items por página:
+                    {t('staff.ownerships.itemsPerPage')}
                   </label>
                   <select
                     value={itemsPerPage}
@@ -615,14 +615,14 @@ export default function StaffInvitationsList() {
                     disabled={currentPage === 1}
                     className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                   >
-                    Primera
+                    {t('staff.ownerships.first')}
                   </button>
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
                     className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                   >
-                    Anterior
+                    {t('staff.ownerships.previous')}
                   </button>
                   
                   {/* Page Numbers */}
@@ -659,14 +659,14 @@ export default function StaffInvitationsList() {
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                   >
-                    Siguiente
+                    {t('staff.ownerships.next')}
                   </button>
                   <button
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600"
                   >
-                    Última
+                    {t('staff.ownerships.last')}
                   </button>
                 </div>
               )}
@@ -683,22 +683,22 @@ export default function StaffInvitationsList() {
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Propietario
+                    {t('staff.ownerships.owner')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Unidad
+                    {t('staff.ownerships.unit')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Período
+                    {t('staff.ownerships.period')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Estado
+                    {t('staff.ownerships.status')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Registrado
+                    {t('staff.ownerships.registered')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Acciones
+                    {t('staff.ownerships.actions')}
                   </th>
                 </tr>
               </thead>
@@ -715,14 +715,14 @@ export default function StaffInvitationsList() {
           <Building2 className="h-16 w-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             {searchQuery || statusFilter !== 'ALL' 
-              ? 'No se encontraron resultados'
-              : 'No hay timeshares registrados'
+              ? t('staff.ownerships.noRecordsFound')
+              : t('staff.ownerships.noRecordsFound')
             }
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             {searchQuery || statusFilter !== 'ALL'
-              ? 'Intenta con diferentes filtros de búsqueda'
-              : 'Comienza registrando el primer timeshare'
+              ? t('staff.ownerships.tryAdjustingFilters')
+              : t('staff.ownerships.tryAdjustingFilters')
             }
           </p>
           {!searchQuery && statusFilter === 'ALL' && (
@@ -731,7 +731,7 @@ export default function StaffInvitationsList() {
               className="inline-flex items-center space-x-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
             >
               <Plus className="h-5 w-5" />
-              <span>Registrar Primer Timeshare</span>
+              <span>{t('staff.ownerships.registerFirst')}</span>
             </button>
           )}
         </div>
@@ -743,7 +743,7 @@ export default function StaffInvitationsList() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Invitación para {selectedOwnership.owner.first_name} {selectedOwnership.owner.last_name}
+                {t('staff.ownerships.invitationFor')} {selectedOwnership.owner.first_name} {selectedOwnership.owner.last_name}
               </h3>
               <button
                 onClick={() => setShowInvitationModal(false)}
@@ -756,7 +756,7 @@ export default function StaffInvitationsList() {
             {isGeneratingInvitation ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-400">Generando invitación...</p>
+                <p className="text-gray-600 dark:text-gray-400">{t('staff.ownerships.generatingInvitation')}</p>
               </div>
             ) : invitationData ? (
               <div className="space-y-6">
@@ -768,10 +768,10 @@ export default function StaffInvitationsList() {
                     className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg"
                   >
                     <Mail className="h-6 w-6" />
-                    <span>{isSendingEmail ? 'Enviando...' : 'Enviar Email de Invitación'}</span>
+                    <span>{isSendingEmail ? t('staff.ownerships.sending') : t('staff.ownerships.sendInvitationEmail')}</span>
                   </button>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
-                    Se enviará un email con el link de invitación y un código QR
+                    {t('staff.ownerships.emailDescription')}
                   </p>
                 </div>
 
@@ -779,7 +779,7 @@ export default function StaffInvitationsList() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
                     <Link2 className="h-4 w-4" />
-                    <span>Link de Invitación</span>
+                    <span>{t('staff.ownerships.invitationLink')}</span>
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -793,7 +793,7 @@ export default function StaffInvitationsList() {
                       className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
                     >
                       <Copy className="h-4 w-4" />
-                      <span>Copiar</span>
+                      <span>{t('staff.ownerships.copy')}</span>
                     </button>
                   </div>
                 </div>
@@ -802,7 +802,7 @@ export default function StaffInvitationsList() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
                     <QrCode className="h-4 w-4" />
-                    <span>Código QR</span>
+                    <span>{t('staff.ownerships.qrCode')}</span>
                   </label>
                   <div className="bg-white dark:bg-gray-700 rounded-lg p-6 flex flex-col items-center space-y-4">
                     <QRCodeSVG 
@@ -817,18 +817,18 @@ export default function StaffInvitationsList() {
                       className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                     >
                       <QrCode className="h-4 w-4" />
-                      <span>Descargar QR</span>
+                      <span>{t('staff.ownerships.downloadQR')}</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Instructions */}
                 <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
-                  <p className="font-medium text-gray-900 dark:text-white mb-2">Instrucciones:</p>
+                  <p className="font-medium text-gray-900 dark:text-white mb-2">{t('staff.ownerships.instructions')}</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>El propietario puede usar el link o escanear el QR para acceder</li>
-                    <li>Al primer ingreso, deberá establecer su contraseña</li>
-                    <li>El link es válido por 30 días</li>
+                    <li>{t('staff.ownerships.instruction1')}</li>
+                    <li>{t('staff.ownerships.instruction2')}</li>
+                    <li>{t('staff.ownerships.instruction3')}</li>
                   </ul>
                 </div>
 
@@ -838,7 +838,7 @@ export default function StaffInvitationsList() {
                     onClick={() => setShowInvitationModal(false)}
                     className="w-full px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
                   >
-                    Cerrar
+                    {t('staff.ownerships.close')}
                   </button>
                 </div>
               </div>

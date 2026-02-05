@@ -104,7 +104,7 @@ export default function Credits() {
           </div>
 
           {/* Total Spent (Only approved/confirmed) */}
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
+          {/* <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">{t('owner.credits.spent')}</p>
@@ -113,9 +113,9 @@ export default function Credits() {
               </div>
               <CheckCircle className="h-12 w-12 text-orange-500 opacity-20" />
             </div>
-          </div>
+          </div> */}
 
-          {/* Pending Credits (Awaiting staff approval) */}
+          {/* Pending Credits (Awaiting staff approval)
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
             <div className="flex items-center justify-between">
               <div>
@@ -125,7 +125,7 @@ export default function Credits() {
               </div>
               <Clock className="h-12 w-12 text-yellow-500 opacity-20" />
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Expiring Soon - Moved to info box */}

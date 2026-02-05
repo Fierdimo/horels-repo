@@ -62,7 +62,7 @@ export const authApi = {
     lastName?: string; 
     phone?: string; 
     address?: string; 
-  }): Promise<{ success: boolean; user: User }> => {
+  }): Promise<{ success: boolean; data?: User; user?: User }> => {
     const { data } = await apiClient.put('/auth/profile', profileData);
     return data;
   },

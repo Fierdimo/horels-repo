@@ -512,7 +512,7 @@ export default function PropertyDetails() {
               >
                 {[1, 2, 3, 4, 5, 6].map((num) => (
                   <option key={num} value={num}>
-                    {num} {num === 1 ? 'huésped' : 'huéspedes'}
+                    {num} {num === 1 ? t('marketplace.guestSingular') : t('marketplace.guestPlural')}
                   </option>
                 ))}
               </select>
@@ -526,7 +526,32 @@ export default function PropertyDetails() {
             {t('marketplace.availableRooms')}
           </h2>
 
-          {loadingRooms ? (
+          {!checkIn || !checkOut ? (
+            <div className="bg-white rounded-xl shadow-md p-12 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                  <Calendar className="h-10 w-10 text-blue-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  {t('marketplace.guidance.selectStayDatesTitle')}
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {t('marketplace.guidance.selectStayDatesDescription')}
+                </p>
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${checkIn ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                    <span>{t('marketplace.guidance.checkInLabel')}</span>
+                  </div>
+                  <span>→</span>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${checkOut ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                    <span>{t('marketplace.guidance.checkOutLabel')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : loadingRooms ? (
             <div className="flex justify-center py-12">
               <LoadingSpinner size="lg" />
             </div>
@@ -567,7 +592,7 @@ export default function PropertyDetails() {
                         <div className="flex items-center gap-2 text-gray-600">
                           <Users className="h-4 w-4" />
                           <span className="text-sm">
-                            Hasta {room.capacity} {room.capacity === 1 ? 'huésped' : 'huéspedes'}
+                            {t('marketplace.upTo')} {room.capacity} {room.capacity === 1 ? t('marketplace.guestSingular') : t('marketplace.guestPlural')}
                           </span>
                         </div>
                       </div>
@@ -581,13 +606,13 @@ export default function PropertyDetails() {
                           <div className="mt-1 text-sm">
                             <p className={`font-medium ${room.availableRooms > 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {room.availableRooms > 0 
-                                ? `${room.availableRooms} disponibles` 
-                                : 'No disponible'}
+                                ? `${room.availableRooms} ${t('marketplace.available')}` 
+                                : t('marketplace.notAvailable')}
                             </p>
                             {room.totalRooms !== undefined && (
                               <p className="text-gray-500 text-xs">
-                                de {room.totalRooms} unidades totales
-                                {(room as any).bookedUnits !== undefined && ` (${(room as any).bookedUnits} reservadas)`}
+                                {t('marketplace.of')} {room.totalRooms} {t('marketplace.totalUnits')}
+                                {(room as any).bookedUnits !== undefined && ` (${(room as any).bookedUnits} ${t('marketplace.booked')})`}
                               </p>
                             )}
                           </div>

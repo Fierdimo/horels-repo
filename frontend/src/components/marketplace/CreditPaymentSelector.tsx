@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Coins, CreditCard, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/client';
@@ -24,6 +25,7 @@ export function CreditPaymentSelector({
   totalAmount,
   onPaymentMethodChange
 }: CreditPaymentSelectorProps) {
+  const { t } = useTranslation();
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'credits' | 'hybrid'>('card');
   const [creditsToUse, setCreditsToUse] = useState(0);
 
@@ -52,11 +54,16 @@ export function CreditPaymentSelector({
   });
 
   // Calculate remaining balance after using credits
-  // IMPORTANTE: Usar el precio en EUR del cálculo de créditos del backend (creditPrice.totalEur)
-  // NO usar totalAmount porque puede incluir comisiones adicionales
-  const actualPriceEur = creditPrice?.totalEur || totalAmount;
+  // IMPORTANTE: totalAmount es el precio REAL de la habitación
+  // Para esta reserva específica, los créditos requeridos deben cubrir el precio total
+  // Entonces la tasa de conversión específica es: totalAmount / creditsRequired
+  const actualPriceEur = totalAmount;
   const remainingCredits = (creditBalance?.balance || 0) - creditsToUse;
-  const creditsValueEur = creditPrice ? creditsToUse * creditPrice.creditToEurRate : 0;
+  
+  // Calcular el valor de los créditos usados basado en la tasa específica de esta reserva
+  // Si creditsRequired = 90 y totalAmount = €189, entonces cada crédito vale €2.10
+  const creditValueForThisBooking = creditPrice ? (actualPriceEur / creditPrice.creditsRequired) : 0;
+  const creditsValueEur = creditsToUse * creditValueForThisBooking;
   const cashNeeded = Math.max(0, actualPriceEur - creditsValueEur);
 
   useEffect(() => {
@@ -69,10 +76,10 @@ export function CreditPaymentSelector({
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <div className="flex items-center gap-2 text-blue-800">
           <CreditCard className="h-5 w-5" />
-          <span className="font-medium">Payment Method: Credit Card</span>
+          <span className="font-medium">{t('marketplace.checkout.payWithCard')}</span>
         </div>
         <p className="text-sm text-blue-700 mt-2">
-          Sign in to use credits or pay with a hybrid method
+          {t('marketplace.checkout.signInToUseCredits')}
         </p>
       </div>
     );
@@ -81,7 +88,7 @@ export function CreditPaymentSelector({
   if (loadingBalance || loadingPrice) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-        <p className="text-gray-600">Loading payment options...</p>
+        <p className="text-gray-600">{t('marketplace.checkout.loadingPaymentOptions')}</p>
       </div>
     );
   }
@@ -91,7 +98,7 @@ export function CreditPaymentSelector({
 
   return (
     <div className="space-y-4 mb-6">
-      <h3 className="text-lg font-semibold text-gray-900">Payment Method</h3>
+      <h3 className="text-lg font-semibold text-gray-900">{t('marketplace.checkout.paymentMethod')}</h3>
 
       {/* Credit Balance Info */}
       {hasCredits && (
@@ -99,7 +106,7 @@ export function CreditPaymentSelector({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Coins className="h-5 w-5 text-purple-600" />
-              <span className="font-medium text-purple-900">Available Credits</span>
+              <span className="font-medium text-purple-900">{t('marketplace.checkout.availableCredits')}</span>
             </div>
             <span className="text-2xl font-bold text-purple-600">
               {creditBalance.balance.toLocaleString()}
@@ -107,7 +114,7 @@ export function CreditPaymentSelector({
           </div>
           {creditPrice && (
             <p className="text-sm text-purple-700 mt-2">
-              This booking requires <strong>{creditPrice.creditsRequired.toLocaleString()} credits</strong> ({creditPrice.nights} nights × {creditPrice.pricePerNightCredits.toLocaleString()} credits)
+              {t('marketplace.checkout.bookingRequires')} <strong>{creditPrice.creditsRequired.toLocaleString()} {t('marketplace.checkout.creditsLabel')}</strong> ({creditPrice.nights} {t('marketplace.checkout.nightsLabel')} × {creditPrice.pricePerNightCredits.toLocaleString()} {t('marketplace.checkout.creditsLabel')})
             </p>
           )}
         </div>
@@ -131,8 +138,8 @@ export function CreditPaymentSelector({
           <div className="flex items-center gap-3">
             <CreditCard className={`h-5 w-5 ${paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-400'}`} />
             <div className="flex-1">
-              <div className="font-medium text-gray-900">Credit Card</div>
-                <div className="text-sm text-gray-600">Pay €{actualPriceEur.toFixed(2)} with card</div>
+              <div className="font-medium text-gray-900">{t('marketplace.checkout.creditCard')}</div>
+                <div className="text-sm text-gray-600">{t('marketplace.checkout.payWithCardAmount', { amount: actualPriceEur.toFixed(2) })}</div>
             </div>
             {paymentMethod === 'card' && (
               <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
@@ -159,9 +166,9 @@ export function CreditPaymentSelector({
             <div className="flex items-center gap-3">
               <Coins className={`h-5 w-5 ${paymentMethod === 'credits' ? 'text-purple-600' : 'text-gray-400'}`} />
               <div className="flex-1">
-                <div className="font-medium text-gray-900">Pay with Credits</div>
+                <div className="font-medium text-gray-900">{t('marketplace.checkout.payWithCreditsOption')}</div>
                 <div className="text-sm text-gray-600">
-                  Use {creditPrice.creditsRequired.toLocaleString()} credits (Remaining: {(creditBalance.balance - creditPrice.creditsRequired).toLocaleString()})
+                  {t('marketplace.checkout.useCredits', { count: creditPrice.creditsRequired.toLocaleString() })} ({t('marketplace.checkout.remaining', { count: (creditBalance.balance - creditPrice.creditsRequired).toLocaleString() })})
                 </div>
               </div>
               {paymentMethod === 'credits' && (
@@ -193,9 +200,12 @@ export function CreditPaymentSelector({
                 <CreditCard className={`h-5 w-5 ${paymentMethod === 'hybrid' ? 'text-green-600' : 'text-gray-400'}`} />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-gray-900">Hybrid Payment</div>
+                <div className="font-medium text-gray-900">{t('marketplace.checkout.hybridPayment')}</div>
                 <div className="text-sm text-gray-600">
-                  Use {creditBalance.balance.toLocaleString()} credits + €{((creditPrice.totalEur - (creditBalance.balance * creditPrice.creditToEurRate))).toFixed(2)} card
+                  {t('marketplace.checkout.useCreditsAndCard', { 
+                    credits: creditBalance.balance.toLocaleString(), 
+                    amount: ((creditPrice.totalEur - (creditBalance.balance * creditPrice.creditToEurRate))).toFixed(2) 
+                  })}
                 </div>
               </div>
               {paymentMethod === 'hybrid' && (
@@ -211,7 +221,7 @@ export function CreditPaymentSelector({
         {hasCredits && paymentMethod === 'hybrid' && creditPrice && (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Credits to use (max: {creditBalance.balance.toLocaleString()})
+              {t('marketplace.checkout.creditsToUse')} ({t('marketplace.checkout.max', { count: creditBalance.balance.toLocaleString() })})
             </label>
             <input
               type="range"
@@ -224,12 +234,12 @@ export function CreditPaymentSelector({
             />
             <div className="flex justify-between items-center mt-2">
               <div className="text-sm">
-                <span className="font-medium text-purple-600">{creditsToUse.toLocaleString()} credits</span>
+                <span className="font-medium text-purple-600">{creditsToUse.toLocaleString()} {t('marketplace.checkout.creditsLabel')}</span>
                 <span className="text-gray-600"> = €{creditsValueEur.toFixed(2)}</span>
               </div>
               <div className="text-sm">
                 <span className="font-medium text-blue-600">€{cashNeeded.toFixed(2)}</span>
-                <span className="text-gray-600"> on card</span>
+                <span className="text-gray-600"> {t('marketplace.checkout.onCard')}</span>
               </div>
             </div>
           </div>
@@ -239,24 +249,24 @@ export function CreditPaymentSelector({
       {/* Payment Summary */}
       {(paymentMethod === 'credits' || paymentMethod === 'hybrid') && creditPrice && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-2">Payment Summary</h4>
+          <h4 className="font-medium text-gray-900 mb-2">{t('marketplace.checkout.paymentSummary')}</h4>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Total Price:</span>
+              <span className="text-gray-600">{t('marketplace.checkout.totalPrice')}</span>
               <span className="font-medium">€{actualPriceEur.toFixed(2)}</span>
             </div>
             {creditsToUse > 0 && (
               <>
                 <div className="flex justify-between text-purple-600">
-                  <span>Credits ({creditsToUse.toLocaleString()}):</span>
+                  <span>{t('marketplace.checkout.credits')} ({creditsToUse.toLocaleString()}):</span>
                   <span>-€{creditsValueEur.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-t pt-1">
-                  <span className="text-gray-600">Card Payment:</span>
+                  <span className="text-gray-600">{t('marketplace.checkout.cardPaymentLabel')}</span>
                   <span className="font-medium text-blue-600">€{cashNeeded.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-2">
-                  <span>Remaining Credits:</span>
+                  <span>{t('marketplace.checkout.remainingCredits')}</span>
                   <span>{remainingCredits.toLocaleString()}</span>
                 </div>
               </>
@@ -270,7 +280,7 @@ export function CreditPaymentSelector({
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
           <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-yellow-800">
-            You don't have any credits. Release a week to earn credits or proceed with card payment.
+            {t('marketplace.checkout.noCreditsWarning')}
           </p>
         </div>
       )}

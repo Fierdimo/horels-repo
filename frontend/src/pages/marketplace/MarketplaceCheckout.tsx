@@ -33,6 +33,7 @@ function CheckoutForm({
   user: any;
   navigate: any;
 }) {
+  const { t } = useTranslation();
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -42,7 +43,9 @@ function CheckoutForm({
   
   // Guest information form - prefilled from user data
   const [guestInfo, setGuestInfo] = useState({
-    name: user?.name || '',
+    name: user?.firstName && user?.lastName 
+      ? `${user.firstName} ${user.lastName}`.trim()
+      : user?.firstName || user?.lastName || '',
     email: user?.email || '',
     phone: user?.phone || ''
   });
@@ -278,13 +281,13 @@ function CheckoutForm({
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center">
           <User className="w-5 h-5 mr-2" />
-          Guest Information
+          {t('marketplace.checkout.guestInformation')}
         </h2>
         
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name *
+              {t('marketplace.checkout.fullNameRequired')}
             </label>
             <input
               type="text"
@@ -298,7 +301,7 @@ function CheckoutForm({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address *
+              {t('marketplace.checkout.emailAddressRequired')}
             </label>
             <input
               type="email"
@@ -312,7 +315,7 @@ function CheckoutForm({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone Number
+              {t('marketplace.checkout.phoneNumber')}
             </label>
             <input
               type="tel"
@@ -342,7 +345,7 @@ function CheckoutForm({
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center">
             <CreditCard className="w-5 h-5 mr-2" />
-            {paymentMethod === 'hybrid' ? 'Card Payment (Remaining Amount)' : 'Card Payment'}
+            {paymentMethod === 'hybrid' ? t('marketplace.checkout.cardPaymentRemaining') : t('marketplace.checkout.cardPayment')}
           </h2>
           
           <div className="border border-gray-300 rounded-lg p-4">
@@ -379,19 +382,19 @@ function CheckoutForm({
         className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-semibold text-lg"
       >
         {isProcessing 
-          ? 'Processing...' 
+          ? t('marketplace.checkout.processing') 
           : paymentMethod === 'credits' 
-            ? `Book with ${creditsToUse.toLocaleString()} Credits`
+            ? t('marketplace.checkout.bookWithCredits', { count: creditsToUse.toLocaleString() })
             : paymentMethod === 'hybrid'
-              ? `Book with ${creditsToUse.toLocaleString()} Credits + Card`
-              : `Pay €${totalAmount.toFixed(2)}`
+              ? t('marketplace.checkout.bookWithCreditsAndCard', { count: creditsToUse.toLocaleString() })
+              : t('marketplace.checkout.payAmount', { amount: totalAmount.toFixed(2) })
         }
       </button>
 
       <p className="text-xs text-gray-500 text-center">
         {paymentMethod === 'credits' 
-          ? 'Your credits will be deducted immediately upon booking confirmation.'
-          : 'Your payment is secure and encrypted. We never store your card details.'
+          ? t('marketplace.checkout.creditsSecurityNote')
+          : t('marketplace.checkout.paymentSecurityNote')
         }
       </p>
     </form>
@@ -452,16 +455,16 @@ export default function MarketplaceCheckout() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Missing Booking Information
+              {t('marketplace.checkout.missingBookingInfo')}
             </h2>
             <p className="text-gray-600 mb-6">
-              Please select dates before proceeding to checkout.
+              {t('marketplace.checkout.selectDatesFirst')}
             </p>
             <button
               onClick={() => navigate(`${getMarketplaceBasePath()}/properties/${propertyId}`)}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
             >
-              Back to Property
+              {t('marketplace.checkout.backToProperty')}
             </button>
           </div>
         </div>
@@ -483,16 +486,16 @@ export default function MarketplaceCheckout() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Room Type Not Available
+              {t('marketplace.checkout.roomTypeNotAvailable')}
             </h2>
             <p className="text-gray-600 mb-6">
-              This room type is not available for the selected dates.
+              {t('marketplace.checkout.roomNotAvailableDates')}
             </p>
             <button
               onClick={() => navigate(`${getMarketplaceBasePath()}/properties/${propertyId}`)}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
             >
-              Back to Property
+              {t('marketplace.checkout.backToProperty')}
             </button>
           </div>
         </div>
@@ -523,9 +526,9 @@ export default function MarketplaceCheckout() {
               className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
-              Back to Property
+              {t('marketplace.checkout.backToProperty')}
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t('marketplace.checkout.title')}</h1>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -546,38 +549,38 @@ export default function MarketplaceCheckout() {
             {/* Sidebar - Booking Summary */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
-                <h2 className="text-xl font-semibold mb-4">Booking Summary</h2>
+                <h2 className="text-xl font-semibold mb-4">{t('marketplace.checkout.bookingSummary')}</h2>
                 
                 <div className="space-y-4 mb-6">
                   <div>
-                    <p className="text-sm text-gray-600">Room Type</p>
+                    <p className="text-sm text-gray-600">{t('marketplace.checkout.roomType')}</p>
                     <p className="font-semibold">{room.roomCategory}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-600">Check-in</p>
+                      <p className="text-sm text-gray-600">{t('marketplace.checkout.checkInLabel')}</p>
                       <p className="font-medium">{format(parseISO(state.checkIn), 'MMM dd')}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Check-out</p>
+                      <p className="text-sm text-gray-600">{t('marketplace.checkout.checkOutLabel')}</p>
                       <p className="font-medium">{format(parseISO(state.checkOut), 'MMM dd')}</p>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-sm text-gray-600">Guests</p>
-                    <p className="font-medium">{state.guests} {state.guests === 1 ? 'guest' : 'guests'}</p>
+                    <p className="text-sm text-gray-600">{t('marketplace.checkout.guestsLabel')}</p>
+                    <p className="font-medium">{state.guests} {state.guests === 1 ? t('marketplace.guestSingular') : t('marketplace.guestPlural')}</p>
                   </div>
 
                   <div className="border-t pt-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
-                      <span>€{pricePerNight.toFixed(2)} × {nights} nights</span>
+                      <span>€{pricePerNight.toFixed(2)} × {nights} {t('marketplace.checkout.nights')}</span>
                       <span>€{totalAmount.toFixed(2)}</span>
                     </div>
                     
                     <div className="flex justify-between text-lg font-bold">
-                      <span>Total</span>
+                      <span>{t('marketplace.checkout.total')}</span>
                       <span>€{totalAmount.toFixed(2)}</span>
                     </div>
                   </div>

@@ -1,254 +1,298 @@
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
-import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, Loader2, Lock } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { User, Mail, Phone, MapPin, Save, X, Lock } from 'lucide-react';
 import PaymentMethodSetup from '@/components/owner/PaymentMethodSetup';
 import ChangePasswordModal from '@/components/owner/ChangePasswordModal';
-import toast from 'react-hot-toast';
 
 export default function GuestProfile() {
-  const { t, i18n } = useTranslation();
-  const { user } = useAuthStore();
-  const { profile, updateProfile, isUpdating } = useProfile();
+  const { t } = useTranslation();
+  const { profile, isLoading, updateProfile, isUpdating } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [formData, setFormData] = useState({
-    firstName: profile?.firstName || user?.firstName || '',
-    lastName: profile?.lastName || user?.lastName || '',
-    email: profile?.email || user?.email || '',
-    phone: profile?.phone || user?.phone || '',
-    address: profile?.address || user?.address || '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: ''
   });
+
+  // Initialize form data when profile loads
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        address: profile.address || ''
+      }));
+    }
+  }, [profile]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">{t('common.error')}</p>
+      </div>
+    );
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleSave = async () => {
     try {
+      // Only send fields that can be updated via the API
       await updateProfile({
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone,
-        address: formData.address,
+        address: formData.address
       });
-      toast.success(t('guest.profile.updateSuccess') || 'Profile updated successfully');
       setIsEditing(false);
     } catch (error) {
-      toast.error(t('common.somethingWentWrong') || 'Something went wrong');
+      // Error is handled by the hook with toast notification
+      console.error('Profile update error:', error);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      firstName: profile?.firstName || user?.firstName || '',
-      lastName: profile?.lastName || user?.lastName || '',
-      email: profile?.email || user?.email || '',
-      phone: profile?.phone || user?.phone || '',
-      address: profile?.address || user?.address || '',
-    });
+    // Reset form to current profile data
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        address: profile.address || ''
+      }));
+    }
     setIsEditing(false);
   };
 
-  const displayName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || 'Guest';
-  const initials = `${formData.firstName?.charAt(0) || ''}${formData.lastName?.charAt(0) || 'G'}`.toUpperCase();
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm mb-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {t('guest.dashboard.myProfile') || 'My Profile'}
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                {t('guest.profile.subtitle') || 'Manage your account information and preferences'}
-              </p>
-            </div>
-            {!isEditing ? (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition"
-              >
-                <Edit2 className="h-4 w-4" />
-                {t('common.edit') || 'Edit'}
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCancel}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition disabled:opacity-50"
-                >
-                  <X className="h-4 w-4" />
-                  {t('common.cancel') || 'Cancel'}
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition disabled:opacity-50"
-                >
-                  {isUpdating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {isUpdating ? t('common.saving') || 'Saving...' : t('common.save') || 'Save'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="grid gap-6">
-          {/* Profile Picture */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              {t('guest.profile.picture') || 'Profile Picture'}
-            </h2>
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-primary to-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                {initials}
-              </div>
-              <div>
-                <p className="text-lg font-medium text-gray-900">{displayName}</p>
-                <p className="text-sm text-gray-500">{formData.email}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {t('guest.profile.memberSince') || 'Member Since'}: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
-                </p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {t('guest.dashboard.myProfile')}
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {t('guest.profile.subtitle')}
+            </p>
           </div>
 
-          {/* Personal Information */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              {t('guest.profile.personalInfo') || 'Personal Information'}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  {t('guest.profile.firstName') || 'First Name'}
-                </label>
-                <input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  {t('guest.profile.lastName') || 'Last Name'}
-                </label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="h-4 w-4 inline mr-1" />
-                  {t('guest.profile.email') || 'Email'}
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                />
-                <p className="text-xs text-gray-500 mt-1">{t('guest.profile.emailCannotChange') || 'Email cannot be changed'}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 inline mr-1" />
-                  {t('guest.profile.phone') || 'Phone'}
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Address Information */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              {t('guest.profile.addressInfo') || 'Address Information'}
-            </h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <MapPin className="h-4 w-4 inline mr-1" />
-                {t('guest.profile.address') || 'Address'}
-              </label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            </div>
-          </div>
-
-          {/* Payment Methods Section */}
-          <PaymentMethodSetup />
-
-          {/* Security Section */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Lock className="h-6 w-6 text-blue-600" />
-              {t('userSettings.security')}
-            </h2>
-            
+          {!isEditing && (
             <button
-              onClick={() => setShowPasswordModal(true)}
+              onClick={() => setIsEditing(true)}
               className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
-              <Lock className="h-5 w-5" />
-              {t('userSettings.changePassword')}
+              <User className="h-5 w-5" />
+              {t('common.edit')}
             </button>
-          </div>
+          )}
+        </div>
 
-          {/* Language Preferences */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              {t('guest.profile.preferences') || 'Preferences'}
-            </h2>
+        {/* Personal Information Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+            <User className="h-6 w-6 text-blue-600" />
+            {t('guest.profile.personalInfo')}
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* First Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('guest.profile.language') || 'Language'}
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                {t('guest.profile.firstName')}
               </label>
-              <select
-                value={i18n.language}
-                onChange={(e) => i18n.changeLanguage(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="en">English</option>
-                <option value="es">Español</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="it">Italiano</option>
-              </select>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="text-gray-900 py-2">
+                  {formData.firstName || '—'}
+                </p>
+              )}
+            </div>
+
+            {/* Last Name */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                {t('guest.profile.lastName')}
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="text-gray-900 py-2">
+                  {formData.lastName || '—'}
+                </p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {t('auth.email')}
+              </label>
+              <p className="text-gray-900 py-2">
+                {formData.email}
+              </p>
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                {t('guest.profile.phone')}
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="text-gray-900 py-2">
+                  {formData.phone || '—'}
+                </p>
+              )}
+            </div>
+
+            {/* Address */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                {t('guest.profile.address')}
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : (
+                <p className="text-gray-900 py-2">
+                  {formData.address || '—'}
+                </p>
+              )}
             </div>
           </div>
         </div>
-      </main>
+
+        {/* Payment Methods Section */}
+        <div className="mb-6">
+          <PaymentMethodSetup />
+        </div>
+
+        {/* Action Buttons */}
+        {isEditing && (
+          <div className="flex gap-4 justify-end">
+            <button
+              onClick={handleCancel}
+              disabled={isUpdating}
+              className="px-6 py-2 bg-gray-300 text-gray-800 font-medium rounded-lg hover:bg-gray-400 disabled:bg-gray-400 transition-colors flex items-center gap-2"
+            >
+              <X className="h-5 w-5" />
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isUpdating}
+              className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors flex items-center gap-2"
+            >
+              <Save className="h-5 w-5" />
+              {isUpdating ? t('common.saving') : t('common.save')}
+            </button>
+          </div>
+        )}
+
+        {/* Account Information Card */}
+        <div className="bg-gray-50 rounded-lg p-6 mt-8 border border-gray-200">
+          <h3 className="font-semibold text-gray-900 mb-4">{t('guest.profile.accountInfo')}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-gray-600 uppercase">{t('guest.profile.memberId')}</p>
+              <p className="font-semibold text-gray-900">#{profile.id}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600 uppercase">{t('common.status')}</p>
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                profile.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                profile.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {t(`common.${profile.status}`)}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600 uppercase">{t('guest.profile.joinDate')}</p>
+              <p className="font-semibold text-gray-900">
+                {new Date(profile.created_at).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-600 uppercase">{t('common.role')}</p>
+              <p className="font-semibold text-gray-900 capitalize">
+                {profile.role}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Security Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Lock className="h-6 w-6 text-blue-600" />
+            {t('userSettings.security')}
+          </h2>
+          
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Lock className="h-5 w-5" />
+            {t('userSettings.changePassword')}
+          </button>
+        </div>
+      </div>
 
       {/* Change Password Modal */}
       <ChangePasswordModal

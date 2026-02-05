@@ -196,6 +196,40 @@ For when timeshare inventory insufficient
 - Rate (what we pay hotel)
 - Markup (our commission)
 
+#### 8. **User Roles**
+```
+Different types of users with specific permissions
+```
+
+**Role Types:**
+
+**OWNER:**
+- Has timeshare ownerships
+- Can release weeks to get credits
+- Can book using credits (no card required)
+- Can list weeks for rent
+- Has credit account
+
+**GUEST:**
+- No timeshare ownerships
+- Can only book via marketplace
+- **MUST pay with card** (no credit system for guests)
+- Can view their booking history
+- Can manage their profile/settings
+- Cannot release weeks or earn credits
+
+**ADMIN:**
+- Platform management
+- Property/ownership management
+- Reports and analytics
+
+**Attributes (users table):**
+- User FK
+- Role (OWNER | GUEST | ADMIN)
+- Email, name, phone
+- Preferences (language, currency, notifications)
+- Created/updated timestamps
+
 ---
 
 ## User Stories
@@ -220,14 +254,28 @@ For when timeshare inventory insufficient
 2. As an owner, I receive payment when non-owner books
 3. Platform takes commission
 
-#### Persona 3: Non-owner Guest
-"I'm not an owner. I want to book a vacation with credits I bought."
+#### Persona 3: Guest (Non-owner)
+"I don't own a timeshare. I just want to book vacations on the marketplace."
 
 **User Stories:**
-1. As a guest, I can purchase credits (cash → credits)
-2. As a guest, I can search available inventory
-3. As a guest, I can book using credits + cash
-4. As a guest, I see all available options (timeshare + hotel)
+1. As a guest, I can register/login with email + password
+2. As a guest, I can search the unified marketplace (timeshare + hotel inventory)
+3. As a guest, I can book available rooms **paying with credit/debit card**
+4. As a guest, I can view my booking history (upcoming + past)
+5. As a guest, I can view booking details (confirmation, check-in/out dates, property info)
+6. As a guest, I can cancel my bookings (subject to cancellation policy)
+7. As a guest, I can update my profile (name, email, phone, password)
+8. As a guest, I can manage my preferences (language, currency, notifications)
+9. As a guest, I can save payment methods for faster checkout
+10. As a guest, I **CANNOT** see or use credits (no credit system for guests)
+
+**Key Differences from Owner:**
+- ❌ No credit account
+- ❌ Cannot release weeks
+- ❌ Cannot earn credits
+- ✅ Must pay with card for ALL bookings
+- ✅ Same search experience (unified marketplace)
+- ✅ Same booking flow (but payment always card)
 
 ### Admin Personas
 
@@ -350,6 +398,43 @@ if (daysInAdvance > 180) {
 **FR6.3** Physical room assignment delegated to PMS  
 **FR6.4** System syncs booking status (confirmed, checked-in, cancelled)  
 **FR6.5** NO booking transfers in PMS (cancel old + create new)  
+
+### FR7: Guest Management (Non-owners)
+
+**FR7.1** Guest Registration & Authentication
+- FR7.1.1 Guest can register with email/password
+- FR7.1.2 System validates email uniqueness
+- FR7.1.3 System sends verification email
+- FR7.1.4 Guest can login with credentials
+- FR7.1.5 System issues JWT token with role=GUEST
+
+**FR7.2** Guest Profile Management
+- FR7.2.1 Guest can view/update profile (name, email, phone)
+- FR7.2.2 Guest can change password
+- FR7.2.3 Guest can update preferences (language, currency, notifications)
+- FR7.2.4 Guest can manage saved payment methods
+- FR7.2.5 System encrypts sensitive data
+
+**FR7.3** Guest Booking Flow
+- FR7.3.1 Guest searches marketplace (same as owner)
+- FR7.3.2 Guest sees pricing in EUR/USD (NO credits displayed)
+- FR7.3.3 Guest must pay 100% with credit/debit card
+- FR7.3.4 System processes payment via Stripe/payment gateway
+- FR7.3.5 System creates booking record with source=GUEST_BOOKING
+- FR7.3.6 System sends confirmation email
+
+**FR7.4** Guest Booking History
+- FR7.4.1 Guest can view list of all bookings (upcoming + past)
+- FR7.4.2 Guest can view booking details (property, dates, guests, total paid)
+- FR7.4.3 Guest can download booking confirmation PDF
+- FR7.4.4 Guest can cancel booking (if within cancellation window)
+- FR7.4.5 System processes refund based on cancellation policy
+
+**FR7.5** Guest Restrictions
+- FR7.5.1 Guest CANNOT see credit system (no credit balance, no credit prices)
+- FR7.5.2 Guest CANNOT release weeks (no ownerships)
+- FR7.5.3 Guest CANNOT convert weeks to credits
+- FR7.5.4 Guest CANNOT see "My Weeks" section
 
 ---
 
@@ -1303,6 +1388,240 @@ Response:
   "success": true,
   "data": {
     "bookingId": 5001,
+    "confirmationCode": "BK-2026-5001",
+    "property": "Beach Resort Marbella",
+    "checkIn": "2026-07-01",
+    "checkOut": "2026-07-08",
+    "guests": 4,
+    "creditsUsed": 1200,
+    "cashPaid": 0,
+    "pmsBookingId": "PMS-12345"
+  }
+}
+```
+
+#### Guest Management
+
+**POST /api/guest/register**
+```json
+Request:
+{
+  "email": "guest@example.com",
+  "password": "SecurePass123!",
+  "firstName": "Maria",
+  "lastName": "Garcia",
+  "phone": "+34612345678",
+  "language": "es",
+  "currency": "EUR"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Registration successful. Please verify your email.",
+  "userId": 2001,
+  "verificationEmailSent": true
+}
+```
+
+**POST /api/guest/login**
+```json
+Request:
+{
+  "email": "guest@example.com",
+  "password": "SecurePass123!"
+}
+
+Response:
+{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 2001,
+    "email": "guest@example.com",
+    "firstName": "Maria",
+    "lastName": "Garcia",
+    "role": "GUEST",
+    "preferences": {
+      "language": "es",
+      "currency": "EUR"
+    }
+  }
+}
+```
+
+**GET /api/guest/profile**
+```json
+Response:
+{
+  "success": true,
+  "profile": {
+    "id": 2001,
+    "email": "guest@example.com",
+    "firstName": "Maria",
+    "lastName": "Garcia",
+    "phone": "+34612345678",
+    "role": "GUEST",
+    "preferences": {
+      "language": "es",
+      "currency": "EUR",
+      "notifications": true
+    },
+    "savedPaymentMethods": [
+      {
+        "id": "pm_1234",
+        "brand": "visa",
+        "last4": "4242",
+        "expiryMonth": 12,
+        "expiryYear": 2028
+      }
+    ],
+    "createdAt": "2025-01-15T10:30:00Z"
+  }
+}
+```
+
+**PUT /api/guest/profile**
+```json
+Request:
+{
+  "firstName": "Maria",
+  "lastName": "Garcia Lopez",
+  "phone": "+34612345679",
+  "preferences": {
+    "language": "en",
+    "currency": "EUR",
+    "notifications": false
+  }
+}
+
+Response:
+{
+  "success": true,
+  "message": "Profile updated successfully"
+}
+```
+
+**GET /api/guest/bookings**
+```json
+Response:
+{
+  "success": true,
+  "bookings": {
+    "upcoming": [
+      {
+        "id": 5001,
+        "confirmationCode": "BK-2026-5001",
+        "property": {
+          "id": 101,
+          "name": "Beach Resort Marbella",
+          "location": "Marbella, Spain",
+          "image": "https://..."
+        },
+        "checkIn": "2026-06-15",
+        "checkOut": "2026-06-22",
+        "nights": 7,
+        "guests": 4,
+        "roomCategory": "2-Bedroom Oceanview",
+        "totalPaid": 1200.00,
+        "currency": "EUR",
+        "status": "CONFIRMED",
+        "canCancel": true,
+        "cancellationDeadline": "2026-06-01T00:00:00Z"
+      }
+    ],
+    "past": [
+      {
+        "id": 4500,
+        "confirmationCode": "BK-2025-4500",
+        "property": {
+          "id": 102,
+          "name": "Mountain Lodge Aspen",
+          "location": "Aspen, USA"
+        },
+        "checkIn": "2025-12-20",
+        "checkOut": "2025-12-27",
+        "nights": 7,
+        "guests": 2,
+        "roomCategory": "Studio",
+        "totalPaid": 800.00,
+        "currency": "USD",
+        "status": "COMPLETED"
+      }
+    ]
+  }
+}
+```
+
+**GET /api/guest/bookings/:id**
+```json
+Response:
+{
+  "success": true,
+  "booking": {
+    "id": 5001,
+    "confirmationCode": "BK-2026-5001",
+    "status": "CONFIRMED",
+    "property": {
+      "id": 101,
+      "name": "Beach Resort Marbella",
+      "address": "Avenida del Mar 123, Marbella, Spain",
+      "phone": "+34952123456",
+      "email": "info@beachresort.com",
+      "checkInTime": "15:00",
+      "checkOutTime": "11:00"
+    },
+    "checkIn": "2026-06-15",
+    "checkOut": "2026-06-22",
+    "nights": 7,
+    "guests": 4,
+    "roomCategory": "2-Bedroom Oceanview",
+    "guestDetails": {
+      "firstName": "Maria",
+      "lastName": "Garcia",
+      "email": "guest@example.com",
+      "phone": "+34612345678"
+    },
+    "payment": {
+      "totalPaid": 1200.00,
+      "currency": "EUR",
+      "method": "card",
+      "last4": "4242",
+      "transactionId": "ch_1234567890"
+    },
+    "cancellation": {
+      "canCancel": true,
+      "deadline": "2026-06-01T00:00:00Z",
+      "refundAmount": 1200.00,
+      "refundPercentage": 100
+    },
+    "pmsBookingId": "PMS-12345",
+    "createdAt": "2026-02-01T14:30:00Z"
+  }
+}
+```
+
+**DELETE /api/guest/bookings/:id**
+```json
+Request:
+{
+  "reason": "Change of plans"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Booking cancelled successfully",
+  "refund": {
+    "amount": 1200.00,
+    "currency": "EUR",
+    "refundMethod": "original_payment_method",
+    "estimatedDays": "5-10 business days"
+  }
+}
+```
+
+---
     "confirmationCode": "BRM-5001-2026",
     "status": "CONFIRMED",
     "property": "Beach Resort Marbella",
@@ -1377,7 +1696,41 @@ Response:
 - [ ] Unit tests with mocks
 - [ ] Integration tests with test DB
 
-### Phase 3: Week Release Feature (Week 6)
+### Phase 2.5: Guest Management (Week 5-6)
+
+**Database:**
+- [ ] Migration: Add `role` enum to users table (OWNER | GUEST | ADMIN)
+- [ ] Migration: Add `preferences` JSON field to users table
+- [ ] Migration: Update users indexes for role-based queries
+
+**Services:**
+- [ ] GuestService (registration, authentication, profile)
+- [ ] GuestBookingService (guest-specific booking logic)
+- [ ] AuthService (JWT with role claims)
+
+**API:**
+- [ ] POST /api/guest/register
+- [ ] POST /api/guest/login
+- [ ] GET /api/guest/profile
+- [ ] PUT /api/guest/profile
+- [ ] GET /api/guest/bookings
+- [ ] GET /api/guest/bookings/:id
+- [ ] DELETE /api/guest/bookings/:id (cancellation)
+
+**Frontend:**
+- [ ] Guest registration page
+- [ ] Guest login page
+- [ ] Guest profile/settings page
+- [ ] Guest bookings history page
+- [ ] Guest booking details page
+- [ ] Role-based navigation (hide owner features for guests)
+
+**Tests:**
+- [ ] Unit tests for GuestService
+- [ ] Integration tests for guest API endpoints
+- [ ] E2E test: Guest registration → login → book → view history
+
+### Phase 3: Week Release Feature (Week 7)
 
 **Service:**
 - [ ] WeekReleaseService
@@ -1530,8 +1883,9 @@ Response:
 ### E2E Tests
 - Critical user journeys:
   1. Owner releases week → receives credits
-  2. Guest searches → books with credits → confirmed
-  3. Week status lifecycle: ASSIGNED → RELEASED → BOOKED → USED
+  2. Owner searches → books with credits → confirmed
+  3. Guest registers → searches → books with card → view history
+  4. Week status lifecycle: ASSIGNED → RELEASED → BOOKED → USED
 
 ### Performance Tests
 - Search: 1000 concurrent users
@@ -1548,6 +1902,21 @@ Response:
 - Credit utilization rate
 - Revenue per released week
 - Timeshare vs Hotel booking ratio
+- **Guest Metrics:**
+  - Guest registration rate
+  - Guest booking conversion rate
+  - Guest vs Owner booking ratio
+  - Average booking value (Guest)
+  - Guest retention rate (repeat bookings)
+- Credit utilization rate
+- Revenue per released week
+- Timeshare vs Hotel booking ratio
+- **Guest Metrics:**
+  - Guest registration rate
+  - Guest booking conversion rate
+  - Guest vs Owner booking ratio
+  - Average booking value (Guest)
+  - Guest retention rate (repeat bookings)
 
 ### Technical Metrics
 - API response time (p95 < 2s)

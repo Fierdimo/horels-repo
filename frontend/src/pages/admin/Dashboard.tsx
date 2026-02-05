@@ -145,7 +145,7 @@ export default function AdminDashboard() {
         </Link>
 
         {/* Rooms */}
-        <Link
+        {/* <Link
           to="/admin/rooms"
           className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
         >
@@ -160,7 +160,7 @@ export default function AdminDashboard() {
             <span>{t('admin.dashboard.manageRooms')}</span>
             <ArrowRight className="h-4 w-4 ml-1" />
           </div>
-        </Link>
+        </Link> */}
       </div>
 
       {/* Quick Actions */}

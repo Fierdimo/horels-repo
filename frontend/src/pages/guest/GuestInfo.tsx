@@ -14,7 +14,7 @@ export default function GuestInfo() {
             <AlertCircle className="h-8 w-8 text-blue-600" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900">
-            {t('guest.info.title') || 'Guest Access'}
+            { 'Guest Access'}
           </h2>
           <p className="mt-2 text-gray-600">
             {t('guest.info.subtitle') || 'Token-based access required'}
