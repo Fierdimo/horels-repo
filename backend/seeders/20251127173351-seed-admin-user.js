@@ -11,7 +11,7 @@ module.exports = {
 
     // Create admin user
     await queryInterface.sequelize.query(`
-      INSERT INTO users (email, password, role_id, status, createdAt, updatedAt)
+      INSERT INTO users (email, password_hash, role_id, status, createdAt, updatedAt)
       SELECT 'admin@sw2.com', '${hashedPassword}', r.id, 'approved', NOW(), NOW()
       FROM roles r
       WHERE r.name = 'admin'

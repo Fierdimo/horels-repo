@@ -9,19 +9,22 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
     const tableInfo = await queryInterface.describeTable('users');
     
-    // Rename password -> password_hash if password exists
+    // Rename password -> password_hash if password exists and password_hash doesn't
     if (tableInfo.password && !tableInfo.password_hash) {
       console.log('Renaming password -> password_hash...');
       await queryInterface.renameColumn('users', 'password', 'password_hash');
     }
-    
-    // Add password_hash if it doesn't exist
-    if (!tableInfo.password_hash) {
+    // Add password_hash if neither exists
+    else if (!tableInfo.password && !tableInfo.password_hash) {
       console.log('Adding password_hash column...');
       await queryInterface.addColumn('users', 'password_hash', {
         type: Sequelize.STRING(255),
         allowNull: false
       });
+    }
+    // If password_hash already exists, do nothing
+    else if (tableInfo.password_hash) {
+      console.log('password_hash already exists, skipping...');
     }
     
     // Change role_id to role enum if role_id exists
