@@ -58,8 +58,8 @@ async function createAdminUser() {
         last_name, 
         role_id,
         status, 
-        createdAt,
-        updatedAt
+        created_at,
+        updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
     `, {
       replacements: [

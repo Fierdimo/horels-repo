@@ -50,12 +50,12 @@ async function updateAdminUser() {
     await sequelize.query(`
       UPDATE users 
       SET 
-        password = ?,
+        password_hash = ?,
         role_id = ?,
         status = 'approved',
         first_name = 'Admin',
         last_name = 'System',
-        updatedAt = NOW()
+        updated_at = NOW()
       WHERE email = 'admin@sw2.com'
     `, {
       replacements: [newPasswordHash, adminRoleId]
