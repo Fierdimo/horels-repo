@@ -154,7 +154,7 @@ async function seedFromMockPMS() {
           first_name: 'Platform',
           last_name: 'Admin',
           role: 'admin',
-          status: 'active',
+          status: 'approved',
           email_verified: true
         }, { transaction });
         ownerId = newAdmin.id;

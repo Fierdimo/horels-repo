@@ -9,7 +9,7 @@ interface UserAttributes {
   last_name: string;
   phone?: string | null;
   role: 'admin' | 'owner' | 'guest' | 'staff';
-  status: 'active' | 'suspended' | 'inactive';
+  status: 'pending' | 'approved' | 'rejected' | 'inactive';
   property_id?: number | null;
   email_verified?: boolean;
   email_verified_at?: Date | null;
@@ -28,7 +28,7 @@ class User extends Model<UserAttributes> implements UserAttributes {
   public last_name!: string;
   public phone?: string | null;
   public role!: 'admin' | 'owner' | 'guest' | 'staff';
-  public status!: 'active' | 'suspended' | 'inactive';
+  public status!: 'pending' | 'approved' | 'rejected' | 'inactive';
   public property_id?: number | null;
   public email_verified!: boolean;
   public email_verified_at?: Date | null;
@@ -82,9 +82,9 @@ User.init({
     defaultValue: 'guest',
   },
   status: {
-    type: DataTypes.ENUM('active', 'suspended', 'inactive'),
+    type: DataTypes.ENUM('pending', 'approved', 'rejected', 'inactive'),
     allowNull: false,
-    defaultValue: 'active',
+    defaultValue: 'approved',
   },
   property_id: {
     type: DataTypes.INTEGER.UNSIGNED,

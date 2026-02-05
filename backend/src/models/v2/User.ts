@@ -8,7 +8,7 @@ import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
  */
 
 export type UserRole = 'admin' | 'owner' | 'guest' | 'staff';
-export type UserStatus = 'active' | 'suspended' | 'inactive';
+export type UserStatus = 'pending' | 'approved' | 'rejected' | 'inactive';
 
 export interface UserAttributes {
   id: number;
@@ -73,7 +73,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   }
 
   public isActive(): boolean {
-    return this.status === 'active';
+    return this.status === 'approved';
   }
 }
 
@@ -112,9 +112,9 @@ export function initUser(sequelize: Sequelize): typeof User {
         defaultValue: 'guest',
       },
       status: {
-        type: DataTypes.ENUM('active', 'suspended', 'inactive'),
+        type: DataTypes.ENUM('pending', 'approved', 'rejected', 'inactive'),
         allowNull: false,
-        defaultValue: 'active',
+        defaultValue: 'approved',
       },
       property_id: {
         type: DataTypes.INTEGER.UNSIGNED,
