@@ -18,7 +18,7 @@ export const useProperties = () => {
   return useQuery({
     queryKey: ['properties'],
     queryFn: async () => {
-      const response = await apiClient.get<PropertiesResponse>('/hotel-staff/properties');
+      const response = await apiClient.get<PropertiesResponse>('/public/properties/list/all');
       return { properties: response.data.data };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
