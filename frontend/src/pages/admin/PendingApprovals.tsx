@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Clock, UserCheck, Check, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +8,8 @@ import apiClient from '@/api/client';
 export default function PendingApprovals() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
+  const [selectedProperty, setSelectedProperty] = useState('');
   
   const { data, isLoading } = useQuery({
     queryKey: ['staff-requests'],
@@ -16,19 +19,42 @@ export default function PendingApprovals() {
     }
   });
 
+  // Fetch properties for selection
+  const { data: propertiesData } = useQuery({
+    queryKey: ['properties'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/hotel-staff/properties');
+      return data;
+    }
+  });
+
   const approveMutation = useMutation({
-    mutationFn: async ({ userId, action }: { userId: number; action: 'approve' | 'reject' }) => {
-      const { data } = await apiClient.post(`/admin/staff-requests/${userId}`, { action });
+    mutationFn: async ({ userId, action, property_id }: { userId: number; action: 'approve' | 'reject'; property_id?: string }) => {
+      const { data } = await apiClient.post(`/admin/staff-requests/${userId}`, { action, property_id });
       return data;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['staff-requests'] });
       toast.success(t('admin.pendingApprovals.requestProcessed', { action: t(`admin.pendingApprovals.${variables.action}d`) }));
+      setSelectedStaff(null);
+      setSelectedProperty('');
     },
     onError: () => {
       toast.error(t('admin.pendingApprovals.failedToProcess'));
     }
   });
+
+  const handleApprove = () => {
+    if (!selectedProperty) {
+      toast.error('Please select a property for this staff member');
+      return;
+    }
+    approveMutation.mutate({ 
+      userId: selectedStaff.id, 
+      action: 'approve',
+      property_id: selectedProperty
+    });
+  };
 
   if (isLoading) {
     return (
@@ -45,9 +71,56 @@ export default function PendingApprovals() {
   }
 
   const requests = data?.requests || [];
+  const properties = propertiesData?.data || [];
 
   return (
     <div className="space-y-6">
+      {/* Property Selection Modal */}
+      {selectedStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Assign Property to {selectedStaff.email}
+            </h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Property
+              </label>
+              <select
+                value={selectedProperty}
+                onChange={(e) => setSelectedProperty(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Choose a property...</option>
+                {properties.map((property: any) => (
+                  <option key={property.id} value={property.id}>
+                    {property.name} - {property.city}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setSelectedStaff(null);
+                  setSelectedProperty('');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApprove}
+                disabled={!selectedProperty || approveMutation.isPending}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{t('admin.pendingApprovals.title')}</h1>
@@ -115,7 +188,7 @@ export default function PendingApprovals() {
 
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => approveMutation.mutate({ userId: request.id, action: 'approve' })}
+                      onClick={() => setSelectedStaff(request)}
                       disabled={approveMutation.isPending}
                       className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       <Check className="h-4 w-4" />

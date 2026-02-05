@@ -26,6 +26,8 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       lastName,
       phone,
       address,
+      hotelName, // Added for staff registration
+      hotelLocation, // Added for staff registration
       // Datos del hotel seleccionado del PMS
       pms_property_id,
       property_data, // Datos del hotel obtenidos del PMS
@@ -58,10 +60,26 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
     }
 
     let userStatus: 'approved' | 'pending' = 'approved'; // V2 uses 'approved' for active users
+    let property_id: number | null = null;
     
     if (requestedRole === 'staff') {
       // Staff requires admin approval
       userStatus = 'pending';
+      
+      // If staff provided hotel name, find the property
+      if (hotelName) {
+        const Property = (await import('../models')).Property;
+        const property = await Property.findOne({
+          where: { name: hotelName }
+        });
+        
+        if (property) {
+          property_id = property.id;
+          console.log(`[Register] Staff ${email} registered with property: ${hotelName} (ID: ${property_id})`);
+        } else {
+          console.log(`[Register] Staff ${email} registered, but property "${hotelName}" not found. Will need manual assignment.`);
+        }
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -70,6 +88,7 @@ router.post('/register', validateRegistration, validateRequest, async (req: Requ
       password_hash: hashedPassword,
       role: requestedRole as 'guest' | 'staff' | 'owner' | 'admin',
       status: userStatus,
+      property_id: property_id,
       first_name: firstName || '',
       last_name: lastName || '',
       phone: phone || null,

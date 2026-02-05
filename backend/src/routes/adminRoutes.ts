@@ -445,7 +445,7 @@ router.get('/staff-requests', authenticateToken, authorize(['view_users']), logA
 router.post('/staff-requests/:userId', authenticateToken, authorize(['update_user']), logAction('manage_staff_request'), async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { action } = req.body; // 'approve' or 'reject'
+    const { action, property_id } = req.body; // 'approve' or 'reject', and property_id for staff
     const user = (req as any).user;
 
     const targetUser = await User.findByPk(userId);
@@ -466,7 +466,15 @@ router.post('/staff-requests/:userId', authenticateToken, authorize(['update_use
     }
 
     if (action === 'approve') {
-      await targetUser.update({ status: 'approved' });
+      // Staff must be assigned to a property when approved
+      if (!property_id) {
+        return res.status(400).json({ error: 'property_id is required when approving staff' });
+      }
+      
+      await targetUser.update({ 
+        status: 'approved',
+        property_id: property_id
+      });
     } else if (action === 'reject') {
       await targetUser.update({ status: 'rejected' });
     } else {
@@ -478,7 +486,8 @@ router.post('/staff-requests/:userId', authenticateToken, authorize(['update_use
       user: {
         id: targetUser.id,
         email: targetUser.email,
-        status: targetUser.status
+        status: targetUser.status,
+        property_id: targetUser.property_id
       }
     });
   } catch (error) {
