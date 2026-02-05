@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/api/auth';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/client';
+import { useProperties } from '@/hooks/useProperties';
 import {
   Hotel,
   ArrowLeft,
@@ -45,6 +46,7 @@ export default function RegisterWizard() {
   const navigate = useNavigate();
   const { register, user } = useAuth();
   const [searchParams] = useSearchParams();
+  const { data: propertiesData } = useProperties();
   
   // Detect invitation token from URL
   const invitationToken = searchParams.get('invitation');
@@ -548,7 +550,44 @@ export default function RegisterWizard() {
       </div>
 
       <div className="space-y-4">
-        <div className="relative">
+        {/* Simple property selector for platform properties */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Building className="inline h-4 w-4 mr-2" />
+            Select Your Hotel
+          </label>
+          <select
+            value={formData.propertyId || ''}
+            onChange={(e) => {
+              const selectedId = e.target.value;
+              updateFormData('propertyId', selectedId);
+              
+              // Also update hotel name for display
+              const selectedProperty = propertiesData?.properties?.find(
+                (p: any) => p.id.toString() === selectedId
+              );
+              if (selectedProperty) {
+                updateFormData('hotelName', selectedProperty.name);
+                updateFormData('hotelLocation', `${selectedProperty.city}, ${selectedProperty.country}`);
+              }
+            }}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+          >
+            <option value="">Select a hotel</option>
+            {propertiesData?.properties?.map((property: any) => (
+              <option key={property.id} value={property.id}>
+                {property.name} - {property.city}, {property.country}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="relative border-t pt-4">
+          <div className="absolute left-0 right-0 -top-3 flex justify-center">
+            <span className="bg-white px-2 text-sm text-gray-500">Or search for your hotel</span>
+          </div>
+          
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <Building className="inline h-4 w-4 mr-2" />
             {t('auth.hotelName')}
