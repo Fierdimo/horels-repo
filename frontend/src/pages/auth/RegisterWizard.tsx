@@ -177,13 +177,21 @@ export default function RegisterWizard() {
         registerData.invitationToken = invitationToken;
       }
 
-      // If staff, include PMS data
-      if (formData.role === 'staff' && formData.pmsExternalId) {
-        registerData.pms_property_id = formData.pmsExternalId;
-        registerData.property_data = {
-          name: formData.hotelName!,
-          location: formData.hotelLocation
-        };
+      // If staff, include property_id and PMS data
+      if (formData.role === 'staff') {
+        // Always send property_id if available (from platform properties)
+        if (formData.propertyId) {
+          registerData.property_id = formData.propertyId;
+        }
+        
+        // Also send PMS data if property came from PMS
+        if (formData.pmsExternalId) {
+          registerData.pms_property_id = formData.pmsExternalId;
+          registerData.property_data = {
+            name: formData.hotelName!,
+            location: formData.hotelLocation
+          };
+        }
       }
 
       register(registerData, {
