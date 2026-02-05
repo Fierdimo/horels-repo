@@ -41,7 +41,7 @@ module.exports = {
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
       },
       updated_by: {
-        type: Sequelize.INTEGER.UNSIGNED,
+        type: Sequelize.INTEGER, // Match users.id type (signed int)
         allowNull: true,
         references: {
           model: 'users',

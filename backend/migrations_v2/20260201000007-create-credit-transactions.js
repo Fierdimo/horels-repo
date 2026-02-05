@@ -88,7 +88,7 @@ module.exports = {
       
       // Audit Trail
       created_by: {
-        type: Sequelize.INTEGER.UNSIGNED, // Match users.id type
+        type: Sequelize.INTEGER, // Match users.id type (signed int)
         allowNull: true,
         references: {
           model: 'users',
