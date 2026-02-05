@@ -53,7 +53,7 @@ async function createAdminUser() {
     await sequelize.query(`
       INSERT INTO users (
         email, 
-        password, 
+        password_hash, 
         first_name, 
         last_name, 
         role_id,
