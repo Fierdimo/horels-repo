@@ -1,4 +1,5 @@
 import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
+import type TimeshareProperty from './TimeshareProperty';
 
 /**
  * User Model (V2)
@@ -54,6 +55,9 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
+
+  // Associations
+  public readonly property?: TimeshareProperty;
 
   // Helper methods
   public get fullName(): string {
