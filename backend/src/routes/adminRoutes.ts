@@ -414,12 +414,15 @@ router.get('/staff-requests', authenticateToken, authorize(['view_users']), logA
       status: 'pending' // V2 uses 'pending' for users awaiting approval
     };
 
-    // Note: V2 doesn't have property_id in users table
-    // If filtering by property is needed, would need to join through ownerships
-
     const pendingUsers = await UserV2.findAll({
       where,
-      attributes: { exclude: ['password_hash'] }
+      attributes: { exclude: ['password_hash'] },
+      include: [{
+        model: TimeshareProperty,
+        as: 'property',
+        required: false, // LEFT JOIN - include users without property
+        attributes: ['id', 'name', 'city', 'country']
+      }]
     });
 
     // Transform to frontend format
@@ -431,6 +434,13 @@ router.get('/staff-requests', authenticateToken, authorize(['view_users']), logA
       phone: u.phone,
       role: u.role,
       status: u.status,
+      property_id: u.property_id, // Include property_id for staff users
+      Property: u.property ? { // Include property data if available
+        id: u.property.id,
+        name: u.property.name,
+        city: u.property.city,
+        country: u.property.country
+      } : null,
       createdAt: u.created_at
     }));
 

@@ -137,6 +137,18 @@ function setupAssociations() {
     as: 'owner',
   });
   
+  // User → TimeshareProperty (N:1 for staff)
+  User.belongsTo(TimeshareProperty, {
+    foreignKey: 'property_id',
+    as: 'property',
+  });
+  TimeshareProperty.hasMany(User, {
+    foreignKey: 'property_id',
+    as: 'staff',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+  
   // CreditAccount → CreditTransaction (1:N)
   CreditAccount.hasMany(CreditTransaction, {
     foreignKey: 'account_id',
