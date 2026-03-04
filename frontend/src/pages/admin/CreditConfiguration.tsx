@@ -1087,15 +1087,15 @@ const CreditConfiguration: React.FC = () => {
                   </p>
                   <div className="grid grid-cols-5 gap-2">
                     {([
-                      { type: 'STANDARD',     label: 'Studio / Estándar', aliases: 'single, double, standard' },
-                      { type: 'SUPERIOR',     label: '1 Dormitorio',      aliases: 'triple, superior' },
-                      { type: 'DELUXE',       label: '2 Dormitorios',     aliases: 'deluxe' },
-                      { type: 'SUITE',        label: '3 Dormitorios',     aliases: 'suite' },
-                      { type: 'PRESIDENTIAL', label: 'Ático / Penthouse', aliases: 'presidential' },
-                    ] as const).map(({ type, label, aliases }) => (
+                      { type: 'STANDARD',     labelKey: 'admin.assignPeriod.studio',       aliases: 'single, double, standard' },
+                      { type: 'SUPERIOR',     labelKey: 'admin.assignPeriod.oneBedroom',   aliases: 'triple, superior' },
+                      { type: 'DELUXE',       labelKey: 'admin.assignPeriod.twoBedroom',   aliases: 'deluxe' },
+                      { type: 'SUITE',        labelKey: 'admin.assignPeriod.threeBedroom', aliases: 'suite' },
+                      { type: 'PRESIDENTIAL', labelKey: 'admin.assignPeriod.penthouse',    aliases: 'presidential' },
+                    ] as const).map(({ type, labelKey, aliases }) => (
                       <div key={type} className="bg-gray-50 rounded-lg p-2 text-center">
                         <p className="text-xs font-bold text-gray-700">{type}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{t(labelKey)}</p>
                         <p className="text-xs text-gray-400 mt-1 italic">{aliases}</p>
                       </div>
                     ))}

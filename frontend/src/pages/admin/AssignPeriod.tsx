@@ -301,11 +301,11 @@ export default function AssignPeriod() {
               required
             >
               <option value="">{t('admin.assignPeriod.chooseType')}</option>
-              <option value="STANDARD">STANDARD — Studio / Estándar (\xd71.0)</option>
-              <option value="SUPERIOR">SUPERIOR — 1 Dormitorio (\xd71.2)</option>
-              <option value="DELUXE">DELUXE — 2 Dormitorios (\xd71.5)</option>
-              <option value="SUITE">SUITE — 3 Dormitorios (\xd72.0)</option>
-              <option value="PRESIDENTIAL">PRESIDENTIAL — Ático / Penthouse (\xd72.5)</option>
+              <option value="STANDARD">STANDARD — {t('admin.assignPeriod.studio')} (×1.0)</option>
+              <option value="SUPERIOR">SUPERIOR — {t('admin.assignPeriod.oneBedroom')} (×1.2)</option>
+              <option value="DELUXE">DELUXE — {t('admin.assignPeriod.twoBedroom')} (×1.5)</option>
+              <option value="SUITE">SUITE — {t('admin.assignPeriod.threeBedroom')} (×2.0)</option>
+              <option value="PRESIDENTIAL">PRESIDENTIAL — {t('admin.assignPeriod.penthouse')} (×2.5)</option>
             </select>
           </div>
 
