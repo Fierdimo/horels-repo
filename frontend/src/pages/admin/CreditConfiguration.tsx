@@ -1243,16 +1243,16 @@ const CreditConfiguration: React.FC = () => {
                 <h2 className="text-lg font-semibold">
                   {t('admin.creditConfig.calConfiguredTitle', { count: seasonalCalendar.length })}
                 </h2>
-                {seasonalCalendar.length > 0 && seasonalCalendar.every(s => s.isDefault) && (
+                {seasonalCalendar.length > 0 && seasonalCalendar.some(s => !s.isDefault) && (
                   <button
                     onClick={applyDefaultCalendar}
                     disabled={applyingDefaults}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                    className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm font-medium"
                   >
                     {applyingDefaults ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Save className="h-4 w-4" />
+                      <RotateCcw className="h-4 w-4" />
                     )}
                     {t('admin.creditConfig.calApplyDefaults')}
                   </button>

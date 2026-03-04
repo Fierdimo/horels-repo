@@ -352,15 +352,9 @@ class CreditAdminController {
       const pid = parseInt(propertyId);
       const y = parseInt(year);
 
-      // Prevent overwriting existing custom seasons
+      // Delete all existing entries for this property/year before recreating defaults
       const existing = await SeasonalCalendar.getSeasonsForYear(pid, y);
-      if (existing.length > 0) {
-        res.status(409).json({
-          success: false,
-          error: 'This property already has seasons configured for this year'
-        });
-        return;
-      }
+      await Promise.all(existing.map(e => e.destroy()));
 
       const defaultPeriods: { season_type: 'RED' | 'WHITE' | 'BLUE'; start: string; end: string }[] = [
         { season_type: 'RED',   start: `${y}-07-01`, end: `${y}-08-31` },
