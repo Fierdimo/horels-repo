@@ -66,6 +66,19 @@ interface SeasonalCalendar {
   isDefault?: boolean;
 }
 
+interface RoomReview {
+  id: number;
+  name: string;
+  property_id: number | null;
+  property_name: string;
+  pms_type: string;
+  auto_formula_type: string;
+  credit_room_type: 'STANDARD' | 'SUPERIOR' | 'DELUXE' | 'SUITE' | 'PRESIDENTIAL' | null;
+  effective_type: string;
+  multiplier: number;
+  is_overridden: boolean;
+}
+
 interface CreditFormulaConfig {
   base_seasons: Record<string, number>;
   base_nightly: Record<string, number>;
@@ -104,7 +117,13 @@ const CreditConfiguration: React.FC = () => {
     return `${dd}/${mm}/${yyyy}`;
   };
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'properties' | 'costs' | 'defaults' | 'calendar'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'costs' | 'defaults' | 'calendar' | 'rooms'>('properties');
+
+  // Rooms review state
+  const [roomsReview, setRoomsReview] = useState<RoomReview[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [roomsPropertyFilter, setRoomsPropertyFilter] = useState<number | null>(null);
+  const [updatingRoomId, setUpdatingRoomId] = useState<number | null>(null);
 
   // Properties state
   const [properties, setProperties] = useState<Property[]>([]);
@@ -274,6 +293,40 @@ const CreditConfiguration: React.FC = () => {
     } catch (error: any) {
       console.error('Error updating default:', error);
       toast.error('Error al actualizar valor');
+    }
+  };
+
+  const fetchRoomsReview = async () => {
+    try {
+      setLoadingRooms(true);
+      const response = await apiClient.get('/api/credits/admin/rooms-review');
+      setRoomsReview(response.data.data || []);
+    } catch (error: any) {
+      console.error('Error fetching rooms review:', error);
+      toast.error(t('admin.creditConfig.roomsLoadError'));
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  const updateRoomCreditType = async (roomId: number, creditRoomType: string | null) => {
+    try {
+      setUpdatingRoomId(roomId);
+      const response = await apiClient.put(`/api/credits/admin/rooms-review/${roomId}`, { creditRoomType });
+      setRoomsReview(prev => prev.map(r =>
+        r.id === roomId
+          ? { ...r,
+              credit_room_type: response.data.data.credit_room_type,
+              effective_type: response.data.data.effective_type,
+              multiplier: response.data.data.multiplier,
+              is_overridden: !!response.data.data.credit_room_type }
+          : r
+      ));
+      toast.success(creditRoomType ? t('admin.creditConfig.roomsOverrideSaved') : t('admin.creditConfig.roomsOverrideCleared'));
+    } catch (error: any) {
+      toast.error(t('admin.creditConfig.roomsOverrideError'));
+    } finally {
+      setUpdatingRoomId(null);
     }
   };
 
@@ -546,6 +599,16 @@ const CreditConfiguration: React.FC = () => {
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             {t('admin.creditConfig.tabFormula')}
+          </button>
+          <button
+            onClick={() => { setActiveTab('rooms'); fetchRoomsReview(); }}
+            className={`${
+              activeTab === 'rooms'
+                ? 'border-purple-500 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            {t('admin.creditConfig.tabRooms')}
           </button>
         </nav>
       </div>
@@ -1451,6 +1514,111 @@ const CreditConfiguration: React.FC = () => {
                 </ul>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rooms Review Tab */}
+      {activeTab === 'rooms' && (
+        <div className="space-y-6">
+          {/* Info banner */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">{t('admin.creditConfig.roomsInfoTitle')}</p>
+              <p className="text-sm text-amber-800 mt-0.5">{t('admin.creditConfig.roomsInfoDesc')}</p>
+            </div>
+          </div>
+
+          {/* Table card */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">{t('admin.creditConfig.roomsTitle')}</h2>
+                <p className="text-sm text-gray-500 mt-0.5">{t('admin.creditConfig.roomsSubtitle')}</p>
+              </div>
+              <select
+                value={roomsPropertyFilter ?? ''}
+                onChange={e => setRoomsPropertyFilter(e.target.value ? parseInt(e.target.value) : null)}
+                className="border rounded-lg px-3 py-2 text-sm w-56 focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">{t('admin.creditConfig.allProperties')}</option>
+                {properties.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {loadingRooms ? (
+              <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-purple-500" /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colProperty')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colRoom')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colPmsType')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colAutoType')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colAdminOverride')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colEffective')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{t('admin.creditConfig.colTierMultiplier')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {roomsReview
+                      .filter(r => !roomsPropertyFilter || r.property_id === roomsPropertyFilter)
+                      .map(room => {
+                        const isUpdating = updatingRoomId === room.id;
+                        const effectiveColor =
+                          room.effective_type === 'PRESIDENTIAL' ? 'bg-purple-100 text-purple-800' :
+                          room.effective_type === 'SUITE'         ? 'bg-blue-100 text-blue-800' :
+                          room.effective_type === 'DELUXE'        ? 'bg-orange-100 text-orange-800' :
+                          room.effective_type === 'SUPERIOR'      ? 'bg-green-100 text-green-700' :
+                                                                    'bg-gray-100 text-gray-600';
+                        return (
+                          <tr key={room.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{room.property_name}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">{room.name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap font-mono">{room.pms_type}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                {room.auto_formula_type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <select
+                                value={room.credit_room_type ?? ''}
+                                onChange={e => updateRoomCreditType(room.id, e.target.value || null)}
+                                disabled={isUpdating}
+                                className="border rounded px-2 py-1 text-xs focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                              >
+                                <option value="">— {t('admin.creditConfig.roomsAutoLabel')} ({room.auto_formula_type})</option>
+                                {(['STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'] as const).map(type => (
+                                  <option key={type} value={type}>{type}</option>
+                                ))}
+                              </select>
+                              {isUpdating && <Loader2 className="inline h-3 w-3 ml-1 animate-spin" />}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${effectiveColor}`}>
+                                {room.is_overridden && <CheckCircle className="h-3 w-3" />}
+                                {room.effective_type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="font-mono font-semibold text-purple-700 text-sm">×{room.multiplier.toFixed(1)}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {roomsReview.filter(r => !roomsPropertyFilter || r.property_id === roomsPropertyFilter).length === 0 && (
+                      <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">{t('admin.creditConfig.roomsNoRooms')}</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

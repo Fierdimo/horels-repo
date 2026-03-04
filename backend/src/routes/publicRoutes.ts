@@ -1616,7 +1616,8 @@ router.post('/properties/:propertyId/rooms/:roomId/calculate-credit-cost', authe
       return 'STANDARD';
     };
 
-    const roomType = normalizeRoomType(enrichedRoom.type || 'STANDARD');
+    // Admin override (credit_room_type) takes precedence over PMS auto-detection
+    const roomType = (room as any).credit_room_type || normalizeRoomType(enrichedRoom.type || 'STANDARD');
 
     // Calcular créditos requeridos usando el Master Formula
     const creditCalculation = await CreditCalculationService.calculateBookingCost(
@@ -1771,7 +1772,8 @@ router.post('/properties/:propertyId/rooms/:roomId/book-with-credits', authentic
       return 'STANDARD';
     };
 
-    const roomType = normalizeRoomType(enrichedRoom.type || 'STANDARD');
+    // Admin override (credit_room_type) takes precedence over PMS auto-detection
+    const roomType = (room as any).credit_room_type || normalizeRoomType(enrichedRoom.type || 'STANDARD');
 
     // Calcular créditos requeridos usando el Master Formula
     const creditCalculation = await CreditCalculationService.calculateBookingCost(

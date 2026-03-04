@@ -3,6 +3,7 @@ import sequelize from '../config/database';
 
 export type RoomStatus = 'available' | 'occupied' | 'maintenance' | 'unavailable';
 export type RoomType = 'standard' | 'deluxe' | 'suite' | 'single' | 'double';
+export type CreditRoomType = 'STANDARD' | 'SUPERIOR' | 'DELUXE' | 'SUITE' | 'PRESIDENTIAL';
 
 interface RoomAttributes {
   id: number;
@@ -17,6 +18,7 @@ interface RoomAttributes {
   images?: string | null; // JSON array stored as text
   is_marketplace_enabled: boolean;
   property_id?: number | null;
+  credit_room_type?: CreditRoomType | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -38,6 +40,7 @@ class Room extends Model<RoomAttributes, RoomCreationAttributes> implements Room
   public images?: string | null;
   public is_marketplace_enabled!: boolean;
   public property_id?: number | null;
+  public credit_room_type?: CreditRoomType | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -105,6 +108,11 @@ Room.init(
     property_id: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
+    },
+    credit_room_type: {
+      type: DataTypes.ENUM('STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'),
+      allowNull: true,
+      defaultValue: null,
     },
   },
   {

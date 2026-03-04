@@ -86,6 +86,16 @@ router.post('/seasonal-calendar/apply-defaults', adminOnly, CreditAdminControlle
 router.delete('/seasonal-calendar/:id', adminOnly, CreditAdminController.deleteSeasonalEntry);
 
 /**
+ * ROOM CREDIT TYPE REVIEW
+ */
+
+// Get all rooms with their formula type and admin override
+router.get('/rooms-review', adminOnly, CreditAdminController.getRoomsForCreditReview);
+
+// Set or clear the credit_room_type override for a specific room
+router.put('/rooms-review/:roomId', adminOnly, CreditAdminController.updateRoomCreditType);
+
+/**
  * BOOKING COSTS
  */
 

@@ -6,6 +6,7 @@ import CreditBookingCost from '../models/CreditBookingCost';
 import PlatformSetting from '../models/PlatformSetting';
 import SettingChangeLog from '../models/SettingChangeLog';
 import Property from '../models/Property';
+import Room from '../models/room';
 
 /**
  * Controller for credit system administration and configuration
@@ -710,6 +711,107 @@ class CreditAdminController {
         success: false,
         error: error.message || 'Failed to assign property tier'
       });
+    }
+  }
+
+  // ─── Room Credit Type ──────────────────────────────────────────────────────
+
+  private static readonly FORMULA_MULTIPLIERS: Record<string, number> = {
+    STANDARD: 1.0, SUPERIOR: 1.2, DELUXE: 1.5, SUITE: 2.0, PRESIDENTIAL: 2.5
+  };
+
+  private static readonly PMS_TO_FORMULA: Record<string, string> = {
+    'standard': 'STANDARD', 'single': 'STANDARD', 'double': 'STANDARD',
+    'triple': 'SUPERIOR',
+    'deluxe': 'DELUXE',
+    'suite': 'SUITE',
+    'presidential': 'PRESIDENTIAL',
+  };
+
+  private static detectFormulaType(pmsType: string): string {
+    const lower = pmsType.toLowerCase().replace(/\s+/g, '');
+    if (lower in CreditAdminController.PMS_TO_FORMULA) return CreditAdminController.PMS_TO_FORMULA[lower];
+    if (/penthouse|presidential|\b\u00e1tico\b|\batico\b/i.test(pmsType)) return 'PRESIDENTIAL';
+    if (/\bsuite\b/i.test(pmsType)) return 'SUITE';
+    if (/\bdeluxe\b/i.test(pmsType)) return 'DELUXE';
+    if (/superior|triple/i.test(pmsType)) return 'SUPERIOR';
+    return 'STANDARD';
+  }
+
+  /**
+   * GET /api/credits/admin/rooms-review
+   * Returns all rooms with their PMS type, auto-detected formula type, and admin override.
+   */
+  async getRoomsForCreditReview(req: Request, res: Response): Promise<void> {
+    try {
+      const rooms = await Room.findAll({ order: [['property_id', 'ASC'], ['name', 'ASC']] });
+      const properties = await Property.findAll({ attributes: ['id', 'name'] });
+      const propMap: Record<number, string> = {};
+      for (const p of properties) propMap[p.id] = p.name;
+
+      const data = rooms.map(room => {
+        const autoType = CreditAdminController.detectFormulaType(room.type || 'standard');
+        const override = room.credit_room_type || null;
+        const effectiveType = override || autoType;
+        return {
+          id: room.id,
+          name: room.name,
+          property_id: room.property_id ?? null,
+          property_name: room.property_id ? (propMap[room.property_id] || `ID ${room.property_id}`) : '—',
+          pms_type: room.type || 'standard',
+          auto_formula_type: autoType,
+          credit_room_type: override,
+          effective_type: effectiveType,
+          multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+          is_overridden: !!override,
+        };
+      });
+
+      res.json({ success: true, data });
+    } catch (error: any) {
+      console.error('Error getting rooms for credit review:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * PUT /api/credits/admin/rooms-review/:roomId
+   * Set or clear the credit_room_type override for a room.
+   * Send { creditRoomType: null } to reset to auto-detection.
+   */
+  async updateRoomCreditType(req: Request, res: Response): Promise<void> {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      const { creditRoomType } = req.body;
+
+      const VALID = ['STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'];
+      if (creditRoomType !== null && creditRoomType !== undefined && !VALID.includes(creditRoomType)) {
+        res.status(400).json({ success: false, error: `Invalid creditRoomType. Must be one of: ${VALID.join(', ')} or null` });
+        return;
+      }
+
+      const room = await Room.findByPk(roomId);
+      if (!room) {
+        res.status(404).json({ success: false, error: 'Room not found' });
+        return;
+      }
+
+      await room.update({ credit_room_type: creditRoomType ?? null } as any);
+
+      const autoType = CreditAdminController.detectFormulaType(room.type || 'standard');
+      const effectiveType = creditRoomType || autoType;
+      res.json({
+        success: true,
+        data: {
+          id: room.id,
+          credit_room_type: creditRoomType ?? null,
+          effective_type: effectiveType,
+          multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+        }
+      });
+    } catch (error: any) {
+      console.error('Error updating room credit type:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 }
