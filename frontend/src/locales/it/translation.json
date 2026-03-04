@@ -1358,6 +1358,7 @@
       "formulaTierDesc": "Moltiplicatore applicato secondo il livello della proprietà.",
       "formulaRoomTitle": "Moltiplicatori di Camera",
       "formulaRoomDesc": "Moltiplicatore applicato secondo il tipo di camera.",
+      "formulaRoomMappingTitle": "Equivalenze dei tipi di camera nella formula",
       "previewTitle": "Anteprima Saldo (livello STANDARD, posizione ×1.0)",
       "previewDesc": "Crediti guadagnati depositando una settimana vs. costo di prenotare quelle 7 notti. Aggiornato in tempo reale.",
       "previewDeficitWarning": "Avviso: alcune combinazioni costano di più da prenotare di quanto il proprietario guadagna depositando.",

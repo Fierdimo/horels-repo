@@ -1945,6 +1945,7 @@
       "formulaTierDesc": "Multiplier applied according to the property tier.",
       "formulaRoomTitle": "Room Multipliers",
       "formulaRoomDesc": "Multiplier applied according to room type.",
+      "formulaRoomMappingTitle": "Room type equivalences in the formula",
       "previewTitle": "Balance Preview (STANDARD tier, location ×1.0)",
       "previewDesc": "Credits earned depositing a week vs. cost of booking those 7 nights. Updates in real time.",
       "previewDeficitWarning": "Warning: some combinations cost more to book than the owner earns from depositing.",

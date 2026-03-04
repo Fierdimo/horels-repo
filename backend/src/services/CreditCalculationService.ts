@@ -113,37 +113,48 @@ class CreditCalculationService {
   };
 
   /**
-   * Accommodation type to room type mapping
+   * Accommodation type to room type mapping.
+   * Includes legacy week values (studio, 1bedroom...) and PMS room type names.
    */
   private static readonly ACCOMMODATION_TO_ROOM_TYPE: Record<string, keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS> = {
+    // Legacy timeshare accommodation types (AssignPeriod)
     'studio': 'STANDARD',
     '1bedroom': 'SUPERIOR',
     '2bedroom': 'DELUXE',
     '3bedroom': 'SUITE',
-    'penthouse': 'PRESIDENTIAL'
+    'penthouse': 'PRESIDENTIAL',
+    // PMS physical room type names (Rooms admin)
+    'standard': 'STANDARD',
+    'single': 'STANDARD',
+    'double': 'STANDARD',
+    'triple': 'SUPERIOR',
+    'deluxe': 'DELUXE',
+    'suite': 'SUITE',
+    'presidential': 'PRESIDENTIAL',
   };
 
   /**
-   * Category patterns for auto-detection of room types
+   * Category patterns for auto-detection of room types from PMS free-text category names.
+   * Patterns are evaluated in order; first match wins.
    */
   private static readonly CATEGORY_PATTERNS: Array<{
     pattern: RegExp;
     roomType: keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS;
   }> = [
     // PRESIDENTIAL (must be checked first)
-    { pattern: /penthouse|presidential|ático|atico/i, roomType: 'PRESIDENTIAL' },
+    { pattern: /penthouse|presidential|\bático\b|\batico\b/i, roomType: 'PRESIDENTIAL' },
     
-    // SUITE
-    { pattern: /\b3\s*br\b|3\s*bed|three.*bed|suite.*3|3.*habitaciones/i, roomType: 'SUITE' },
+    // SUITE — 3 bedrooms or standalone "suite"
+    { pattern: /\b3\s*br\b|3\s*bed|three.*bed|suite.*3|3.*habitaciones|\bsuite\b/i, roomType: 'SUITE' },
     
-    // DELUXE
-    { pattern: /\b2\s*br\b|2\s*bed|two.*bed|deluxe.*2|2.*habitaciones/i, roomType: 'DELUXE' },
+    // DELUXE — 2 bedrooms or standalone "deluxe"
+    { pattern: /\b2\s*br\b|2\s*bed|two.*bed|deluxe.*2|2.*habitaciones|\bdeluxe\b/i, roomType: 'DELUXE' },
     
-    // SUPERIOR
-    { pattern: /\b1\s*br\b|1\s*bed|one.*bed|superior|1.*habitación/i, roomType: 'SUPERIOR' },
+    // SUPERIOR — 1 bedroom, triple, superior
+    { pattern: /\b1\s*br\b|1\s*bed|one.*bed|\bsuperior\b|1.*habitaci\u00f3n|\btriple\b/i, roomType: 'SUPERIOR' },
     
-    // STANDARD (default/fallback)
-    { pattern: /studio|standard|básico|basico|estándar|estandar/i, roomType: 'STANDARD' }
+    // STANDARD (default/fallback) — also covers single and double hotel rooms
+    { pattern: /studio|standard|b\u00e1sico|basico|est\u00e1ndar|estandar|\bsingle\b|\bdouble\b/i, roomType: 'STANDARD' }
   ];
 
   /**
@@ -351,9 +362,16 @@ class CreditCalculationService {
         CreditCalculationService.BASE_NIGHTLY_RATES[seasonType]
       );
 
+      // Normalise: PMS room-type strings (e.g. "deluxe") must be mapped to a
+      // formula key (e.g. "DELUXE") before the config/fallback lookup.
+      const formulaRoomType: keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS =
+        (roomType in CreditCalculationService.ROOM_TYPE_MULTIPLIERS)
+          ? roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS
+          : this.detectRoomTypeFromCategory(roomType);
+
       const roomMultiplier = await this.getConfigValue(
-        `ROOM_${roomType}`,
-        CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0
+        `ROOM_${formulaRoomType}`,
+        CreditCalculationService.ROOM_TYPE_MULTIPLIERS[formulaRoomType]
       );
 
       const tierMultiplier = await this.getConfigValue(

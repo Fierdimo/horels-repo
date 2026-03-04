@@ -1079,6 +1079,28 @@ const CreditConfiguration: React.FC = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Room type mapping guide */}
+                <div className="mt-5 border-t border-gray-100 pt-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    {t('admin.creditConfig.formulaRoomMappingTitle')}
+                  </p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {([
+                      { type: 'STANDARD',     label: 'Studio / Estándar', aliases: 'single, double, standard' },
+                      { type: 'SUPERIOR',     label: '1 Dormitorio',      aliases: 'triple, superior' },
+                      { type: 'DELUXE',       label: '2 Dormitorios',     aliases: 'deluxe' },
+                      { type: 'SUITE',        label: '3 Dormitorios',     aliases: 'suite' },
+                      { type: 'PRESIDENTIAL', label: 'Ático / Penthouse', aliases: 'presidential' },
+                    ] as const).map(({ type, label, aliases }) => (
+                      <div key={type} className="bg-gray-50 rounded-lg p-2 text-center">
+                        <p className="text-xs font-bold text-gray-700">{type}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                        <p className="text-xs text-gray-400 mt-1 italic">{aliases}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Formula Balance Preview */}

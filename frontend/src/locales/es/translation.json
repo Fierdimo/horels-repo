@@ -1913,6 +1913,7 @@
       "formulaTierDesc": "Multiplicador aplicado según el tier de la propiedad.",
       "formulaRoomTitle": "Multiplicadores de Habitación",
       "formulaRoomDesc": "Multiplicador aplicado según el tipo de habitación.",
+      "formulaRoomMappingTitle": "Equivalencias: tipo de habitación en la fórmula",
       "previewTitle": "Vista Previa del Balance (tier STANDARD, ubicación ×1.0)",
       "previewDesc": "Créditos ganados al depositar una semana vs. coste de reservar esas 7 noches. Se actualiza en tiempo real.",
       "previewDeficitWarning": "Aviso: algunas combinaciones cuestan más al reservar de lo que el propietario gana al depositar.",

@@ -723,6 +723,7 @@
       "formulaTierDesc": "Multiplikator angewendet entsprechend der Immobilienstufe.",
       "formulaRoomTitle": "Zimmer-Multiplikatoren",
       "formulaRoomDesc": "Multiplikator angewendet entsprechend dem Zimmertyp.",
+      "formulaRoomMappingTitle": "Zimmertyp-Äquivalenzen in der Formel",
       "previewTitle": "Saldovorschau (Stufe STANDARD, Standort ×1.0)",
       "previewDesc": "Verdiente Guthaben durch Einzahlung einer Woche vs. Kosten für 7 Nächte. Wird in Echtzeit aktualisiert.",
       "previewDeficitWarning": "Warnung: Einige Kombinationen kosten beim Buchen mehr, als der Eigentümer beim Einzahlen verdient.",

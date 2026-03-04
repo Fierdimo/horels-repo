@@ -723,6 +723,7 @@
       "formulaTierDesc": "Multiplicateur appliqué selon le niveau de la propriété.",
       "formulaRoomTitle": "Multiplicateurs de Chambre",
       "formulaRoomDesc": "Multiplicateur appliqué selon le type de chambre.",
+      "formulaRoomMappingTitle": "Equivalences des types de chambre dans la formule",
       "previewTitle": "Aperçu du Solde (niveau STANDARD, localisation ×1.0)",
       "previewDesc": "Crédits gagnés en déposant une semaine vs. coût de réservation pour 7 nuits. Mis à jour en temps réel.",
       "previewDeficitWarning": "Avertissement : certaines combinaisons coûtent plus à réserver que ce que le propriétaire gagne en déposant.",
