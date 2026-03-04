@@ -131,6 +131,17 @@ class PropertyController {
       // Set created_by
       propertyData.created_by = user.id;
 
+      // Auto-generate slug from name if not provided
+      if (!propertyData.slug && propertyData.name) {
+        const baseSlug = propertyData.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        // Append random suffix to avoid collisions
+        const suffix = Math.random().toString(36).substring(2, 7);
+        propertyData.slug = `${baseSlug}-${suffix}`;
+      }
+
       const property = await Property.create({
         ...propertyData,
         tier: propertyData.tier || 'STANDARD',

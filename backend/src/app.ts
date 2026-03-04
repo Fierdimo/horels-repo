@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import path from 'path';
 import authRoutes from './routes/authRoutes';
 import adminRoutes from './routes/adminRoutes';
 import roomRoutes from './routes/roomRoutes';
@@ -44,6 +45,9 @@ import searchRoutes from './routes/v2/searchRoutes';
 import bookingRoutesV2 from './routes/v2/bookingRoutes';
 import ownerRoutes from './routes/ownerRoutes';
 import adminCreditConfigRoutesV2 from './routes/v2/adminCreditConfigRoutes';
+
+// Upload Routes
+import uploadRoutes from './routes/uploadRoutes';
 
 // Admin Routes (Phase 7: Admin Tools)
 import adminUnitsRoutes from './routes/admin/units';
@@ -130,9 +134,26 @@ app.use('/hotels/api/credits/estimate', authenticateToken, creditEstimationRoute
 app.use('/hotels/api/admin/credit-config', authenticateToken, adminCreditConfigRoutes); // Credit configuration panel (admin)
 app.use('/hotels/api/rooms', roomAvailabilityRoutes); // Room availability with correct types from PMS
 app.use('/hotels/api/bookings', authenticateToken, bookingRoutes); // User booking management (cancel, invoice, etc.)
-app.use('/hotels/api/marketplace', authenticateToken, marketplaceRoutes); // Unified credit marketplace (release, search, book)
+app.use('/hotels/api/marketplace', marketplaceV2Routes); // Marketplace V2 — public, no auth (registered FIRST so checkout routes reach V2 without token)
+app.use('/hotels/api/marketplace', authenticateToken, marketplaceRoutes); // Unified credit marketplace (release, search, book) — requires auth
 app.use('/hotels/admin/prepaid-inventory', prepaidInventoryRoutes); // Prepaid inventory management (admin/staff)
 app.use('/hotels/api/unified-search', unifiedSearchRoutes); // Unified search with prepaid prioritization (public/authenticated)
+
+// ============================================
+// Static file serving – uploaded images
+// ============================================
+// Serve from the same dir multer writes to (process.cwd()/uploads by default)
+const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+// Override Cross-Origin-Resource-Policy so the React frontend (different port in dev)
+// can load images. Without this, the helmet `same-origin` policy blocks <img> loads.
+app.use('/uploads', (_req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(uploadDir));
+
+// Image upload endpoint (admin + staff)
+// frontend baseURL includes /hotels so path must be /hotels/api/uploads
+app.use('/hotels/api/uploads', authenticateToken, uploadRoutes);
 
 // ============================================
 // V2 API Routes (New Architecture)
@@ -147,14 +168,14 @@ app.use('/api/v2/bookings', authenticateToken, bookingRoutesV2); // Booking mana
 // ============================================
 // Admin API Routes (Phase 7: Admin Tools)
 // ============================================
-app.use('/api/admin/credits', authenticateToken, adminCreditConfigRoutesV2); // Credit system configuration (V2)
-app.use('/api/admin/properties', authenticateToken, adminPropertiesRoutes); // Property management with PMS
-app.use('/api/admin/units', authenticateToken, adminUnitsRoutes); // Unit management (admin/staff)
-app.use('/api/admin/ownerships', authenticateToken, adminOwnershipsRoutes); // Ownership management (admin/staff)
-app.use('/api/admin/ownerships/import', authenticateToken, adminOwnershipImportRoutes); // CSV import
-app.use('/api/admin/units', authenticateToken, adminUnitOwnershipsRoutes); // Unit-specific ownerships
-app.use('/api/admin/users', authenticateToken, adminUserOwnershipsRoutes); // User-specific ownerships
-app.use('/api/admin/allocations', authenticateToken, adminAllocationsRoutes); // Week allocation generation
+app.use('/hotels/api/admin/credits', authenticateToken, adminCreditConfigRoutesV2); // Credit system configuration (V2)
+app.use('/hotels/api/admin/properties', authenticateToken, adminPropertiesRoutes); // Property management with PMS
+app.use('/hotels/api/admin/units', authenticateToken, adminUnitsRoutes); // Unit management (admin/staff)
+app.use('/hotels/api/admin/ownerships', authenticateToken, adminOwnershipsRoutes); // Ownership management (admin/staff)
+app.use('/hotels/api/admin/ownerships/import', authenticateToken, adminOwnershipImportRoutes); // CSV import
+app.use('/hotels/api/admin/units', authenticateToken, adminUnitOwnershipsRoutes); // Unit-specific ownerships
+app.use('/hotels/api/admin/users', authenticateToken, adminUserOwnershipsRoutes); // User-specific ownerships
+app.use('/hotels/api/admin/allocations', authenticateToken, adminAllocationsRoutes); // Week allocation generation
 
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);
@@ -164,11 +185,6 @@ app.use('/hotels', healthRoutes);
 // Mock PMS API Routes (Development/Testing)
 // ============================================
 app.use('/hotels/api/mock-pms', mockPMSRoutes); // Mock PMS management endpoints
-
-// ============================================
-// Marketplace V2 Routes (Mock PMS Integration)
-// ============================================
-app.use('/hotels/api/marketplace', marketplaceV2Routes); // Marketplace with Mock PMS data
 
 // Root route
 app.get('/hotels', (req: Request, res: Response) => {

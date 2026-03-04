@@ -25,6 +25,8 @@ interface PropertyAttributes {
   program_type: 'FIXED_WEEK' | 'FLOATING' | 'POINTS';
   weeks_per_year?: number;
   check_in_day?: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  check_in_time?: string;
+  check_out_time?: string;
   
   // Property information
   description?: string;
@@ -45,7 +47,7 @@ interface PropertyAttributes {
 interface PropertyCreationAttributes extends Optional<PropertyAttributes, 
   'id' | 'region' | 'latitude' | 'longitude' | 'address' | 'postal_code' |
   'pms_property_id' | 'pms_credentials_encrypted' | 'pms_last_sync' | 'pms_sync_status' |
-  'weeks_per_year' | 'check_in_day' | 'description' | 'amenities' | 'policies' | 'images' |
+  'weeks_per_year' | 'check_in_day' | 'check_in_time' | 'check_out_time' | 'description' | 'amenities' | 'policies' | 'images' |
   'created_at' | 'updated_at'
 > {}
 
@@ -72,6 +74,8 @@ class Property extends Model<PropertyAttributes, PropertyCreationAttributes> imp
   public program_type!: 'FIXED_WEEK' | 'FLOATING' | 'POINTS';
   public weeks_per_year?: number;
   public check_in_day?: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  public check_in_time?: string;
+  public check_out_time?: string;
   
   // Property information
   public description?: string;
@@ -201,6 +205,18 @@ Property.init({
     allowNull: true,
     defaultValue: 'SATURDAY',
     field: 'check_in_day',
+  },
+  check_in_time: {
+    type: DataTypes.STRING(5),
+    allowNull: true,
+    defaultValue: '15:00',
+    field: 'check_in_time',
+  },
+  check_out_time: {
+    type: DataTypes.STRING(5),
+    allowNull: true,
+    defaultValue: '11:00',
+    field: 'check_out_time',
   },
   
   // Payment configuration - REMOVED (not in timeshare_properties)

@@ -12,6 +12,8 @@ interface CreditPaymentSelectorProps {
   checkOut: string;
   guests: number;
   totalAmount: number;
+  /** false for guest users or hotel rooms (room-*): forces card-only payment */
+  allowCredits?: boolean;
   onPaymentMethodChange: (method: 'card' | 'credits' | 'hybrid', creditsToUse?: number) => void;
 }
 
@@ -23,13 +25,14 @@ export function CreditPaymentSelector({
   checkOut,
   guests,
   totalAmount,
+  allowCredits = true,
   onPaymentMethodChange
 }: CreditPaymentSelectorProps) {
   const { t } = useTranslation();
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'credits' | 'hybrid'>('card');
   const [creditsToUse, setCreditsToUse] = useState(0);
 
-  // Fetch user's credit balance
+  // Fetch user's credit balance — only when credits are applicable
   const { data: creditBalance, isLoading: loadingBalance } = useQuery({
     queryKey: ['creditBalance', userId],
     queryFn: async () => {
@@ -37,10 +40,10 @@ export function CreditPaymentSelector({
       const response = await apiClient.get(`/api/marketplace/credits/balance/${userId}`);
       return response.data.data;
     },
-    enabled: !!userId
+    enabled: !!userId && allowCredits
   });
 
-  // Fetch credit price calculation
+  // Fetch credit price calculation — only when credits are applicable
   const { data: creditPrice, isLoading: loadingPrice } = useQuery({
     queryKey: ['creditPrice', propertyId, roomType, checkIn, checkOut],
     queryFn: async () => {
@@ -50,7 +53,7 @@ export function CreditPaymentSelector({
       );
       return response.data.data;
     },
-    enabled: !!userId
+    enabled: !!userId && allowCredits
   });
 
   // Calculate remaining balance after using credits
@@ -70,17 +73,19 @@ export function CreditPaymentSelector({
     onPaymentMethodChange(paymentMethod, creditsToUse);
   }, [paymentMethod, creditsToUse, onPaymentMethodChange]);
 
-  // Si el usuario no está logueado, solo mostrar tarjeta
-  if (!userId) {
+  // Card-only: not logged in, guest user, or hotel room (room-*)
+  if (!userId || !allowCredits) {
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <div className="flex items-center gap-2 text-blue-800">
           <CreditCard className="h-5 w-5" />
           <span className="font-medium">{t('marketplace.checkout.payWithCard')}</span>
         </div>
-        <p className="text-sm text-blue-700 mt-2">
-          {t('marketplace.checkout.signInToUseCredits')}
-        </p>
+        {!userId && (
+          <p className="text-sm text-blue-700 mt-2">
+            {t('marketplace.checkout.signInToUseCredits')}
+          </p>
+        )}
       </div>
     );
   }
@@ -109,12 +114,12 @@ export function CreditPaymentSelector({
               <span className="font-medium text-purple-900">{t('marketplace.checkout.availableCredits')}</span>
             </div>
             <span className="text-2xl font-bold text-purple-600">
-              {creditBalance.balance.toLocaleString()}
+              {(creditBalance?.balance ?? 0).toLocaleString()}
             </span>
           </div>
           {creditPrice && (
             <p className="text-sm text-purple-700 mt-2">
-              {t('marketplace.checkout.bookingRequires')} <strong>{creditPrice.creditsRequired.toLocaleString()} {t('marketplace.checkout.creditsLabel')}</strong> ({creditPrice.nights} {t('marketplace.checkout.nightsLabel')} × {creditPrice.pricePerNightCredits.toLocaleString()} {t('marketplace.checkout.creditsLabel')})
+              {t('marketplace.checkout.bookingRequires')} <strong>{creditPrice.creditsRequired.toLocaleString()} {t('marketplace.checkout.creditsLabel')}</strong> ({creditPrice.nights} {t('marketplace.checkout.nightsLabel')} × {Math.ceil(creditPrice.creditsRequired / (creditPrice.nights || 1)).toLocaleString()} {t('marketplace.checkout.creditsLabel')}/noche)
             </p>
           )}
         </div>

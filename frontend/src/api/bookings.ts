@@ -28,6 +28,7 @@ export interface Booking {
   nights?: number; // V2 format
   guests?: number; // V2 format
   creditsUsed?: number; // V2 format
+  cashPaid?: number;    // V2 format
   cancelledAt?: string; // V2 format
   Property?: {
     id: number;

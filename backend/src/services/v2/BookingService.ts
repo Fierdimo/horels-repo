@@ -509,7 +509,7 @@ export class BookingService {
           attributes: ['id', 'name', 'city', 'region', 'country', 'images'],
         },
       ],
-      order: [['check_in', 'DESC']],
+      order: [['check_in', 'DESC'], ['id', 'DESC']],
       limit,
       offset,
     });

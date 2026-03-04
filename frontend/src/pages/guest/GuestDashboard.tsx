@@ -35,7 +35,8 @@ export default function GuestDashboard() {
   const activeBooking = bookings.find((booking: Booking) => {
     const checkIn = booking.checkIn || booking.check_in;
     const checkOut = booking.checkOut || booking.check_out;
-    if (!checkIn || !checkOut || booking.status !== 'confirmed') return false;
+    const status = (booking.status || '').toLowerCase();
+    if (!checkIn || !checkOut || status !== 'confirmed') return false;
     const checkInDate = parseISO(checkIn);
     const checkOutDate = parseISO(checkOut);
     return isBefore(checkInDate, now) && isAfter(checkOutDate, now);
@@ -45,7 +46,8 @@ export default function GuestDashboard() {
   const upcomingBookings = bookings
     .filter((booking: Booking) => {
       const checkIn = booking.checkIn || booking.check_in;
-      if (!checkIn || booking.status === 'cancelled') return false;
+      const status = (booking.status || '').toLowerCase();
+      if (!checkIn || status === 'cancelled') return false;
       return isAfter(parseISO(checkIn), now);
     })
     .sort((a: Booking, b: Booking) => {
@@ -59,7 +61,7 @@ export default function GuestDashboard() {
     totalBookings: bookings.length,
     activeStays: activeBooking ? 1 : 0,
     upcomingStays: upcomingBookings.length,
-    completedStays: bookings.filter((b: Booking) => b.status === 'checked_out').length
+    completedStays: bookings.filter((b: Booking) => (b.status || '').toLowerCase() === 'checked_out').length
   };
 
   if (isLoading) {
@@ -264,14 +266,7 @@ export default function GuestDashboard() {
                 </div>
               ) : null}
 
-              <div className="mt-6">
-                <Link
-                  to={`/guest/bookings/${activeBooking.id}`}
-                  className="block w-full bg-white text-blue-600 text-center py-2 rounded-lg font-medium hover:bg-blue-50 transition"
-                >
-                  {t('common.viewDetails')}
-                </Link>
-              </div>
+             
             </div>
           </div>
         )}

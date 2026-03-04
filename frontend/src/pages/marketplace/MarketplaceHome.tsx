@@ -75,7 +75,7 @@ export default function MarketplaceHome() {
     }
   };
 
-  // Fetch properties
+  // Fetch properties — unified marketplace, all users see all room types
   const { data: propertiesData, isLoading } = useQuery({
     queryKey: ['marketplace-properties', searchTerm, selectedCity, selectedStars],
     queryFn: async () => {

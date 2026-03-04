@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/api/client';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ArrowLeft, CreditCard, User, Mail, Phone } from 'lucide-react';
@@ -36,11 +36,16 @@ function CheckoutForm({
   const { t } = useTranslation();
   const stripe = useStripe();
   const elements = useElements();
+  const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'credits' | 'hybrid'>('card');
   const [creditsToUse, setCreditsToUse] = useState(0);
-  
+
+  // Credits only available for owners booking timeshare units.
+  // Guests always pay by card. Hotel rooms (room-*) always pay by card even for owners.
+  const allowCredits = user?.role === 'owner' && !String(roomType).startsWith('room-');
+
   // Guest information form - prefilled from user data
   const [guestInfo, setGuestInfo] = useState({
     name: user?.firstName && user?.lastName 
@@ -106,6 +111,7 @@ function CheckoutForm({
         
         console.log('✅ Booking created with credits:', bookingResponse.data);
         
+        await queryClient.invalidateQueries({ queryKey: ['myBookings'] });
         navigate('/guest/marketplace/booking-success', {
           state: { 
             booking: bookingResponse.data.data,
@@ -246,11 +252,14 @@ function CheckoutForm({
           
           console.log('✅ Booking created:', bookingResponse.data);
           
+          await queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+          
           // Navigate to success page with booking data
           const message = paymentMethod === 'hybrid' 
             ? `Booking confirmed! You used ${creditsToUse.toLocaleString()} credits + €${cardAmount.toFixed(2)}.`
             : 'Booking confirmed! Check your email for details.';
-            
+          
+          queryClient.invalidateQueries({ queryKey: ['myBookings'] });
           navigate('/guest/marketplace/booking-success', {
             state: { 
               booking: bookingResponse.data.data,
@@ -337,6 +346,7 @@ function CheckoutForm({
         checkOut={checkOut}
         guests={guests}
         totalAmount={totalAmount}
+        allowCredits={allowCredits}
         onPaymentMethodChange={handlePaymentMethodChange}
       />
 
@@ -431,22 +441,24 @@ export default function MarketplaceCheckout() {
     }
   };
 
-  // Fetch room type details from PMS
+  // Fetch room type details from V2 marketplace API (only when state.roomData is missing)
   const { data: roomData, isLoading: loadingRoom } = useQuery({
-    queryKey: ['room-type-details', propertyId, roomType, state?.checkIn, state?.checkOut],
+    queryKey: ['room-type-details-v2', propertyId, roomType, state?.checkIn, state?.checkOut],
     queryFn: async () => {
+      const params = new URLSearchParams();
+      if (state?.checkIn) params.set('checkIn', state.checkIn);
+      if (state?.checkOut) params.set('checkOut', state.checkOut);
       const { data } = await apiClient.get(
-        `/public/properties/${propertyId}/room-types/${encodeURIComponent(roomType!)}`,
-        {
-          params: {
-            checkIn: state?.checkIn,
-            checkOut: state?.checkOut
-          }
-        }
+        `/api/marketplace/properties/${propertyId}?${params}`
       );
-      return data;
+      // Extract the matching room type from the property detail response
+      const matchingRoom = (data?.data?.roomTypes || []).find(
+        (rt: any) => String(rt.id) === String(roomType) || rt.name === roomType
+      );
+      return { success: true, data: matchingRoom || null };
     },
-    enabled: !!propertyId && !!roomType && !!state?.checkIn && !!state?.checkOut
+    // Skip the API call entirely if we already have roomData from navigation state
+    enabled: !!propertyId && !!roomType && !state?.roomData
   });
 
   if (!state?.checkIn || !state?.checkOut) {
@@ -472,7 +484,8 @@ export default function MarketplaceCheckout() {
     );
   }
 
-  if (loadingRoom) {
+  // Only block with loading/error if we actually need the API (state.roomData is absent)
+  if (!state?.roomData && loadingRoom) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -480,7 +493,7 @@ export default function MarketplaceCheckout() {
     );
   }
 
-  if (!roomData?.data) {
+  if (!state?.roomData && !roomData?.data) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4">
@@ -503,16 +516,16 @@ export default function MarketplaceCheckout() {
     );
   }
 
-  const room = roomData.data;
+  // Use state.roomData (from PropertyDetails navigation) or fall back to API response
+  const room = state.roomData || roomData?.data || {};
   const nights = differenceInDays(parseISO(state.checkOut), parseISO(state.checkIn));
-  
-  // Priority 1: Use roomData from navigation state (passed from PropertyDetails)
-  // Priority 2: Use data from API call
-  const pricePerNight = Number(state.roomData?.guestPrice 
-    || room.pricing?.guestPrice 
-    || room.basePrice 
-    || room.rate 
-    || 0);
+  const pricePerNight = Number(
+    (room as any).guestPrice
+    || (room as any).basePrice
+    || (room as any).rate
+    || (roomData?.data as any)?.pricing?.guestPrice
+    || 0
+  );
   const totalAmount = nights * pricePerNight;
 
   return (
@@ -554,7 +567,7 @@ export default function MarketplaceCheckout() {
                 <div className="space-y-4 mb-6">
                   <div>
                     <p className="text-sm text-gray-600">{t('marketplace.checkout.roomType')}</p>
-                    <p className="font-semibold">{room.roomCategory}</p>
+                    <p className="font-semibold">{(room as any).name || roomType}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

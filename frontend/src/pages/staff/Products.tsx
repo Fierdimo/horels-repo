@@ -200,7 +200,7 @@ export default function StaffProducts() {
               <p className="text-3xl font-bold text-gray-900 mt-1">{products.length}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">{t('staff.products.categories') || 'Categories'}</p>
+              <p className="text-sm text-gray-600">{t('staff.products.categories_') || 'Categories'}</p>
               <p className="text-3xl font-bold text-gray-900 mt-1">{Object.keys(groupedProducts).length}</p>
             </div>
             <div>

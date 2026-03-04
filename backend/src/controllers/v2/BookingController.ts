@@ -333,8 +333,8 @@ export class BookingController {
         data: {
           bookings: result.bookings.map((booking) => ({
             id: booking.id,
-            confirmationCode: booking.confirmation_code,
-            status: booking.status,
+            confirmationCode: (booking as any).booking_code,
+            status: booking.status.toLowerCase(),
             source: booking.source,
             property: booking.property
               ? {
@@ -348,7 +348,9 @@ export class BookingController {
             checkOut: booking.check_out,
             nights: booking.nights,
             guests: booking.number_of_guests,
-            creditsUsed: booking.credits_used,
+            creditsUsed: Number(booking.credits_used) || 0,
+            cashPaid: Number(booking.cash_paid) || 0,
+            currency: booking.currency || 'EUR',
             cancelledAt: booking.cancelled_at,
           })),
           meta: {

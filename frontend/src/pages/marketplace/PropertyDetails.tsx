@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '@/api/client';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { MapPin, Star, ArrowLeft, Bed, Users, Euro, Calendar, Check } from 'lucide-react';
+import { MapPin, Star, ArrowLeft, Bed, Users, Euro, Calendar, Check, Coins } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
 import roomFallbackImage from '@/assets/hotel-room-background.avif';
@@ -43,6 +43,7 @@ interface Room {
   available?: boolean;
   availableRooms?: number;
   totalRooms?: number;
+  source?: string; // 'hotel' | 'timeshare'
 }
 
 interface Property {
@@ -50,6 +51,8 @@ interface Property {
   name: string;
   location?: string;
   address?: string;
+  region?: string;
+  postal_code?: string;
   description: string;
   city: string;
   country: string;
@@ -84,7 +87,7 @@ export default function PropertyDetails() {
     }
   };
 
-  // Fetch property details
+  // Fetch property details — unified marketplace, no role filtering
   const { data: propertyData, isLoading: loadingProperty } = useQuery({
     queryKey: ['property', id],
     queryFn: async () => {
@@ -245,7 +248,8 @@ export default function PropertyDetails() {
       amenities: rt.amenities || [],
       images: rt.images || [],
       available: rt.available !== false,
-      availableRooms: rt.quantity
+      availableRooms: rt.quantity,
+      source: rt.source, // 'hotel' | 'timeshare' | undefined (PMS)
     }));
   } 
   // Priority 3: Check if roomsData.data is directly the rooms array
@@ -269,6 +273,9 @@ export default function PropertyDetails() {
   
   console.log('🎯 Final rooms array:', rooms);
   console.log('🎯 Final rooms count:', rooms.length);
+
+  // Filter by guest capacity — only show rooms that fit the selected number of guests
+  const filteredRooms = guests > 1 ? rooms.filter((r) => (r.capacity || 1) >= guests) : rooms;
 
   const handleBookRoom = (roomType: string) => {
     console.log('🔵 handleBookRoom called with roomType:', roomType);
@@ -377,6 +384,11 @@ export default function PropertyDetails() {
                   </div>
                 )}
               </div>
+              {(property.address || property.region || property.postal_code) && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {[property.address, property.region, property.postal_code].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
           </div>
 
@@ -454,7 +466,7 @@ export default function PropertyDetails() {
             <div>
               <p className="text-sm text-gray-600 mb-1">{t('marketplace.checkInTime')}</p>
               <p className="text-lg font-semibold text-gray-900">
-                {property.check_in_time || property.checkInTime || '15:00'}
+                {property.check_in_time || property.checkInTime || '18:00'}
               </p>
             </div>
             <div>
@@ -555,19 +567,19 @@ export default function PropertyDetails() {
             <div className="flex justify-center py-12">
               <LoadingSpinner size="lg" />
             </div>
-          ) : rooms.length === 0 ? (
+          ) : filteredRooms.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg">
               <Bed className="mx-auto h-16 w-16 text-gray-400 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {t('marketplace.noRoomsAvailable')}
+                {guests > 1 ? t('marketplace.noRoomsForGuests', `Sin habitaciones para ${guests} huéspedes`) : t('marketplace.noRoomsAvailable')}
               </h3>
               <p className="text-gray-600">
-                {t('marketplace.noRoomsAvailableDesc')}
+                {guests > 1 ? t('marketplace.tryFewerGuests', 'Prueba con menos huéspedes o elige otras fechas') : t('marketplace.noRoomsAvailableDesc')}
               </p>
             </div>
           ) : (
             <div className="space-y-6">
-              {rooms.map((room, index) => (
+              {filteredRooms.map((room, index) => (
                 <div key={room.id || `room-${index}`} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col md:flex-row">
                   {/* Room Image */}
                   <div className="w-full md:w-80 h-64 bg-gradient-to-br from-gray-300 to-gray-500">
@@ -597,11 +609,23 @@ export default function PropertyDetails() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center justify-end gap-1 text-3xl font-bold text-gray-900">
-                          <Euro className="h-7 w-7" />
-                          {Number(room.guestPrice || room.rate || room.basePrice || 0).toFixed(2)}
-                        </div>
-                        <p className="text-sm text-gray-600">{t('marketplace.perNight')}</p>
+                        {user?.role === 'owner' && (room as any).source === 'timeshare' ? (
+                          <>
+                            <div className="flex items-center justify-end gap-1 text-3xl font-bold text-purple-700">
+                              <Coins className="h-7 w-7" />
+                              {Number(room.basePrice || 0).toLocaleString()}
+                            </div>
+                            <p className="text-sm text-gray-600">{t('marketplace.perWeek', 'por semana')}</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-end gap-1 text-3xl font-bold text-gray-900">
+                              <Euro className="h-7 w-7" />
+                              {Number(room.guestPrice || room.rate || room.basePrice || 0).toFixed(2)}
+                            </div>
+                            <p className="text-sm text-gray-600">{t('marketplace.perNight')}</p>
+                          </>
+                        )}
                         {room.availableRooms !== undefined && (
                           <div className="mt-1 text-sm">
                             <p className={`font-medium ${room.availableRooms > 0 ? 'text-green-600' : 'text-red-600'}`}>

@@ -20,7 +20,10 @@ import {
   Search,
   AlertCircle,
   Calendar,
-  Home
+  Home,
+  Eye,
+  EyeOff,
+  XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LanguageSelector } from '@/components/common/LanguageSelector';
@@ -63,6 +66,8 @@ export default function RegisterWizard() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [propertyResults, setPropertyResults] = useState<Array<{ id?: number; propertyId: string; name: string; location?: string; city?: string; country?: string; alreadyRegistered: boolean; source: 'platform' | 'pms'; }>>([]);
   const [isLoadingProperties, setIsLoadingProperties] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -423,17 +428,40 @@ export default function RegisterWizard() {
             <Lock className="inline h-4 w-4 mr-2" />
             {t('auth.password')}
           </label>
-          <input
-            type="password"
-            value={formData.password}
-            onChange={(e) => updateFormData('password', e.target.value)}
-            placeholder={t('auth.atLeast8Characters')}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-          <p className="mt-1 text-sm text-gray-500">
-            {t('auth.mustBe8Characters')}
-          </p>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={formData.password}
+              onChange={(e) => updateFormData('password', e.target.value)}
+              placeholder={t('auth.atLeast8Characters')}
+              className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                formData.password && formData.password.length < 8
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-gray-300'
+              }`}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
+          {formData.password && formData.password.length < 8 ? (
+            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+              <XCircle className="h-4 w-4" />
+              {t('auth.mustBe8Characters')}
+            </p>
+          ) : formData.password ? (
+            <p className="mt-1 text-sm text-green-600 flex items-center gap-1">
+              <Check className="h-4 w-4" />
+              {t('auth.passwordStrengthOk', { defaultValue: 'Password length OK' })}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-500">{t('auth.mustBe8Characters')}</p>
+          )}
         </div>
 
         <div>
@@ -441,14 +469,41 @@ export default function RegisterWizard() {
             <Lock className="inline h-4 w-4 mr-2" />
             {t('auth.confirmPassword')}
           </label>
-          <input
-            type="password"
-            value={formData.confirmPassword}
-            onChange={(e) => updateFormData('confirmPassword', e.target.value)}
-            placeholder={t('auth.reenterPassword')}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={formData.confirmPassword}
+              onChange={(e) => updateFormData('confirmPassword', e.target.value)}
+              placeholder={t('auth.reenterPassword')}
+              className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                formData.confirmPassword && formData.password !== formData.confirmPassword
+                  ? 'border-red-400 bg-red-50'
+                  : formData.confirmPassword && formData.password === formData.confirmPassword
+                  ? 'border-green-400 bg-green-50'
+                  : 'border-gray-300'
+              }`}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+            >
+              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
+          {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+              <XCircle className="h-4 w-4" />
+              {t('auth.passwordsDoNotMatch')}
+            </p>
+          )}
+          {formData.confirmPassword && formData.password === formData.confirmPassword && (
+            <p className="mt-1 text-sm text-green-600 flex items-center gap-1">
+              <Check className="h-4 w-4" />
+              {t('auth.passwordsMatch', { defaultValue: 'Passwords match' })}
+            </p>
+          )}
         </div>
       </div>
 
@@ -462,7 +517,13 @@ export default function RegisterWizard() {
         </button>
         <button
           onClick={nextStep}
-          disabled={!formData.email || !formData.password || !formData.confirmPassword}
+          disabled={
+            !formData.email ||
+            !formData.password ||
+            formData.password.length < 8 ||
+            !formData.confirmPassword ||
+            formData.password !== formData.confirmPassword
+          }
           className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {t('auth.continue')}

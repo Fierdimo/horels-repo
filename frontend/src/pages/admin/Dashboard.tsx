@@ -1,4 +1,4 @@
-import { Users, Activity, Shield, UserCheck, Clock, TrendingUp, ArrowRight, DollarSign, Check, X } from 'lucide-react';
+import { Users, Activity, Shield, UserCheck, Clock, TrendingUp, ArrowRight, DollarSign, Check, X, Building2, Bed } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -140,6 +140,42 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-600 mb-3">{t('admin.dashboard.platformSettings')}</p>
           <div className="flex items-center text-blue-600 text-sm font-medium">
             <span>{t('admin.dashboard.viewSettings')}</span>
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </div>
+        </Link>
+
+        {/* Properties */}
+        <Link
+          to="/admin/properties"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Building2 className="h-6 w-6 text-blue-600" />
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('admin.dashboard.properties')}</h3>
+          <p className="text-sm text-gray-600 mb-3">{t('admin.dashboard.manageTimeshareProperties')}</p>
+          <div className="flex items-center text-blue-600 text-sm font-medium">
+            <span>{t('admin.dashboard.manageProperties')}</span>
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </div>
+        </Link>
+
+        {/* Units */}
+        <Link
+          to="/admin/units"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Bed className="h-6 w-6 text-indigo-600" />
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">{t('admin.dashboard.units')}</h3>
+          <p className="text-sm text-gray-600 mb-3">{t('admin.dashboard.manageTimeshareUnits')}</p>
+          <div className="flex items-center text-blue-600 text-sm font-medium">
+            <span>{t('admin.dashboard.manageUnits')}</span>
             <ArrowRight className="h-4 w-4 ml-1" />
           </div>
         </Link>

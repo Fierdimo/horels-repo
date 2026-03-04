@@ -79,37 +79,35 @@ export class RoomSyncService {
       }
 
       // 4. Sincronizar mapeos en lotes (optimizado para rendimiento)
-      // Solo guardamos: pms_resource_id, property_id, y metadata local
-      const BATCH_SIZE = 10; // Procesar de 10 en 10 para evitar sobrecarga
-      const activeResources = resources.filter(r => r.IsActive !== false);
+      const BATCH_SIZE = 10;
+      const activeResources = resources.filter((r: any) => r.IsActive !== false);
       
-      // Obtener todos los rooms existentes de una vez (más eficiente)
-      // Note: propertyId field doesn't exist in current schema
-      const existingRooms = await Room.findAll({
-        attributes: ['id', 'name']
-      });
-      const existingRoomNames = new Set(existingRooms.map(r => r.name));
+      const existingRooms = await Room.findAll({ attributes: ['id', 'name'] });
+      const existingRoomNames = new Map(existingRooms.map(r => [r.name, r]));
 
-      // Procesar en lotes
       for (let i = 0; i < activeResources.length; i += BATCH_SIZE) {
         const batch = activeResources.slice(i, i + BATCH_SIZE);
         
-        // Procesar lote en paralelo (limitado a BATCH_SIZE)
-        await Promise.all(batch.map(async (resource) => {
+        await Promise.all(batch.map(async (resource: any) => {
           try {
-            // Note: propertyId, pmsLastSync, isMarketplaceEnabled fields don't exist in current schema
             const roomData = {
               name: resource.Name || `Room ${resource.Id}`,
-              description: resource.Description,
-              capacity: resource.Capacity || 2
+              description: resource.Description || null,
+              capacity: resource.Capacity || 2,
+              quantity: resource.Quantity || resource.Data?.Quantity || 1,
+              type: (resource.Data?.RoomTypeName || resource.Type || 'standard').toLowerCase(),
+              floor: resource.FloorNumber || null,
+              base_price: Number(resource.BasePrice || resource.Data?.BaseRate || 0),
+              status: 'available' as const,
+              is_marketplace_enabled: false,
+              property_id: propertyId,
             };
 
-            if (existingRoomNames.has(roomData.name)) {
-              // Room already exists - skip update for now
-              // (would need to add pmsLastSync field to schema first)
+            const existing = existingRoomNames.get(roomData.name);
+            if (existing) {
+              await Room.update(roomData, { where: { id: existing.id } });
               result.updated++;
             } else {
-              // Crear nuevo mapeo
               await Room.create(roomData);
               result.created++;
             }

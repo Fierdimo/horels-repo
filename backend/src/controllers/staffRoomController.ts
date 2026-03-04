@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import Room from '../models/room';
+import TimeshareUnit from '../models/v2/TimeshareUnit';
 import { Property, User } from '../models';
-import { PMSFactory } from '../services/pms/PMSFactory';
-import { decryptPMSCredentials } from '../utils/pmsEncryption';
 import { RoomSyncService } from '../services/roomSyncService';
 import RoomEnrichmentService from '../services/roomEnrichmentService';
+import productSyncService from '../services/productSyncService';
 
 const roomSyncService = new RoomSyncService();
 
@@ -14,163 +14,114 @@ interface AuthRequest extends Request {
 
 class StaffRoomController {
   /**
-   * Listar habitaciones del hotel del staff con datos enriquecidos del PMS
+   * Listar habitaciones del hotel: rooms table + timeshare_units, para la propiedad del staff
    */
   async getRoomsByProperty(req: AuthRequest, res: Response) {
     try {
-      // V2: Check role directly from user object
       const isAdmin = req.user?.role === 'admin';
-      
-      // In V2, users don't have property_id - use query param or Mock PMS
-      let propertyId: number | string | undefined;
-      
+
+      let propertyId: number | undefined;
       if (req.query.propertyId) {
-        propertyId = req.query.propertyId as string;
+        propertyId = Number(req.query.propertyId);
       } else if (req.user?.property_id) {
         propertyId = req.user.property_id;
       }
 
-      // If no propertyId, use Mock PMS data
-      if (!propertyId) {
-        try {
-          const { MockPMSManager } = await import('../services/pms/MockPMSService');
-          const mockPMS = new MockPMSManager();
-          const allProperties = mockPMS.getAllProperties();
-          
-          // Get weeks from database (seeded from Mock PMS)
-          const TimeshareProperty = require('../models/v2/TimeshareProperty').default;
-          const TimeshareUnit = require('../models/v2/TimeshareUnit').default;
-          const WeekAllocation = require('../models/v2/WeekAllocation').default;
-          const Ownership = require('../models/v2/Ownership').default;
+      const where: any = {};
+      if (propertyId) where.property_id = propertyId;
 
-          const releasedWeeks = await WeekAllocation.findAll({
-            where: { status: 'RELEASED' },
-            include: [
-              {
-                model: Ownership,
-                as: 'ownership',
-                required: true,
-                include: [
-                  {
-                    model: TimeshareUnit,
-                    as: 'unit',
-                    required: true,
-                    include: [
-                      {
-                        model: TimeshareProperty,
-                        as: 'property',
-                        required: true
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
-            limit: 100
-          });
+      // ── 1. Hotel rooms (rooms table) ──────────────────────────
+      const hotelRooms = await Room.findAll({ where, order: [['createdAt', 'ASC']] });
+      const enrichedHotelRooms = (await RoomEnrichmentService.enrichRooms(hotelRooms)).map(r => ({
+        ...r,
+        source: 'hotel' as const,
+      }));
 
-          const allRooms = releasedWeeks.map((week: any) => {
-            const unit = week.ownership?.unit;
-            const property = unit?.property;
+      // ── 2. Timeshare units (timeshare_units table) ────────────
+      const tsWhere: any = propertyId ? { property_id: propertyId } : {};
+      const tsUnits = await TimeshareUnit.findAll({ where: tsWhere, order: [['id', 'ASC']] });
+      const enrichedTsUnits = tsUnits.map((u: any) => ({
+        id: u.id,
+        source: 'timeshare' as const,
+        name: u.category,
+        description: u.description,
+        capacity: u.capacity_max,
+        capacityMin: u.capacity_min,
+        quantity: u.quantity,
+        basePrice: Number(u.base_credit_value) || 0,
+        base_price: Number(u.base_credit_value) || 0,
+        price: Number(u.base_credit_value) || 0,
+        status: u.is_active ? 'available' : 'unavailable',
+        images: (() => { try { return u.images ? JSON.parse(u.images) : []; } catch { return []; } })(),
+        isMarketplaceEnabled: !!u.is_active,
+        property_id: u.property_id,
+        bedrooms: u.bedrooms,
+        bathrooms: u.bathrooms,
+        sizeSqm: u.size_sqm,
+        viewType: u.view_type,
+        floorRange: u.floor_range,
+        floor: u.floor_range || null,
+        type: 'timeshare',
+        createdAt: u.created_at,
+        updatedAt: u.updated_at,
+      }));
 
-            return {
-              id: `week-${week.id}`,
-              name: unit?.name || 'Unknown Unit',
-              description: unit?.description || '',
-              capacity: unit?.max_occupancy || 4,
-              basePrice: unit?.base_credit_value || 0,
-              status: 'available',
-              propertyName: property?.name || 'Unknown Property',
-              propertyCity: property?.city || '',
-              images: unit?.images ? JSON.parse(unit.images) : [],
-              amenities: unit?.amenities ? JSON.parse(unit.amenities) : [],
-              marketplace_enabled: true,
-              availability: 1,
-              weekInfo: {
-                weekNumber: week.week_number,
-                year: week.year,
-                startDate: week.start_date,
-                endDate: week.end_date
-              }
-            };
-          });
-          
-          return res.json({
-            success: true,
-            data: allRooms,
-            source: 'database',
-            message: 'Showing RELEASED weeks from database (seeded from Mock PMS)'
-          });
-        } catch (mockError) {
-          console.error('Error fetching Mock PMS rooms:', mockError);
-          return res.json({
-            success: true,
-            data: [],
-            message: 'No property assigned. Please contact administrator.'
-          });
-        }
-      }
+      const allRooms = [...enrichedTsUnits, ...enrichedHotelRooms];
 
-      // Obtener datos locales de habitaciones
-      // Note: propertyId field doesn't exist in current schema, getting all rooms
-      const roomsLocal = await Room.findAll({
-        order: [['createdAt', 'ASC']]
-      });
-
-      // Enriquecer con datos del PMS
-      const enrichedRooms = await RoomEnrichmentService.enrichRooms(roomsLocal);
-
-      // Importar Booking para obtener información de reservas
-      const { Booking } = require('../models');
-      
-      // Obtener todas las bookings para esta property
-      const bookings = await Booking.findAll({
-        where: {
-          property_id: propertyId,
-          status: { [require('sequelize').Op.in]: ['confirmed', 'checked_in', 'pending'] }
-        },
-        attributes: ['id', 'room_id', 'guest_name', 'guest_email', 'check_in', 'check_out', 'status', 'total_amount']
-      });
-
-      // Crear mapa de bookings por room_id
-      const bookingsByRoomId: any = {};
-      bookings.forEach((booking: any) => {
-        if (!bookingsByRoomId[booking.room_id]) {
-          bookingsByRoomId[booking.room_id] = [];
-        }
-        bookingsByRoomId[booking.room_id].push({
-          id: booking.id,
-          guest_name: booking.guest_name,
-          guest_email: booking.guest_email,
-          check_in: booking.check_in,
-          check_out: booking.check_out,
-          status: booking.status,
-          total_amount: booking.total_amount
-        });
-      });
-
-      // Agregar bookings a cada habitación
-      const roomsWithBookings = roomsLocal.map((room: any, index: number) => {
-        const enrichedRoom = enrichedRooms[index];
-        return {
-          ...enrichedRoom,
-          bookings: bookingsByRoomId[room.id] || [],
-          hasActiveBooking: (bookingsByRoomId[room.id] || []).length > 0
-        };
-      });
-
-      res.json({
-        success: true,
-        data: roomsWithBookings,
-        count: roomsWithBookings.length
-      });
+      res.json({ success: true, data: allRooms, count: allRooms.length });
     } catch (error: any) {
       console.error('Error fetching rooms:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to fetch rooms',
-        message: error.message
+      res.status(500).json({ success: false, error: 'Failed to fetch rooms', message: error.message });
+    }
+  }
+
+  /**
+   * Actualizar un timeshare_unit desde la vista de habitaciones del staff
+   */
+  async updateTimeshareUnit(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const unit = await TimeshareUnit.findByPk(id);
+      if (!unit) return res.status(404).json({ success: false, error: 'Unit not found' });
+
+      const {
+        name, description, capacity, quantity,
+        base_price, basePrice, status, images,
+      } = req.body;
+
+      await unit.update({
+        ...(name !== undefined && { category: name }),
+        ...(description !== undefined && { description }),
+        ...(capacity !== undefined && { capacity_max: Number(capacity) }),
+        ...(quantity !== undefined && { quantity: Math.max(1, parseInt(quantity) || 1) }),
+        ...((base_price !== undefined || basePrice !== undefined) && {
+          base_credit_value: Number(base_price ?? basePrice),
+        }),
+        ...(status !== undefined && { is_active: status !== 'unavailable' }),
+        ...(images !== undefined && { images: JSON.stringify(images) }),
       });
+
+      const updated = await TimeshareUnit.findByPk(id) as any;
+      res.json({
+        success: true,
+        data: {
+          id: updated.id,
+          source: 'timeshare',
+          name: updated.category,
+          description: updated.description,
+          capacity: updated.capacity_max,
+          quantity: updated.quantity,
+          basePrice: Number(updated.base_credit_value) || 0,
+          status: updated.is_active ? 'available' : 'unavailable',
+          images: (() => { try { return updated.images ? JSON.parse(updated.images) : []; } catch { return []; } })(),
+          isMarketplaceEnabled: !!updated.is_active,
+          property_id: updated.property_id,
+        },
+        message: 'Unit updated successfully',
+      });
+    } catch (error: any) {
+      console.error('Error updating timeshare unit:', error);
+      res.status(500).json({ success: false, error: 'Failed to update unit', message: error.message });
     }
   }
 
@@ -181,57 +132,43 @@ class StaffRoomController {
    */
   async createRoom(req: AuthRequest, res: Response) {
     try {
-      // Admin puede especificar propertyId en el body, staff usa su property_id asignado
-      const isAdmin = (req.user as any)?.Role?.name === 'admin';
-      const propertyId = isAdmin && req.body.propertyId 
-        ? req.body.propertyId 
-        : req.user?.property_id;
-
-      if (!propertyId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Staff user must be assigned to a property, or admin must specify propertyId'
-        });
-      }
+      const isAdmin = req.user?.role === 'admin';
+      const propertyId = (isAdmin && req.body.propertyId)
+        ? Number(req.body.propertyId)
+        : req.user?.property_id ?? null;
 
       const {
-        name,
-        description,
-        capacity
+        name, description, capacity, quantity,
+        type, floor, base_price, basePrice,
+        status, images, is_marketplace_enabled,
       } = req.body;
 
-      // Validaciones
       if (!name) {
-        return res.status(400).json({
-          success: false,
-          error: 'name is required'
-        });
+        return res.status(400).json({ success: false, error: 'name is required' });
       }
 
-      // Crear mapeo local
-      // Note: propertyId, roomTypeId, customPrice, isMarketplaceEnabled, images, pmsLastSync
-      // fields don't exist in current schema
       const room = await Room.create({
         name,
-        description,
-        capacity: capacity || 2
+        description: description || null,
+        capacity: capacity ? Number(capacity) : 2,
+        quantity: Math.max(1, parseInt(quantity) || 1),
+        type: type || 'standard',
+        floor: floor || null,
+        base_price: Number(base_price ?? basePrice ?? 0),
+        status: (status || 'available') as 'available' | 'occupied' | 'maintenance' | 'unavailable',
+        images: images ? JSON.stringify(images) : null,
+        is_marketplace_enabled: is_marketplace_enabled ?? false,
+        property_id: propertyId,
       });
 
-      // Enriquecer respuesta con datos del PMS
       const enriched = await RoomEnrichmentService.enrichRoom(room);
-
-      res.status(201).json({
-        success: true,
-        data: enriched,
-        message: 'Room mapping created successfully'
-      });
+      return res.status(201).json({ success: true, data: enriched, message: 'Room created successfully' });
     } catch (error: any) {
-      console.error('Error creating room mapping:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to create room mapping',
-        message: error.message
-      });
+      console.error('Error creating room:', error);
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        return res.status(400).json({ success: false, error: 'A room with this name already exists' });
+      }
+      res.status(500).json({ success: false, error: 'Failed to create room', message: error.message });
     }
   }
 
@@ -242,59 +179,42 @@ class StaffRoomController {
    */
   async updateRoom(req: AuthRequest, res: Response) {
     try {
-      const isAdmin = (req.user as any)?.Role?.name === 'admin';
-      const propertyId = isAdmin && req.body.propertyId 
-        ? req.body.propertyId 
-        : req.user?.property_id;
       const { id } = req.params;
 
-      if (!propertyId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Staff user must be assigned to a property, or admin must specify propertyId'
-        });
-      }
-
-      // Note: propertyId field doesn't exist in current schema
-      const room = await Room.findOne({
-        where: { id }
-      });
-
+      const room = await Room.findByPk(id);
       if (!room) {
-        return res.status(404).json({
-          success: false,
-          error: 'Room not found'
-        });
+        return res.status(404).json({ success: false, error: 'Room not found' });
       }
 
-      // Solo permitir actualizar campos existentes
       const {
-        name,
-        description,
-        capacity
+        name, description, capacity, quantity,
+        type, floor, base_price, basePrice,
+        status, images, is_marketplace_enabled
       } = req.body;
 
       await room.update({
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
-        ...(capacity !== undefined && { capacity })
+        ...(capacity !== undefined && { capacity: Number(capacity) }),
+        ...(quantity !== undefined && { quantity: Math.max(1, parseInt(quantity) || 1) }),
+        ...(type !== undefined && { type }),
+        ...(floor !== undefined && { floor: floor || null }),
+        ...((base_price !== undefined || basePrice !== undefined) && {
+          base_price: Number(base_price ?? basePrice)
+        }),
+        ...(status !== undefined && { status }),
+        ...(images !== undefined && { images: JSON.stringify(images) }),
+        ...(is_marketplace_enabled !== undefined && { is_marketplace_enabled }),
       });
 
-      // Enriquecer respuesta
       const enriched = await RoomEnrichmentService.enrichRoom(room);
-
-      res.json({
-        success: true,
-        data: enriched,
-        message: 'Room updated successfully'
-      });
+      res.json({ success: true, data: enriched, message: 'Room updated successfully' });
     } catch (error: any) {
       console.error('Error updating room:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to update room',
-        message: error.message
-      });
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        return res.status(400).json({ success: false, error: 'A room with this name already exists' });
+      }
+      res.status(500).json({ success: false, error: 'Failed to update room', message: error.message });
     }
   }
 
@@ -303,44 +223,18 @@ class StaffRoomController {
    */
   async deleteRoom(req: AuthRequest, res: Response) {
     try {
-      const isAdmin = (req.user as any)?.Role?.name === 'admin';
-      const propertyId = isAdmin && req.body.propertyId 
-        ? req.body.propertyId 
-        : req.user?.property_id;
       const { id } = req.params;
 
-      if (!propertyId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Staff user must be assigned to a property, or admin must specify propertyId'
-        });
-      }
-
-      // Note: propertyId field doesn't exist in current schema
-      const room = await Room.findOne({
-        where: { id }
-      });
-
+      const room = await Room.findByPk(id);
       if (!room) {
-        return res.status(404).json({
-          success: false,
-          error: 'Room not found'
-        });
+        return res.status(404).json({ success: false, error: 'Room not found' });
       }
 
       await room.destroy();
-
-      res.json({
-        success: true,
-        message: 'Room deleted successfully'
-      });
+      res.json({ success: true, message: 'Room deleted successfully' });
     } catch (error: any) {
       console.error('Error deleting room:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete room',
-        message: error.message
-      });
+      res.status(500).json({ success: false, error: 'Failed to delete room', message: error.message });
     }
   }
 
@@ -406,13 +300,11 @@ class StaffRoomController {
       }
 
       // Sincronizar habitaciones y productos EN PARALELO para mejor rendimiento
-      const productSyncService = require('../services/productSyncService').default;
-      
       const [roomsResult, productsResult] = await Promise.all([
         roomSyncService.syncRoomsFromPMS(propertyId),
         productSyncService.syncProductsFromPMS(propertyId).catch((error: any) => {
           console.warn('[SyncRooms] Product sync failed, continuing:', error.message);
-          return { success: false, created: 0, updated: 0, deactivated: 0, errors: [error.message] };
+          return { success: false, created: 0, updated: 0, deactivated: 0, errors: [error.message], summary: undefined };
         })
       ]);
 
@@ -455,79 +347,25 @@ class StaffRoomController {
   }
 
   /**
-   * @deprecated Usar syncRooms en su lugar (nuevo endpoint llamado cuando presionan el botón)
-   * Importar habitaciones desde PMS (legacy)
-   */
-  async importFromPMS(req: AuthRequest, res: Response) {
-    try {
-      const isAdmin = (req.user as any)?.Role?.name === 'admin';
-      const propertyId = isAdmin && req.body.propertyId 
-        ? req.body.propertyId 
-        : req.user?.property_id;
-
-      if (!propertyId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Staff user must be assigned to a property, or admin must specify propertyId'
-        });
-      }
-
-      // Redirigir al nuevo endpoint
-      return this.syncRooms(req, res);
-    } catch (error: any) {
-      console.error('Error importing rooms from PMS:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to import rooms from PMS',
-        message: error.message
-      });
-    }
-  }
-
-  /**
    * Activar/desactivar habitación en marketplace
    */
   async toggleMarketplace(req: AuthRequest, res: Response) {
     try {
-      const isAdmin = (req.user as any)?.Role?.name === 'admin';
-      const propertyId = isAdmin && req.body.propertyId 
-        ? req.body.propertyId 
-        : req.user?.property_id;
       const { id } = req.params;
       const { enabled } = req.body;
 
-      if (!propertyId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Staff user must be assigned to a property, or admin must specify propertyId'
-        });
-      }
-
       if (enabled === undefined) {
-        return res.status(400).json({
-          success: false,
-          error: 'enabled field is required'
-        });
+        return res.status(400).json({ success: false, error: 'enabled field is required' });
       }
 
-      // Note: propertyId and isMarketplaceEnabled fields don't exist in current schema
-      const room = await Room.findOne({
-        where: { id }
-      });
-
+      const room = await Room.findByPk(id);
       if (!room) {
-        return res.status(404).json({
-          success: false,
-          error: 'Room not found'
-        });
+        return res.status(404).json({ success: false, error: 'Room not found' });
       }
 
-      // isMarketplaceEnabled field doesn't exist in current schema - skipping update
-      // await room.update({ isMarketplaceEnabled: enabled });
-      
-      // Enriquecer respuesta con datos del PMS
-      const enriched = await RoomEnrichmentService.enrichRoom(room);
+      await room.update({ is_marketplace_enabled: !!enabled });
 
+      const enriched = await RoomEnrichmentService.enrichRoom(room);
       res.json({
         success: true,
         data: enriched,
@@ -535,11 +373,7 @@ class StaffRoomController {
       });
     } catch (error: any) {
       console.error('Error toggling marketplace:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to toggle marketplace status',
-        message: error.message
-      });
+      res.status(500).json({ success: false, error: 'Failed to toggle marketplace status', message: error.message });
     }
   }
 
@@ -549,51 +383,29 @@ class StaffRoomController {
    */
   async toggleMarketplaceBatch(req: AuthRequest, res: Response) {
     try {
-      const user = req.user!;
-      const propertyId = user.property_id;
+      const propertyId = req.user?.property_id ?? null;
       const { enabled } = req.body;
 
-      if (!propertyId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Staff user must be assigned to a property'
-        });
-      }
-
       if (typeof enabled !== 'boolean') {
-        return res.status(400).json({
-          success: false,
-          error: 'enabled field is required and must be boolean'
-        });
+        return res.status(400).json({ success: false, error: 'enabled field is required and must be boolean' });
       }
 
-      // Operación batch: actualizar todas las habitaciones de la propiedad
-      // Note: isMarketplaceEnabled and propertyId fields don't exist in current schema
-      // Would need database migration to add these fields
-      const updatedCount = 0; // Placeholder - feature not available without schema changes
-      // const [updatedCount] = await Room.update(
-      //   { isMarketplaceEnabled: enabled },
-      //   { 
-      //     where: { propertyId },
-      //     returning: false
-      //   }
-      // );
+      const where: any = {};
+      if (propertyId) where.property_id = propertyId;
+
+      const [updatedCount] = await Room.update(
+        { is_marketplace_enabled: enabled },
+        { where }
+      );
 
       res.json({
         success: true,
-        data: {
-          count: updatedCount,
-          enabled: enabled
-        },
+        data: { count: updatedCount, enabled },
         message: `${updatedCount} rooms ${enabled ? 'enabled' : 'disabled'} in marketplace`
       });
     } catch (error: any) {
       console.error('Error batch toggling marketplace:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to batch toggle marketplace status',
-        message: error.message
-      });
+      res.status(500).json({ success: false, error: 'Failed to batch toggle marketplace status', message: error.message });
     }
   }
 }

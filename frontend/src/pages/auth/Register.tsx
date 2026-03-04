@@ -49,9 +49,8 @@ export default function Register() {
             setInvitationData(data);
             // Pre-fill form with invitation data
             setValue('email', data.email, { shouldValidate: true });
-            // Note: firstName and lastName are not part of the form schema
-            // if (data.first_name) setValue('firstName', data.first_name, { shouldValidate: true });
-            // if (data.last_name) setValue('lastName', data.last_name, { shouldValidate: true });
+            if (data.first_name) setValue('firstName', data.first_name, { shouldValidate: true });
+            if (data.last_name) setValue('lastName', data.last_name, { shouldValidate: true });
             setValue('roleName', 'owner', { shouldValidate: true });
             
             toast.success(
@@ -170,6 +169,45 @@ export default function Register() {
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                {t('auth.firstName') || 'First Name'}
+              </label>
+              <input
+                id="firstName"
+                type="text"
+                autoComplete="given-name"
+                readOnly={!!invitationData}
+                {...register('firstName')}
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition ${
+                  errors.firstName ? 'border-red-500' : 'border-gray-300'
+                } ${invitationData ? 'bg-gray-50' : ''}`}
+              />
+              {errors.firstName && (
+                <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                {t('auth.lastName') || 'Last Name'}
+              </label>
+              <input
+                id="lastName"
+                type="text"
+                autoComplete="family-name"
+                readOnly={!!invitationData}
+                {...register('lastName')}
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition ${
+                  errors.lastName ? 'border-red-500' : 'border-gray-300'
+                } ${invitationData ? 'bg-gray-50' : ''}`}
+              />
+              {errors.lastName && (
+                <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+              )}
+            </div>
+          </div>
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               {t('auth.password')}
@@ -245,7 +283,6 @@ export default function Register() {
             >
               <option value="owner">{t('auth.roleOwner') || 'Property Owner'}</option>
               <option value="staff">{t('auth.roleStaff') || 'Hotel Staff'}</option>
-              <option value="admin">{t('auth.roleAdmin') || 'Administrator'}</option>
             </select>
             {errors.roleName && (
               <p className="mt-1 text-sm text-red-600">{errors.roleName.message}</p>

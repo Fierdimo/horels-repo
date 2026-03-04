@@ -131,7 +131,7 @@ export default function BookingSuccess() {
                     <div className="flex justify-between items-center pt-2 border-t">
                       <span className="text-lg font-semibold">{t('marketplace.checkout.totalValue')}</span>
                       <span className="text-2xl font-bold text-green-600">
-                        €{booking.totalAmount.toFixed(2)}
+                        €{(booking.totalAmount ?? booking.cashPaid ?? 0).toFixed(2)}
                       </span>
                     </div>
                     {booking.newCreditBalance !== undefined && (
@@ -144,7 +144,7 @@ export default function BookingSuccess() {
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">{t('marketplace.checkout.totalPaid')}</span>
                     <span className="text-2xl font-bold text-green-600">
-                      {booking.currency?.toUpperCase()} {booking.totalAmount.toFixed(2)}
+                      {booking.currency?.toUpperCase() || 'EUR'} {(booking.totalAmount ?? booking.cashPaid ?? 0).toFixed(2)}
                     </span>
                   </div>
                 )}

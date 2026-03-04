@@ -6,59 +6,66 @@
  */
 
 import { Router, Request, Response } from 'express';
+import Stripe from 'stripe';
+import * as crypto from 'crypto';
 import TimeshareProperty from '../models/v2/TimeshareProperty';
 import TimeshareUnit from '../models/v2/TimeshareUnit';
 import WeekAllocation from '../models/v2/WeekAllocation';
 import Ownership from '../models/v2/Ownership';
+import V2Booking from '../models/v2/V2Booking';
+import Room from '../models/room';
 import { Op } from 'sequelize';
+import pricingService from '../services/pricingService';
+import CreditAccount from '../models/v2/CreditAccount';
 
 const router = Router();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 /**
  * GET /api/marketplace/properties
- * Get all available properties for marketplace
- * Reads from timeshare_properties table (seeded from Mock PMS)
+ * Lists all active properties from timeshare_properties.
+ * Each property also surfaces its hotel rooms (rooms table, is_marketplace_enabled=true)
+ * so staff-created rooms appear here alongside timeshare units.
  */
 router.get('/properties', async (req: Request, res: Response) => {
   try {
     const { city, search } = req.query;
 
-    // Build query conditions
-    const whereConditions: any = {
-      is_active: true
-    };
-
-    if (city) {
-      whereConditions.city = { [Op.like]: `%${city}%` };
-    }
-
+    const where: any = { is_active: true };
+    if (city) where.city = { [Op.like]: `%${city}%` };
     if (search) {
-      whereConditions[Op.or] = [
+      where[Op.or] = [
         { name: { [Op.like]: `%${search}%` } },
         { city: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
+        { description: { [Op.like]: `%${search}%` } },
       ];
     }
 
-    // Fetch properties with their units
     const properties = await TimeshareProperty.findAll({
-      where: whereConditions,
-      include: [{
-        model: TimeshareUnit,
-        as: 'units',
-        where: { is_active: true },
-        required: false
-      }],
-      order: [['name', 'ASC']]
+      where,
+      include: [{ model: TimeshareUnit, as: 'units', where: { is_active: true }, required: false }],
+      order: [['name', 'ASC']],
     });
 
-    // Format response
-    const propertiesData = properties.map((property: any) => {
+    const propertiesData = await Promise.all(properties.map(async (property: any) => {
       const units = property.units || [];
-      const minPrice = units.length > 0 
-        ? Math.min(...units.map((u: any) => u.base_credit_value))
-        : 0;
-      
+      // Also fetch hotel rooms enabled in marketplace for this property
+      const rooms = await Room.findAll({
+        where: { property_id: property.id, is_marketplace_enabled: true },
+      });
+
+      // Unified marketplace — all users see all room types.
+      // Payment method restrictions are enforced at checkout, not here.
+      const timeshareCredits = units.map((u: any) => u.base_credit_value as number);
+      const hotelPrices = await Promise.all(
+        rooms.map(async (r: any) => {
+          const base = Number(r.base_price) || 0;
+          return base > 0 ? await pricingService.calculateGuestPrice(base) : 0;
+        })
+      );
+      const allItems = [...timeshareCredits, ...hotelPrices];
+      const minPrice = allItems.length > 0 ? Math.min(...allItems) : 0;
+
       return {
         id: property.id,
         name: property.name,
@@ -67,106 +74,155 @@ router.get('/properties', async (req: Request, res: Response) => {
         description: property.description,
         images: property.images ? JSON.parse(property.images) : [],
         amenities: property.amenities ? JSON.parse(property.amenities) : [],
-        checkInTime: '15:00',
-        checkOutTime: '11:00',
-        phone: '+34 000 000 000',
-        email: `info@${property.name.toLowerCase().replace(/\s/g, '')}.com`,
-        timezone: 'Europe/Madrid',
-        roomTypesCount: units.length,
+        checkInTime: property.check_in_time || '15:00',
+        checkOutTime: property.check_out_time || '11:00',
+        roomTypesCount: units.length + rooms.length,
         minPrice,
-        currency: property.condominium_fee_currency,
-        available: true
+        currency: property.condominium_fee_currency || 'EUR',
+        available: units.length > 0 || rooms.length > 0,
       };
-    });
+    }));
 
     res.json({
       success: true,
       count: propertiesData.length,
       data: propertiesData,
-      source: 'database'
+      source: 'database',
     });
   } catch (error) {
     console.error('Error fetching marketplace properties:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch properties'
-    });
+    res.status(500).json({ success: false, error: 'Failed to fetch properties' });
   }
 });
 
 /**
  * GET /api/marketplace/properties/:propertyId
- * Get detailed property information including room types
- * Reads from database (timeshare_properties + timeshare_units)
+ * Get detailed property information: timeshare units + hotel rooms.
  */
 router.get('/properties/:propertyId', async (req: Request, res: Response) => {
   try {
-    const { propertyId } = req.params;
+    const propertyId = parseInt(req.params.propertyId);
+    const { checkIn, checkOut } = req.query;
+    const checkInDate = checkIn ? new Date(checkIn as string) : null;
+    const checkOutDate = checkOut ? new Date(checkOut as string) : null;
 
-    // Fetch property with units
     const property = await TimeshareProperty.findOne({
-      where: { 
-        id: parseInt(propertyId),
-        is_active: true 
-      },
-      include: [{
-        model: TimeshareUnit,
-        as: 'units',
-        where: { is_active: true },
-        required: false
-      }]
+      where: { id: propertyId, is_active: true },
+      include: [{ model: TimeshareUnit, as: 'units', where: { is_active: true }, required: false }],
     });
 
     if (!property) {
-      return res.status(404).json({
-        success: false,
-        error: 'Property not found'
-      });
+      return res.status(404).json({ success: false, error: 'Property not found' });
     }
 
-    // Format response
+    // Also load hotel rooms enabled for the marketplace
+    const hotelRooms = await Room.findAll({
+      where: { property_id: propertyId, is_marketplace_enabled: true },
+      order: [['name', 'ASC']],
+    });
+
     const propertyData: any = property.toJSON();
-    
-    res.json({
+
+    const timeshareRoomTypes = await Promise.all((propertyData.units || []).map(async (unit: any) => {
+      let availableRooms = unit.quantity;
+      if (checkInDate && checkOutDate) {
+        const activeBookings = await V2Booking.count({
+          where: {
+            property_id: propertyId,
+            room_category: unit.category,
+            status: { [Op.in]: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+            check_in: { [Op.lt]: checkOutDate },
+            check_out: { [Op.gt]: checkInDate },
+          },
+        });
+        availableRooms = Math.max(0, (unit.quantity ?? 0) - activeBookings);
+      }
+      const basePrice = Number(unit.base_credit_value) || 0;
+      const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
+      return {
+        id: unit.id,
+        name: unit.category,
+        description: unit.description,
+        capacity: unit.capacity_max,
+        basePrice,
+        guestPrice,
+        currency: propertyData.condominium_fee_currency || 'EUR',
+        images: unit.images ? JSON.parse(unit.images) : [],
+        amenities: unit.amenities ? JSON.parse(unit.amenities) : [],
+        quantity: unit.quantity,
+        availableRooms,
+        available: availableRooms > 0,
+        bedrooms: unit.bedrooms,
+        bathrooms: unit.bathrooms,
+        sizeSqm: unit.size_sqm,
+        source: 'timeshare',
+      };
+    }));
+
+    const hotelRoomTypes = await Promise.all(hotelRooms.map(async (room: any) => {
+      const basePrice = Number(room.base_price) || 0;
+      const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
+      let availableRooms = room.quantity ?? 1;
+      if (checkInDate && checkOutDate) {
+        const activeBookings = await V2Booking.count({
+          where: {
+            property_id: propertyId,
+            room_category: `room-${room.id}`,
+            status: { [Op.in]: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+            check_in: { [Op.lt]: checkOutDate },
+            check_out: { [Op.gt]: checkInDate },
+          },
+        });
+        availableRooms = Math.max(0, (room.quantity ?? 1) - activeBookings);
+      }
+      return {
+        id: `room-${room.id}`,
+        name: room.name,
+        description: room.description,
+        capacity: room.capacity,
+        quantity: room.quantity ?? 1,
+        availableRooms,
+        basePrice,
+        guestPrice,
+        currency: 'EUR',
+        images: room.imageList,
+        amenities: [],
+        available: room.status === 'available' && availableRooms > 0,
+        floor: room.floor,
+        type: room.type,
+        source: 'hotel',
+      };
+    }));
+
+    // Unified marketplace — all users see all room types.
+    // Payment restrictions enforced at checkout (guests: card only; hotel rooms: card only).
+    const roomTypes = [...timeshareRoomTypes, ...hotelRoomTypes];
+
+    return res.json({
       success: true,
       data: {
         id: propertyData.id,
         name: propertyData.name,
         address: propertyData.address,
+        region: propertyData.region,
+        postal_code: propertyData.postal_code,
         city: propertyData.city,
         country: propertyData.country,
         description: propertyData.description,
         images: propertyData.images ? JSON.parse(propertyData.images) : [],
         amenities: propertyData.amenities ? JSON.parse(propertyData.amenities) : [],
-        checkInTime: '15:00',
-        checkOutTime: '11:00',
+        checkInTime: propertyData.check_in_time || '15:00',
+        checkOutTime: propertyData.check_out_time || '11:00',
         phone: '+34 000 000 000',
         email: `info@${propertyData.name.toLowerCase().replace(/\s/g, '')}.com`,
         timezone: 'Europe/Madrid',
-        roomTypes: (propertyData.units || []).map((unit: any) => ({
-          id: unit.id,
-          name: unit.name,
-          description: unit.description,
-          capacity: unit.max_occupancy,
-          basePrice: unit.base_credit_value,
-          currency: propertyData.condominium_fee_currency,
-          images: unit.images ? JSON.parse(unit.images) : [],
-          amenities: unit.amenities ? JSON.parse(unit.amenities) : [],
-          quantity: unit.quantity,
-          available: true,
-          bedrooms: unit.bedrooms,
-          bathrooms: unit.bathrooms,
-          sizeSqm: unit.size_sqm
-        }))
+        roomTypes,
       },
-      source: 'database'
+      source: 'database',
     });
   } catch (error) {
     console.error('Error fetching property details:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch property details'
-    });
+    res.status(500).json({ success: false, error: 'Failed to fetch property details' });
   }
 });
 
@@ -221,40 +277,30 @@ router.get('/properties/:propertyId/availability', async (req: Request, res: Res
 
     // Check availability for each unit
     const availability = await Promise.all(units.map(async (unit: any) => {
-      // Find RELEASED weeks that overlap with requested dates
-      const releasedWeeks = await WeekAllocation.count({
+      // Count active bookings that overlap with the requested date range
+      const activeBookings = await V2Booking.count({
         where: {
-          status: 'RELEASED',
-          [Op.or]: [
-            {
-              start_date: { [Op.between]: [checkInDate, checkOutDate] }
-            },
-            {
-              end_date: { [Op.between]: [checkInDate, checkOutDate] }
-            },
-            {
-              [Op.and]: [
-                { start_date: { [Op.lte]: checkInDate } },
-                { end_date: { [Op.gte]: checkOutDate } }
-              ]
-            }
-          ]
+          property_id: parseInt(propertyId),
+          room_category: unit.category,
+          status: { [Op.in]: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
+          check_in: { [Op.lt]: checkOutDate },
+          check_out: { [Op.gt]: checkInDate },
         },
-        include: [{
-          model: require('../models/v2/Ownership').default,
-          as: 'ownership',
-          where: { unit_id: unit.id },
-          required: true
-        }]
       });
+
+      const totalUnits = unit.quantity ?? 0;
+      const availableUnits = Math.max(0, totalUnits - activeBookings);
+      const basePrice = Number(unit.base_credit_value) || 0;
+      const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
 
       return {
         unitId: unit.id,
-        unitName: unit.name,
-        totalUnits: unit.quantity,
-        availableWeeks: releasedWeeks,
-        available: releasedWeeks > 0,
-        price: unit.base_credit_value,
+        unitName: unit.category,
+        totalUnits,
+        availableUnits,
+        available: availableUnits > 0,
+        price: guestPrice,      // commission-adjusted price shown to guests
+        basePrice,              // raw base price (for credit calculations)
         currency: unit.currency || 'EUR'
       };
     }));
@@ -279,48 +325,37 @@ router.get('/properties/:propertyId/availability', async (req: Request, res: Res
 
 /**
  * GET /api/marketplace/cities
- * Get list of cities with available properties
+ * Get list of cities with available properties (timeshare + hotel)
  */
 router.get('/cities', async (req: Request, res: Response) => {
   try {
-    // Query unique cities from database
+    // timeshare_properties IS the only properties table — single query, no duplicates
     const properties = await TimeshareProperty.findAll({
       where: { is_active: true },
       attributes: ['city', 'country'],
-      group: ['city', 'country']
+      group: ['city', 'country'],
     });
-    
-    // Count properties per city
-    const citiesData = await Promise.all(
-      properties.map(async (p: any) => {
-        const count = await TimeshareProperty.count({
-          where: {
-            city: p.city,
-            country: p.country,
-            is_active: true
-          }
-        });
 
-        return {
-          city: p.city,
-          country: p.country,
-          count
-        };
-      })
-    );
+    const cityMap = new Map<string, { city: string; country: string; count: number }>();
+    for (const p of properties) {
+      const key = `${(p as any).city}|${(p as any).country}`;
+      if (!cityMap.has(key)) {
+        cityMap.set(key, { city: (p as any).city, country: (p as any).country, count: 0 });
+      }
+      cityMap.get(key)!.count++;
+    }
+
+    const citiesData = Array.from(cityMap.values()).sort((a, b) => a.city.localeCompare(b.city));
 
     res.json({
       success: true,
       count: citiesData.length,
-      data: citiesData.sort((a, b) => a.city.localeCompare(b.city)),
-      source: 'database'
+      data: citiesData,
+      source: 'database',
     });
   } catch (error) {
     console.error('Error fetching cities:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch cities'
-    });
+    res.status(500).json({ success: false, error: 'Failed to fetch cities' });
   }
 });
 
@@ -435,5 +470,442 @@ router.get('/search', async (req: Request, res: Response) => {
   }
 });
 */
+
+// ==================== HELPER ====================
+
+function generateConfirmationCode(propertyId: number): string {
+  const prefix = String.fromCharCode(65 + (propertyId % 26));
+  const timestamp = Date.now().toString().slice(-4);
+  const year = new Date().getFullYear();
+  return `${prefix}${prefix}${prefix}-${timestamp}-${year}`;
+}
+
+/**
+ * Determine booking source from the roomType string:
+ *  - "room-N"  → HOTEL_PMS  (hotel room by numeric id)
+ *  - pure number → TIMESHARE  (timeshare unit by id)
+ *  - anything else → check by DB lookup; default TIMESHARE for credit pricing
+ * For booking records we default unknown names to TIMESHARE so credit deduction works.
+ */
+function inferSource(roomType: string): 'TIMESHARE' | 'HOTEL_PMS' {
+  if (roomType.startsWith('room-')) return 'HOTEL_PMS';
+  if (/^\d+$/.test(roomType.trim())) return 'TIMESHARE';
+  // Upper-case category names are timeshare (e.g. "STUDIO", "PENTHOUSE"); anything else hotel
+  return roomType === roomType.toUpperCase() ? 'TIMESHARE' : 'HOTEL_PMS';
+}
+
+// ==================== CREDIT BALANCE ====================
+
+/**
+ * GET /api/marketplace/credits/balance/:userId
+ * Returns the user's current credit wallet balance.
+ */
+router.get('/credits/balance/:userId', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid userId' });
+    }
+    // Use V2 credit_accounts table (not the V1 user_credit_wallets)
+    let account = await CreditAccount.findOne({ where: { user_id: userId } });
+    if (!account) {
+      // Return zero balance rather than error if no account exists yet
+      return res.json({
+        success: true,
+        data: { userId, balance: 0, totalEarned: 0, totalSpent: 0 },
+      });
+    }
+    return res.json({
+      success: true,
+      data: {
+        userId,
+        balance: Number(account.balance),
+        totalEarned: Number(account.total_earned),
+        totalSpent: Number(account.total_spent),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching credit balance:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch credit balance' });
+  }
+});
+
+// ==================== PRICING ====================
+
+/**
+ * POST /api/marketplace/properties/:propertyId/room-types/:roomType/calculate-credit-price
+ * Returns the price breakdown for a booking in both credits and EUR.
+ * Used by CreditPaymentSelector to show payment options.
+ */
+router.post(
+  '/properties/:propertyId/room-types/:roomType/calculate-credit-price',
+  async (req: Request, res: Response) => {
+    try {
+      const { propertyId, roomType } = req.params;
+      const { checkIn, checkOut } = req.body;
+
+      if (!checkIn || !checkOut) {
+        return res.status(400).json({ success: false, error: 'checkIn and checkOut are required' });
+      }
+
+      const checkInDate = new Date(checkIn);
+      const checkOutDate = new Date(checkOut);
+      const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+      const rt = String(roomType);
+      const isRoomPrefixed = rt.startsWith('room-');    // "room-1" → hotel room by ID
+      const isNumeric = !isRoomPrefixed && /^\d+$/.test(rt.trim()); // "28" → timeshare by ID
+
+      if (isRoomPrefixed) {
+        // Hotel room identified by "room-<id>" — no credits, return EUR price
+        const roomId = parseInt(rt.replace('room-', ''));
+        const room = await Room.findOne({ where: { id: roomId, is_marketplace_enabled: true } });
+        if (!room) {
+          return res.status(404).json({ success: false, error: 'Room not found' });
+        }
+        const basePrice = Number((room as any).base_price) || 0;
+        const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
+        const totalEur = parseFloat((guestPrice * nights).toFixed(2));
+        return res.json({
+          success: true,
+          data: { creditsRequired: 0, totalEur, creditToEurRate: 1, nights },
+        });
+      }
+
+      // Timeshare unit — can be numeric ID ("28") or category name ("STUDIO")
+      const unitWhere: any = isNumeric
+        ? { id: parseInt(rt), is_active: true }
+        : { category: rt, property_id: parseInt(propertyId), is_active: true };
+
+      const unit = await TimeshareUnit.findOne({ where: unitWhere });
+
+      if (!unit) {
+        // Last resort: maybe it's a hotel room referenced by name
+        const roomByName = await Room.findOne({
+          where: { property_id: parseInt(propertyId), name: rt, is_marketplace_enabled: true },
+        });
+        if (roomByName) {
+          const basePrice = Number((roomByName as any).base_price) || 0;
+          const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
+          const totalEur = parseFloat((guestPrice * nights).toFixed(2));
+          return res.json({
+            success: true,
+            data: { creditsRequired: 0, totalEur, creditToEurRate: 1, nights },
+          });
+        }
+        return res.status(404).json({ success: false, error: 'Room type not found' });
+      }
+
+      const pricePerNight = Number((unit as any).base_credit_value) || 0;
+      // credits stay at base rate; EUR price includes platform commission
+      const guestPricePerNight = pricePerNight > 0 ? await pricingService.calculateGuestPrice(pricePerNight) : 0;
+      const creditsRequired = Math.ceil(pricePerNight * nights);
+      const creditToEurRate = 1; // 1 credit = 1 EUR
+      const totalEur = parseFloat((guestPricePerNight * nights).toFixed(2));
+
+      return res.json({
+        success: true,
+        data: { creditsRequired, totalEur, creditToEurRate, nights },
+      });
+    } catch (error) {
+      console.error('Error calculating credit price:', error);
+      return res.status(500).json({ success: false, error: 'Failed to calculate price' });
+    }
+  }
+);
+
+// ==================== STRIPE PAYMENT INTENT ====================
+
+/**
+ * POST /api/marketplace/properties/:propertyId/room-types/:roomType/create-payment-intent
+ * Creates a Stripe PaymentIntent for the given amount.
+ * The frontend passes the pre-calculated cardAmount (after any credit deduction).
+ */
+router.post(
+  '/properties/:propertyId/room-types/:roomType/create-payment-intent',
+  async (req: Request, res: Response) => {
+    try {
+      const { propertyId, roomType } = req.params;
+      const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests, amount } = req.body;
+
+      if (!guestName || !guestEmail || !checkIn || !checkOut) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields: guestName, guestEmail, checkIn, checkOut',
+        });
+      }
+
+      const property = await TimeshareProperty.findOne({
+        where: { id: parseInt(propertyId), is_active: true },
+      });
+      if (!property) {
+        return res.status(404).json({ success: false, error: 'Property not found' });
+      }
+
+      const totalAmount = parseFloat(amount) || 0;
+      if (totalAmount < 0.5) {
+        return res.status(400).json({
+          success: false,
+          error: 'Amount is below Stripe minimum (€0.50)',
+        });
+      }
+
+      const checkInDate = new Date(checkIn);
+      const checkOutDate = new Date(checkOut);
+      const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(totalAmount * 100), // Stripe uses cents
+        currency: 'eur',
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          type: 'marketplace_v2_booking',
+          property_id: propertyId,
+          property_name: (property as any).name,
+          room_type: roomType,
+          guest_name: guestName,
+          guest_email: guestEmail,
+          guest_phone: guestPhone || '',
+          check_in: checkIn,
+          check_out: checkOut,
+          nights: nights.toString(),
+          guests: String(guests || 1),
+        },
+        receipt_email: guestEmail,
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+          amount: totalAmount,
+          currency: 'eur',
+          nights,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error creating payment intent:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create payment intent',
+        message: error.message,
+      });
+    }
+  }
+);
+
+// ==================== BOOKINGS ====================
+
+/**
+ * POST /api/marketplace/bookings/with-credits
+ * Creates a booking using credits (optionally combined with a Stripe card payment).
+ * Deducts credits from the user's wallet when creditsToUse > 0.
+ */
+router.post('/bookings/with-credits', async (req: Request, res: Response) => {
+  try {
+    const {
+      propertyId,
+      roomType,
+      checkIn,
+      checkOut,
+      guests,
+      guestName,
+      guestEmail,
+      guestPhone,
+      userId,
+      creditsToUse,
+      paymentIntentId,
+    } = req.body;
+
+    if (!propertyId || !roomType || !checkIn || !checkOut || !guestName || !guestEmail) {
+      return res.status(400).json({ success: false, error: 'Missing required booking fields' });
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const creditsUsed = Math.max(0, Number(creditsToUse) || 0);
+    const isTimeshare = inferSource(String(roomType)) === 'TIMESHARE';
+
+    // Fetch property name for the success page
+    const property = await TimeshareProperty.findOne({ where: { id: parseInt(propertyId) } });
+    const propertyName = property ? (property as any).name : `Property #${propertyId}`;
+
+    // Deduct credits from credit_accounts (V2) when applicable
+    let newCreditBalance: number | undefined;
+    if (creditsUsed > 0 && userId) {
+      const account = await CreditAccount.findOne({ where: { user_id: parseInt(userId) } });
+      if (!account) {
+        return res.status(400).json({ success: false, error: 'Credit account not found' });
+      }
+      if (Number(account.balance) < creditsUsed) {
+        return res.status(400).json({ success: false, error: `Insufficient credits. Available: ${account.balance}, required: ${creditsUsed}` });
+      }
+      newCreditBalance = Number(account.balance) - creditsUsed;
+      await account.update({
+        balance: newCreditBalance,
+        total_spent: Number(account.total_spent) + creditsUsed,
+        last_transaction_at: new Date(),
+      });
+    }
+
+    // Determine cash amount: if a paymentIntentId is provided, the card portion was handled by Stripe.
+    // We store it as cash_paid = 0 for now; the actual EUR figure can be reconciled via Stripe webhooks.
+    const cashPaid = paymentIntentId ? 0 : 0; // Could be improved with PI retrieval
+
+    const confirmationCode = generateConfirmationCode(parseInt(propertyId));
+
+    const booking = await V2Booking.create({
+      booking_code: confirmationCode,   // Sequelize attr 'booking_code' maps to DB column 'confirmation_code'
+      guest_id: userId ? parseInt(userId) : null,
+      property_id: parseInt(propertyId),
+      check_in: checkInDate,
+      check_out: checkOutDate,
+      nights,
+      guest_name: guestName,
+      guest_email: guestEmail,
+      guest_phone: guestPhone || null,
+      number_of_guests: parseInt(guests) || 1,
+      room_category: String(roomType),
+      source: isTimeshare ? 'TIMESHARE' : 'HOTEL_PMS',
+      credits_used: creditsUsed,
+      cash_paid: cashPaid,
+      currency: 'EUR',
+      platform_cost: 0,
+      platform_revenue: creditsUsed + cashPaid,
+      margin_percent: isTimeshare ? 100 : 30,
+      status: 'CONFIRMED',
+      pms_provider: null,
+      pms_booking_id: paymentIntentId || null,
+    } as any);
+
+    return res.json({
+      success: true,
+      data: {
+        id: booking.id,
+        confirmationNumber: confirmationCode,
+        property: propertyName,
+        propertyId,
+        roomType,
+        checkIn,
+        checkOut,
+        nights,
+        guests: parseInt(guests) || 1,
+        guestName,
+        guestEmail,
+        creditsUsed,
+        cashPaid,
+        totalAmount: cashPaid,
+        currency: 'EUR',
+        newCreditBalance,
+        status: booking.status,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error creating booking with credits:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create booking',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/marketplace/bookings
+ * Creates a booking record after a successful Stripe card payment.
+ */
+router.post('/bookings', async (req: Request, res: Response) => {
+  try {
+    const {
+      propertyId,
+      roomType,
+      checkIn,
+      checkOut,
+      guests,
+      guestName,
+      guestEmail,
+      guestPhone,
+      userId,
+      paymentIntentId,
+      totalAmount,
+      currency,
+      nights: reqNights,
+    } = req.body;
+
+    if (!propertyId || !roomType || !checkIn || !checkOut || !guestName || !guestEmail) {
+      return res.status(400).json({ success: false, error: 'Missing required booking fields' });
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const nights = reqNights
+      ? parseInt(reqNights)
+      : Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const cashPaid = parseFloat(totalAmount) || 0;
+    const isTimeshare = inferSource(String(roomType)) === 'TIMESHARE';
+
+    // Fetch property name for the success page
+    const property = await TimeshareProperty.findOne({ where: { id: parseInt(propertyId) } });
+    const propertyName = property ? (property as any).name : `Property #${propertyId}`;
+
+    const confirmationCode = generateConfirmationCode(parseInt(propertyId));
+
+    const booking = await V2Booking.create({
+      booking_code: confirmationCode,   // Sequelize attr 'booking_code' maps to DB column 'confirmation_code'
+      guest_id: userId ? parseInt(userId) : null,
+      property_id: parseInt(propertyId),
+      check_in: checkInDate,
+      check_out: checkOutDate,
+      nights,
+      guest_name: guestName,
+      guest_email: guestEmail,
+      guest_phone: guestPhone || null,
+      number_of_guests: parseInt(guests) || 1,
+      room_category: String(roomType),
+      source: isTimeshare ? 'TIMESHARE' : 'HOTEL_PMS',
+      credits_used: 0,
+      cash_paid: cashPaid,
+      currency: currency || 'EUR',
+      platform_cost: 0,
+      platform_revenue: cashPaid,
+      margin_percent: isTimeshare ? 100 : 30,
+      status: 'CONFIRMED',
+      pms_provider: null,
+      pms_booking_id: paymentIntentId || null,
+    } as any);
+
+    return res.json({
+      success: true,
+      data: {
+        id: booking.id,
+        confirmationNumber: confirmationCode,
+        property: propertyName,
+        propertyId,
+        roomType,
+        checkIn,
+        checkOut,
+        nights,
+        guests: parseInt(guests) || 1,
+        guestName,
+        guestEmail,
+        cashPaid,
+        totalAmount: cashPaid,
+        currency: currency || 'EUR',
+        creditsUsed: 0,
+        status: booking.status,
+        paymentIntentId,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error creating booking:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create booking',
+      message: error.message,
+    });
+  }
+});
 
 export default router;

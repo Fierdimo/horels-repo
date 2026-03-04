@@ -585,12 +585,10 @@ router.get('/properties', authenticateToken, authorizeRole(['staff', 'admin']), 
 
 /**
  * Listar habitaciones del hotel del staff
- * DEPRECATED: V2 uses timeshare units, not rooms
  */
-router.get('/rooms', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_list_rooms'), (req: AuthRequest, res: Response) => {
-  // V2: Return empty array since we don't use rooms in timeshare model
-  res.json({ success: true, data: [], message: 'V2: Rooms not applicable for timeshares' });
-});
+router.get('/rooms', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_list_rooms'), (req: AuthRequest, res: Response) =>
+  staffRoomController.getRoomsByProperty(req, res)
+);
 
 /**
  * Get season for specific date (for credit estimation in invitations)
@@ -697,6 +695,13 @@ router.post('/rooms', authenticateToken, authorizeRole(['staff', 'admin']), logA
 );
 
 /**
+ * Actualizar timeshare unit desde la vista de habitaciones del staff
+ */
+router.put('/rooms/timeshare/:id', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_update_timeshare_unit'), (req: AuthRequest, res: Response) =>
+  staffRoomController.updateTimeshareUnit(req, res)
+);
+
+/**
  * Actualizar habitación
  */
 router.put('/rooms/:id', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_update_room'), (req: AuthRequest, res: Response) => 
@@ -711,14 +716,7 @@ router.delete('/rooms/:id', authenticateToken, authorizeRole(['staff', 'admin'])
 );
 
 /**
- * Importar habitaciones desde PMS
- */
-router.post('/rooms/import-from-pms', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_import_rooms_pms'), (req: AuthRequest, res: Response) => 
-  staffRoomController.importFromPMS(req, res)
-);
-
-/**
- * Sincronizar habitaciones desde PMS (método simplificado)
+ * Sincronizar habitaciones desde PMS
  */
 router.post('/rooms/sync', authenticateToken, authorizeRole(['staff', 'admin']), logAction('staff_sync_rooms'), (req: AuthRequest, res: Response) => 
   staffRoomController.syncRooms(req, res)
@@ -825,10 +823,9 @@ router.get('/marketplace/config',
 
       const property = await Property.findByPk(propertyId, {
         attributes: [
-          'id', 'name', 'description', 'amenities', 'images', 'stars',
-          'is_marketplace_enabled', 'marketplace_description', 
-          'marketplace_images', 'marketplace_amenities', 'marketplace_enabled_at',
-          'city', 'country', 'check_in_time', 'check_out_time'
+          'id', 'name', 'description', 'amenities', 'images',
+          'is_marketplace_enabled', 'city', 'country', 'region',
+          'address', 'postal_code', 'check_in_time', 'check_out_time'
         ]
       });
 
@@ -869,8 +866,16 @@ router.put('/marketplace/config',
         marketplace_description, 
         marketplace_images, 
         marketplace_amenities,
+        description,
+        images,
+        amenities,
         city,
-        country
+        country,
+        region,
+        address,
+        postal_code,
+        check_in_time,
+        check_out_time
       } = req.body;
 
       if (!propertyId) {
@@ -904,16 +909,21 @@ router.put('/marketplace/config',
         // }
       }
       
-      if (marketplace_description !== undefined) {
-        updateData.marketplace_description = marketplace_description;
+      // Accept both marketplace_* aliases and direct field names
+      const newDescription = marketplace_description ?? description;
+      const newImages = marketplace_images ?? images;
+      const newAmenities = marketplace_amenities ?? amenities;
+
+      if (newDescription !== undefined) {
+        updateData.description = newDescription;
       }
       
-      if (marketplace_images !== undefined) {
-        updateData.marketplace_images = marketplace_images;
+      if (newImages !== undefined) {
+        updateData.images = newImages;
       }
       
-      if (marketplace_amenities !== undefined) {
-        updateData.marketplace_amenities = marketplace_amenities;
+      if (newAmenities !== undefined) {
+        updateData.amenities = newAmenities;
       }
 
       if (city !== undefined) {
@@ -922,6 +932,26 @@ router.put('/marketplace/config',
 
       if (country !== undefined) {
         updateData.country = country;
+      }
+
+      if (region !== undefined) {
+        updateData.region = region;
+      }
+
+      if (address !== undefined) {
+        updateData.address = address;
+      }
+
+      if (postal_code !== undefined) {
+        updateData.postal_code = postal_code;
+      }
+
+      if (check_in_time !== undefined) {
+        updateData.check_in_time = check_in_time;
+      }
+
+      if (check_out_time !== undefined) {
+        updateData.check_out_time = check_out_time;
       }
 
       await property.update(updateData);

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Bed, Edit, Trash2, Search, Filter, X, RefreshCw } from 'lucide-react';
+import { Bed, Edit, Trash2, Search, Filter, X, RefreshCw, Plus } from 'lucide-react';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
+import ImageUploader from '@/components/common/ImageUploader';
 
 export default function StaffRooms() {
   const { t } = useTranslation();
@@ -14,7 +15,10 @@ export default function StaffRooms() {
   const [floorFilter, setFloorFilter] = useState<string>('all');
   const [capacityFilter, setCapacityFilter] = useState<string>('all');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [createImages, setCreateImages] = useState<string[]>([]);
   const [hasAutoSynced, setHasAutoSynced] = useState(false);
 
   // Fetch rooms
@@ -71,22 +75,47 @@ export default function StaffRooms() {
     }
   }, [roomsData, hasAutoSynced]);
 
-  // Update room mutation
-  const updateRoomMutation = useMutation({
-    mutationFn: async ({ id, roomData }: { id: number; roomData: any }) => {
-      const { data } = await apiClient.put(`/hotel-staff/rooms/${id}`, roomData);
+  // Create room mutation
+  const createRoomMutation = useMutation({
+    mutationFn: async (roomData: any) => {
+      const { data } = await apiClient.post('/hotel-staff/rooms', roomData);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
+      toast.success(t('staff.rooms.createSuccess', 'Tipo de habitación creado'));
+      setShowCreateModal(false);
+      setCreateImages([]);
+    },
+    onError: (error: any) => {
+      const msg = error?.response?.data?.error || error.message;
+      toast.error(msg);
+    }
+  });
+
+  // Update room mutation
+  const updateRoomMutation = useMutation({
+    mutationFn: async ({ id, roomData, source }: { id: number; roomData: any; source?: string }) => {
+      const url = source === 'timeshare'
+        ? `/hotel-staff/rooms/timeshare/${id}`
+        : `/hotel-staff/rooms/${id}`;
+      const { data } = await apiClient.put(url, roomData);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
       toast.success(t('staff.rooms.updateSuccess'));
       setShowEditModal(false);
       setSelectedRoom(null);
     },
     onError: (error: any) => {
-      // Check if it's a duplicate name error
       if (error?.response?.data?.error?.includes('name must be unique') || 
-          error?.response?.data?.error?.includes('Duplicate entry')) {
+          error?.response?.data?.error?.includes('Duplicate entry') ||
+          error?.response?.data?.error?.includes('already exists')) {
         toast.error(t('staff.rooms.duplicateError'));
       } else {
         toast.error(t('staff.rooms.updateError'));
@@ -102,6 +131,8 @@ export default function StaffRooms() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['property-rooms'] });
       toast.success(t('staff.rooms.deleteSuccess'));
     },
     onError: () => {
@@ -249,18 +280,37 @@ export default function StaffRooms() {
       name: formData.get('name'),
       type: formData.get('type'),
       capacity: Number(formData.get('capacity')),
+      quantity: Number(formData.get('quantity')) || 1,
       floor: formData.get('floor'),
       basePrice: Number(formData.get('basePrice')),
       status: formData.get('status'),
       description: formData.get('description'),
+      images: editImages,
     };
-    updateRoomMutation.mutate({ id: selectedRoom.id, roomData });
+    updateRoomMutation.mutate({ id: selectedRoom.id, roomData, source: selectedRoom.source });
   };
 
   const handleDeleteRoom = (roomId: number) => {
     if (window.confirm(t('staff.rooms.confirmDelete'))) {
       deleteRoomMutation.mutate(roomId);
     }
+  };
+
+  const handleCreateRoom = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const roomData = {
+      name: formData.get('name'),
+      type: formData.get('type'),
+      capacity: Number(formData.get('capacity')),
+      quantity: Number(formData.get('quantity')) || 1,
+      floor: formData.get('floor') || null,
+      basePrice: Number(formData.get('basePrice')),
+      status: formData.get('status'),
+      description: formData.get('description'),
+      images: createImages,
+    };
+    createRoomMutation.mutate(roomData);
   };
 
   return (
@@ -271,7 +321,14 @@ export default function StaffRooms() {
           <h1 className="text-2xl font-bold text-gray-900">{t('staff.rooms.title')}</h1>
           <p className="text-gray-600 mt-1">{t('staff.rooms.subtitle')}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => { setCreateImages([]); setShowCreateModal(true); }}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{t('staff.rooms.newRoom', 'Nueva Habitación')}</span>
+          </button>
           <button
             onClick={() => enableAllMarketplaceMutation.mutate()}
             disabled={enableAllMarketplaceMutation.isPending || rooms.length === 0 || rooms.every((r: any) => r.isMarketplaceEnabled)}
@@ -449,8 +506,8 @@ export default function StaffRooms() {
                     {t('admin.rooms.capacity')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.rooms.floor')}
-                  </th>
+                    {t('staff.rooms.quantity', 'Cantidad')}
+                  </th> 
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {t('admin.rooms.price')}
                   </th>
@@ -472,10 +529,12 @@ export default function StaffRooms() {
                 {filteredRooms.map((room: any) => (
                   <tr key={room.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{room.name}</div>
-                      {room.description && (
-                        <div className="text-sm text-gray-500">{room.description}</div>
-                      )}
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                        {room.name} 
+                      </div>
+                      {/* {room.description && (
+                        <div className="text-sm text-gray-500 mt-1">{room.description}</div>
+                      )} */}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
@@ -486,8 +545,8 @@ export default function StaffRooms() {
                       {room.capacity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {room.floor || '-'}
-                    </td>
+                      {room.quantity ?? 1}
+                    </td> 
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       ${room.basePrice || room.base_price || 0}
                     </td>
@@ -544,6 +603,13 @@ export default function StaffRooms() {
                         <button
                           onClick={() => {
                             setSelectedRoom(room);
+                            setEditImages(
+                              Array.isArray(room.images)
+                                ? room.images
+                                : typeof room.images === 'string'
+                                  ? (() => { try { return JSON.parse(room.images); } catch { return []; } })()
+                                  : []
+                            );
                             setShowEditModal(true);
                           }}
                           className="text-blue-600 hover:text-blue-900"
@@ -594,13 +660,90 @@ export default function StaffRooms() {
         </div>
       </div>
 
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">{t('staff.rooms.newRoom', 'Nueva Habitación')}</h2>
+              <button onClick={() => { setShowCreateModal(false); setCreateImages([]); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateRoom} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.roomName')}</label>
+                <input type="text" name="name" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.type')}</label>
+                  <select name="type" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="standard">{t('admin.rooms.types.standard')}</option>
+                    <option value="deluxe">{t('admin.rooms.types.deluxe')}</option>
+                    <option value="suite">{t('admin.rooms.types.suite')}</option>
+                    <option value="single">{t('admin.rooms.types.single')}</option>
+                    <option value="double">{t('admin.rooms.types.double')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('staff.rooms.quantity', 'Cantidad')}</label>
+                  <input type="number" name="quantity" defaultValue={1} required min="1" max="9999" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.capacity')}</label>
+                  <input type="number" name="capacity" defaultValue={2} required min="1" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.floor')}</label>
+                  <input type="text" name="floor" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.price')}</label>
+                  <input type="number" name="basePrice" defaultValue={0} required min="0" step="0.01" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.status')}</label>
+                <select name="status" defaultValue="available" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="available">{t('admin.rooms.statuses.available')}</option>
+                  <option value="occupied">{t('admin.rooms.statuses.occupied')}</option>
+                  <option value="maintenance">{t('admin.rooms.statuses.maintenance')}</option>
+                  <option value="unavailable">{t('admin.rooms.statuses.unavailable')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.description')}</label>
+                <textarea name="description" rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('common.photos', 'Photos')}</label>
+                <ImageUploader images={createImages} onChange={setCreateImages} />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button type="button" onClick={() => { setShowCreateModal(false); setCreateImages([]); }} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                  {t('common.cancel')}
+                </button>
+                <button type="submit" disabled={createRoomMutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {createRoomMutation.isPending ? t('common.saving') : t('staff.rooms.newRoom', 'Crear Habitación')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {showEditModal && selectedRoom && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">{t('admin.rooms.editRoom')}</h2>
-              <button onClick={() => { setShowEditModal(false); setSelectedRoom(null); }} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-xl font-bold text-gray-900">
+                {selectedRoom?.source === 'timeshare' ? 'Editar Unidad Timeshare' : t('admin.rooms.editRoom')}
+              </h2>
+              <button onClick={() => { setShowEditModal(false); setSelectedRoom(null); setEditImages([]); }} className="text-gray-400 hover:text-gray-600">
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -621,17 +764,23 @@ export default function StaffRooms() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('staff.rooms.quantity', 'Cantidad')}</label>
+                  <input type="number" name="quantity" defaultValue={selectedRoom.quantity ?? 1} required min="1" max="9999" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.capacity')}</label>
                   <input type="number" name="capacity" defaultValue={selectedRoom.capacity} required min="1" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.floor')}</label>
                   <input type="text" name="floor" defaultValue={selectedRoom.floor} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('admin.rooms.price')}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {selectedRoom?.source === 'timeshare' ? t('staff.rooms.creditValue', 'Valor en créditos') : t('admin.rooms.price')}
+                  </label>
                   <input type="number" name="basePrice" defaultValue={selectedRoom.basePrice || selectedRoom.base_price} required min="0" step="0.01" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
               </div>
@@ -647,6 +796,15 @@ export default function StaffRooms() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.description')}</label>
                 <textarea name="description" defaultValue={selectedRoom.description} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('common.photos', 'Photos')}
+                </label>
+                <ImageUploader
+                  images={editImages}
+                  onChange={setEditImages}
+                />
               </div>
               <div className="flex justify-end space-x-3 pt-4">
                 <button type="button" onClick={() => { setShowEditModal(false); setSelectedRoom(null); }} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">

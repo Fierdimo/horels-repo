@@ -37,37 +37,22 @@ router.get('/properties', async (req: Request, res: Response) => {
     // Filtros opcionales
     if (city) where.city = city;
     if (country) where.country = country;
-    if (stars) where.stars = parseInt(stars as string);
     if (search) {
       where[Op.or] = [
         { name: { [Op.like]: `%${search}%` } },
         { city: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } },
-        { marketplace_description: { [Op.like]: `%${search}%` } }
+        { description: { [Op.like]: `%${search}%` } }
       ];
     }
 
     const properties = await Property.findAll({
       where,
       attributes: [
-        'id', 'name', 'location', 'city', 'country', 'stars',
-        'check_in_time', 'check_out_time', 'timezone', 'languages',
-        'pms_provider', // Indica si tiene disponibilidad en tiempo real
-        // Use marketplace fields if available, fallback to regular fields
-        [Property.sequelize!.fn('COALESCE', 
-          Property.sequelize!.col('marketplace_description'), 
-          Property.sequelize!.col('description')
-        ), 'description'],
-        [Property.sequelize!.fn('COALESCE', 
-          Property.sequelize!.col('marketplace_images'), 
-          Property.sequelize!.col('images')
-        ), 'images'],
-        [Property.sequelize!.fn('COALESCE', 
-          Property.sequelize!.col('marketplace_amenities'), 
-          Property.sequelize!.col('amenities')
-        ), 'amenities'],
+        'id', 'name', 'city', 'country',
+        'pms_provider',
+        'description', 'images', 'amenities',
       ],
-      order: [['stars', 'DESC'], ['name', 'ASC']]
+      order: [['name', 'ASC']]
     });
 
     res.json({
@@ -100,21 +85,7 @@ router.get('/properties/:id', async (req: Request, res: Response) => {
         is_active: true
       },
       attributes: {
-        exclude: ['pms_credentials', 'bank_account_info', 'stripe_connect_account_id'], // No exponer datos sensibles
-        include: [
-          [Property.sequelize!.fn('COALESCE', 
-            Property.sequelize!.col('marketplace_description'), 
-            Property.sequelize!.col('description')
-          ), 'description'],
-          [Property.sequelize!.fn('COALESCE', 
-            Property.sequelize!.col('marketplace_images'), 
-            Property.sequelize!.col('images')
-          ), 'images'],
-          [Property.sequelize!.fn('COALESCE', 
-            Property.sequelize!.col('marketplace_amenities'), 
-            Property.sequelize!.col('amenities')
-          ), 'amenities'],
-        ]
+        exclude: ['pms_credentials', 'pms_credentials_encrypted', 'bank_account_info', 'stripe_connect_account_id']
       }
     });
 

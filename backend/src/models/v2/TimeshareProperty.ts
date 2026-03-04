@@ -34,6 +34,8 @@ class TimeshareProperty extends Model {
   public program_type!: 'FIXED_WEEK' | 'FLOATING' | 'POINTS';
   public weeks_per_year!: number; // Typically 52
   public check_in_day!: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY' | null;
+  public check_in_time!: string | null;
+  public check_out_time!: string | null;
   
   // Metadata
   public description!: string | null;
@@ -153,6 +155,18 @@ export function initTimeshareProperty(sequelize: Sequelize): typeof TimesharePro
         allowNull: true,
         defaultValue: 'SATURDAY',
         comment: 'Day of week for check-in',
+      },
+      check_in_time: {
+        type: DataTypes.STRING(5),
+        allowNull: true,
+        defaultValue: '15:00',
+        comment: 'Check-in time in HH:MM format',
+      },
+      check_out_time: {
+        type: DataTypes.STRING(5),
+        allowNull: true,
+        defaultValue: '11:00',
+        comment: 'Check-out time in HH:MM format',
       },
       
       // Metadata

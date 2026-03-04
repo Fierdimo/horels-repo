@@ -17,6 +17,14 @@ export const registerSchema = z.object({
     .string()
     .min(1, 'Email is required')
     .email('Invalid email address'),
+  firstName: z
+    .string()
+    .min(1, 'First name is required')
+    .max(100, 'First name is too long'),
+  lastName: z
+    .string()
+    .min(1, 'Last name is required')
+    .max(100, 'Last name is too long'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -25,7 +33,7 @@ export const registerSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
-  roleName: z.enum(['owner', 'staff', 'admin']),
+  roleName: z.enum(['owner', 'staff']),
   property_id: z.string().optional()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",

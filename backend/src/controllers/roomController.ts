@@ -33,8 +33,12 @@ const roomController = {
 
       const room = await Room.create({ 
         name,
-        description,
-        capacity: capacity || 1
+        description: description || null,
+        capacity: capacity || 1,
+        type: 'standard',
+        base_price: 0,
+        status: 'available',
+        is_marketplace_enabled: false,
       });
       
       const enriched = await RoomEnrichmentService.enrichRoom(room);

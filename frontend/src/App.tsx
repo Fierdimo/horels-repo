@@ -58,6 +58,8 @@ const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminLogs = lazy(() => import('@/pages/admin/ActivityLogs'));
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'));
 const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
+const AdminProperties = lazy(() => import('@/pages/admin/Properties'));
+const AdminUnits = lazy(() => import('@/pages/admin/Units'));
 const CreditConfiguration = lazy(() => import('@/pages/admin/CreditConfiguration'));
 const CreditConfigPage = lazy(() => import('@/pages/admin/CreditConfigPage'));
 const PrepaidInventory = lazy(() => import('@/pages/admin/PrepaidInventory'));
@@ -464,6 +466,26 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout>
                 <AdminRooms />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/properties"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <AdminProperties />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/units"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout>
+                <AdminUnits />
               </MainLayout>
             </ProtectedRoute>
           }
