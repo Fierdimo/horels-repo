@@ -2,6 +2,7 @@ import CreditBookingCost from '../models/CreditBookingCost';
 import PlatformSetting from '../models/PlatformSetting';
 import Week from '../models/Week';
 import Property from '../models/Property';
+import SeasonalCalendar from '../models/SeasonalCalendar';
 import CreditSystemConfig from '../models/v2/CreditSystemConfig';
 import TimeshareUnit from '../models/v2/TimeshareUnit';
 import TimeshareProperty from '../models/v2/TimeshareProperty';
@@ -216,8 +217,18 @@ class CreditCalculationService {
       throw new Error(`Week #${weekId} has no associated property`);
     }
 
-    // Get season type from week (now stored directly on weeks table)
-    const seasonType = week.season_type || 'WHITE';
+    // Determine season type from SeasonalCalendar (property-specific config).
+    // If week has a concrete start_date, look it up in seasonal_calendar first.
+    // Fall back to week.season_type for floating periods (no fixed date).
+    let seasonType: 'RED' | 'WHITE' | 'BLUE';
+    if (week.start_date) {
+      seasonType = await SeasonalCalendar.getSeasonForDateWithDefault(
+        property.id,
+        new Date(week.start_date)
+      );
+    } else {
+      seasonType = (week.season_type as 'RED' | 'WHITE' | 'BLUE') || 'WHITE';
+    }
     
     // Get base value from config (with fallback to hardcoded)
     const baseValue = await this.getConfigValue(

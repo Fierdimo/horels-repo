@@ -275,10 +275,10 @@ class CreditAdminController {
         success: true,
         data: seasons.map(season => ({
           id: season.id,
-          propertyId: season.property_id,
-          seasonType: season.season_type,
-          startDate: season.start_date,
-          endDate: season.end_date,
+          property_id: season.property_id,
+          season_type: season.season_type,
+          start_date: season.start_date,
+          end_date: season.end_date,
           year: season.year,
           isDefault: (season as any).isDefault || false
         }))
@@ -332,6 +332,69 @@ class CreditAdminController {
       res.status(500).json({
         success: false,
         error: error.message || 'Failed to create seasonal entry'
+      });
+    }
+  }
+
+  /**
+   * POST /api/credits/admin/seasonal-calendar/apply-defaults
+   * Bulk-create the 8 standard default periods for a property/year
+   */
+  async applyDefaultCalendar(req: Request, res: Response): Promise<void> {
+    try {
+      const { propertyId, year } = req.body;
+
+      if (!propertyId || !year) {
+        res.status(400).json({ error: 'propertyId and year are required' });
+        return;
+      }
+
+      const pid = parseInt(propertyId);
+      const y = parseInt(year);
+
+      // Prevent overwriting existing custom seasons
+      const existing = await SeasonalCalendar.getSeasonsForYear(pid, y);
+      if (existing.length > 0) {
+        res.status(409).json({
+          success: false,
+          error: 'This property already has seasons configured for this year'
+        });
+        return;
+      }
+
+      const defaultPeriods: { season_type: 'RED' | 'WHITE' | 'BLUE'; start: string; end: string }[] = [
+        { season_type: 'RED',   start: `${y}-07-01`, end: `${y}-08-31` },
+        { season_type: 'RED',   start: `${y}-12-15`, end: `${y}-12-31` },
+        { season_type: 'WHITE', start: `${y}-03-15`, end: `${y}-05-31` },
+        { season_type: 'WHITE', start: `${y}-09-15`, end: `${y}-11-30` },
+        { season_type: 'BLUE',  start: `${y}-01-01`, end: `${y}-03-14` },
+        { season_type: 'BLUE',  start: `${y}-06-01`, end: `${y}-06-30` },
+        { season_type: 'BLUE',  start: `${y}-09-01`, end: `${y}-09-14` },
+        { season_type: 'BLUE',  start: `${y}-12-01`, end: `${y}-12-14` },
+      ];
+
+      await Promise.all(
+        defaultPeriods.map(p =>
+          SeasonalCalendar.create({
+            property_id: pid,
+            season_type: p.season_type,
+            start_date: new Date(p.start),
+            end_date: new Date(p.end),
+            year: y
+          })
+        )
+      );
+
+      res.json({
+        success: true,
+        message: `Default calendar applied: ${defaultPeriods.length} periods created`
+      });
+
+    } catch (error: any) {
+      console.error('Error applying default calendar:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to apply default calendar'
       });
     }
   }

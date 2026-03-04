@@ -838,16 +838,11 @@ router.post('/properties/:propertyId/room-types/:roomType/calculate-credit-cost'
     // Calculate nights
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Determine season type (simplified - you may want to use SeasonalCalendar)
-    const month = checkInDate.getMonth() + 1; // 1-12
-    let seasonType: 'RED' | 'WHITE' | 'BLUE';
-    if ([7, 8, 12].includes(month)) {
-      seasonType = 'RED'; // High season
-    } else if ([6, 9, 10, 11].includes(month)) {
-      seasonType = 'WHITE'; // Mid season
-    } else {
-      seasonType = 'BLUE'; // Low season
-    }
+    // Determine season type from SeasonalCalendar (property-specific config with default fallback)
+    const seasonType = await SeasonalCalendar.getSeasonForDateWithDefault(
+      parseInt(propertyId),
+      checkInDate
+    );
     
     const creditService = new CreditCalculationServiceClass();
     const calculation = await creditService.calculateBookingCost(

@@ -79,6 +79,9 @@ router.get('/seasonal-calendar/:propertyId/season', adminOrStaff, async (req: an
 // Create seasonal calendar entry
 router.post('/seasonal-calendar', adminOnly, CreditAdminController.createSeasonalEntry);
 
+// Bulk-apply default seasons for a property/year (must be before :id routes)
+router.post('/seasonal-calendar/apply-defaults', adminOnly, CreditAdminController.applyDefaultCalendar);
+
 // Delete seasonal calendar entry
 router.delete('/seasonal-calendar/:id', adminOnly, CreditAdminController.deleteSeasonalEntry);
 

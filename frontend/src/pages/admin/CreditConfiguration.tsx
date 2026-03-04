@@ -104,6 +104,7 @@ const CreditConfiguration: React.FC = () => {
   const [seasonalCalendar, setSeasonalCalendar] = useState<SeasonalCalendar[]>([]);
   const [selectedPropertyForCalendar, setSelectedPropertyForCalendar] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [applyingDefaults, setApplyingDefaults] = useState(false);
   const [calendarForm, setCalendarForm] = useState({
     property_id: 0,
     season_type: 'WHITE' as 'RED' | 'WHITE' | 'BLUE',
@@ -305,6 +306,26 @@ const CreditConfiguration: React.FC = () => {
     } catch (error: any) {
       console.error('Error deleting calendar entry:', error);
       toast.error('Error al eliminar período');
+    }
+  };
+
+  const applyDefaultCalendar = async () => {
+    if (!selectedPropertyForCalendar) return;
+    if (!confirm(t('admin.creditConfig.calApplyDefaultsConfirm'))) return;
+
+    try {
+      setApplyingDefaults(true);
+      await apiClient.post('/api/credits/admin/seasonal-calendar/apply-defaults', {
+        propertyId: selectedPropertyForCalendar,
+        year: selectedYear
+      });
+      toast.success(t('admin.creditConfig.calApplyDefaultsSuccess'));
+      fetchSeasonalCalendar(selectedPropertyForCalendar, selectedYear);
+    } catch (error: any) {
+      const msg = error.response?.data?.error || 'Error al aplicar defaults';
+      toast.error(msg);
+    } finally {
+      setApplyingDefaults(false);
     }
   };
 
@@ -1192,10 +1213,24 @@ const CreditConfiguration: React.FC = () => {
           {/* Calendar entries table */}
           {selectedPropertyForCalendar && (
             <div className="bg-white rounded-lg shadow">
-              <div className="p-4 border-b border-gray-200">
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">
                   {t('admin.creditConfig.calConfiguredTitle', { count: seasonalCalendar.length })}
                 </h2>
+                {seasonalCalendar.length > 0 && seasonalCalendar.every(s => s.isDefault) && (
+                  <button
+                    onClick={applyDefaultCalendar}
+                    disabled={applyingDefaults}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                  >
+                    {applyingDefaults ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {t('admin.creditConfig.calApplyDefaults')}
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
