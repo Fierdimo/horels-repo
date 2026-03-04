@@ -79,15 +79,29 @@ const CreditConfiguration: React.FC = () => {
   const navigate = useNavigate();
 
   /**
-   * Parse a DATEONLY value ("YYYY-MM-DD" string or Date/ISO) as LOCAL midnight,
-   * avoiding the UTC→local timezone shift that causes dates to appear 1-2 days off.
+   * Parse a DATEONLY value ("YYYY-MM-DD" string or Date) as LOCAL midnight.
+   * Avoids UTC↔local timezone shift that causes dates to appear 1-2 days off.
    */
   const parseDateOnly = (val: Date | string): Date => {
-    const str = typeof val === 'string'
-      ? val.split('T')[0]                    // "2026-03-01T00:00:00Z" → "2026-03-01"
-      : val.toISOString().split('T')[0];
-    const [y, m, d] = str.split('-').map(Number);
-    return new Date(y, m - 1, d);            // local midnight — no UTC offset applied
+    if (typeof val === 'string') {
+      // Handles "2026-03-01" and "2026-03-01T00:00:00.000Z"
+      const clean = val.split('T')[0];
+      const [y, m, d] = clean.split('-').map(Number);
+      return new Date(y, m - 1, d); // local midnight, no UTC offset
+    }
+    // Date object: use LOCAL date methods (NOT toISOString which is UTC-based)
+    return new Date(val.getFullYear(), val.getMonth(), val.getDate());
+  };
+
+  /**
+   * Format a date value as DD/MM/YYYY — unambiguous regardless of browser locale.
+   */
+  const formatDate = (val: Date | string): string => {
+    const d = parseDateOnly(val);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
   };
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'properties' | 'costs' | 'defaults' | 'calendar'>('properties');
@@ -838,9 +852,9 @@ const CreditConfiguration: React.FC = () => {
                           {editingCost?.id !== cost.id && <span className="text-xs text-gray-400 ml-1">{t('admin.creditConfig.creditsUnit')}</span>}
                         </td>
                         <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">
-                          <span>{new Date(cost.effective_from).toLocaleDateString()}</span>
+                          <span>{formatDate(cost.effective_from)}</span>
                           {cost.effective_until
-                            ? <span> → {new Date(cost.effective_until).toLocaleDateString()}</span>
+                            ? <span> → {formatDate(cost.effective_until)}</span>
                             : <span className="text-gray-400"> → {t('admin.creditConfig.noEndDate')}</span>
                           }
                         </td>
@@ -1229,7 +1243,7 @@ const CreditConfiguration: React.FC = () => {
                 <h2 className="text-lg font-semibold">
                   {t('admin.creditConfig.calConfiguredTitle', { count: seasonalCalendar.length })}
                 </h2>
-                {seasonalCalendar.length > 0 && !seasonalCalendar.every(s => s.isDefault) && (
+                {seasonalCalendar.length > 0 && seasonalCalendar.every(s => s.isDefault) && (
                   <button
                     onClick={applyDefaultCalendar}
                     disabled={applyingDefaults}
@@ -1286,10 +1300,10 @@ const CreditConfiguration: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {parseDateOnly(entry.start_date).toLocaleDateString()}
+                            {formatDate(entry.start_date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {parseDateOnly(entry.end_date).toLocaleDateString()}
+                            {formatDate(entry.end_date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {t('admin.creditConfig.calDays', { count: days })}
