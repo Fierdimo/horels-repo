@@ -197,8 +197,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'RED' as const,
-            start_date: new Date(`${year}-12-15`),
-            end_date: new Date(`${year}-12-31`),
+            start_date: `${year}-12-15`,
+            end_date: `${year}-12-31`,
             year,
             isDefault: true
           },
@@ -206,8 +206,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'RED' as const,
-            start_date: new Date(`${year}-07-01`),
-            end_date: new Date(`${year}-08-31`),
+            start_date: `${year}-07-01`,
+            end_date: `${year}-08-31`,
             year,
             isDefault: true
           },
@@ -216,8 +216,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'WHITE' as const,
-            start_date: new Date(`${year}-03-15`),
-            end_date: new Date(`${year}-05-31`),
+            start_date: `${year}-03-15`,
+            end_date: `${year}-05-31`,
             year,
             isDefault: true
           },
@@ -225,8 +225,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'WHITE' as const,
-            start_date: new Date(`${year}-09-15`),
-            end_date: new Date(`${year}-11-30`),
+            start_date: `${year}-09-15`,
+            end_date: `${year}-11-30`,
             year,
             isDefault: true
           },
@@ -235,8 +235,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'BLUE' as const,
-            start_date: new Date(`${year}-01-01`),
-            end_date: new Date(`${year}-03-14`),
+            start_date: `${year}-01-01`,
+            end_date: `${year}-03-14`,
             year,
             isDefault: true
           },
@@ -244,8 +244,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'BLUE' as const,
-            start_date: new Date(`${year}-06-01`),
-            end_date: new Date(`${year}-06-30`),
+            start_date: `${year}-06-01`,
+            end_date: `${year}-06-30`,
             year,
             isDefault: true
           },
@@ -253,8 +253,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'BLUE' as const,
-            start_date: new Date(`${year}-09-01`),
-            end_date: new Date(`${year}-09-14`),
+            start_date: `${year}-09-01`,
+            end_date: `${year}-09-14`,
             year,
             isDefault: true
           },
@@ -262,8 +262,8 @@ class CreditAdminController {
             id: null,
             property_id: propertyId,
             season_type: 'BLUE' as const,
-            start_date: new Date(`${year}-12-01`),
-            end_date: new Date(`${year}-12-14`),
+            start_date: `${year}-12-01`,
+            end_date: `${year}-12-14`,
             year,
             isDefault: true
           }
@@ -309,8 +309,8 @@ class CreditAdminController {
       const season = await SeasonalCalendar.create({
         property_id: propertyId,
         season_type: seasonType,
-        start_date: new Date(startDate),
-        end_date: new Date(endDate),
+        start_date: startDate as any,  // DATEONLY accepts 'YYYY-MM-DD' strings directly
+        end_date: endDate as any,
         year
       });
 
@@ -378,8 +378,8 @@ class CreditAdminController {
           SeasonalCalendar.create({
             property_id: pid,
             season_type: p.season_type,
-            start_date: new Date(p.start),
-            end_date: new Date(p.end),
+            start_date: p.start as any,  // DATEONLY accepts 'YYYY-MM-DD' strings directly
+            end_date: p.end as any,
             year: y
           })
         )

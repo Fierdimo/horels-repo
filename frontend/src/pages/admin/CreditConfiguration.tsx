@@ -77,6 +77,18 @@ interface CreditFormulaConfig {
 const CreditConfiguration: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+
+  /**
+   * Parse a DATEONLY value ("YYYY-MM-DD" string or Date/ISO) as LOCAL midnight,
+   * avoiding the UTC→local timezone shift that causes dates to appear 1-2 days off.
+   */
+  const parseDateOnly = (val: Date | string): Date => {
+    const str = typeof val === 'string'
+      ? val.split('T')[0]                    // "2026-03-01T00:00:00Z" → "2026-03-01"
+      : val.toISOString().split('T')[0];
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);            // local midnight — no UTC offset applied
+  };
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'properties' | 'costs' | 'defaults' | 'calendar'>('properties');
 
@@ -1217,7 +1229,7 @@ const CreditConfiguration: React.FC = () => {
                 <h2 className="text-lg font-semibold">
                   {t('admin.creditConfig.calConfiguredTitle', { count: seasonalCalendar.length })}
                 </h2>
-                {seasonalCalendar.length > 0 && seasonalCalendar.every(s => s.isDefault) && (
+                {seasonalCalendar.length > 0 && !seasonalCalendar.every(s => s.isDefault) && (
                   <button
                     onClick={applyDefaultCalendar}
                     disabled={applyingDefaults}
@@ -1258,8 +1270,8 @@ const CreditConfiguration: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {seasonalCalendar.map((entry, idx) => {
-                      const start = new Date(entry.start_date);
-                      const end = new Date(entry.end_date);
+                      const start = parseDateOnly(entry.start_date);
+                      const end = parseDateOnly(entry.end_date);
                       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                       
                       return (
@@ -1274,10 +1286,10 @@ const CreditConfiguration: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(entry.start_date).toLocaleDateString()}
+                            {parseDateOnly(entry.start_date).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {new Date(entry.end_date).toLocaleDateString()}
+                            {parseDateOnly(entry.end_date).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {t('admin.creditConfig.calDays', { count: days })}
