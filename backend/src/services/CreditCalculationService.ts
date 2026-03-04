@@ -173,15 +173,24 @@ class CreditCalculationService {
    * Get unit multiplier (with auto-detection if not manually set)
    */
   private async getUnitMultiplier(unit: TimeshareUnit): Promise<number> {
-    // 1. If unit has manual override, use it
+    // 1. If unit has ENUM credit_room_type (admin panel override), use it
+    if ((unit as any).credit_room_type) {
+      const creditType = (unit as any).credit_room_type as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS;
+      return await this.getConfigValue(
+        `ROOM_${creditType}`,
+        CreditCalculationService.ROOM_TYPE_MULTIPLIERS[creditType]
+      );
+    }
+
+    // 2. If unit has manual numeric multiplier override, use it
     if (unit.room_type_multiplier !== null && unit.room_type_multiplier !== undefined) {
       return parseFloat(unit.room_type_multiplier.toString());
     }
 
-    // 2. Auto-detect from category
+    // 3. Auto-detect from category name
     const detectedType = this.detectRoomTypeFromCategory(unit.category);
 
-    // 3. Get multiplier from config
+    // 4. Get multiplier from config
     const configKey = `ROOM_${detectedType}`;
     return await this.getConfigValue(
       configKey,

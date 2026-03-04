@@ -37,6 +37,9 @@ class TimeshareUnit extends Model {
   public images!: string | null; // JSON stored as text
   public view_type!: 'OCEAN' | 'POOL' | 'GARDEN' | 'CITY' | 'MOUNTAIN' | 'NO_VIEW' | null;
   
+  // Admin override for credit formula type
+  public credit_room_type!: 'STANDARD' | 'SUPERIOR' | 'DELUXE' | 'SUITE' | 'PRESIDENTIAL' | null;
+
   // Status
   public is_active!: boolean;
   
@@ -132,6 +135,12 @@ export function initTimeshareUnit(sequelize: Sequelize): typeof TimeshareUnit {
         allowNull: true,
         defaultValue: null,
         comment: 'Manual override for room type multiplier. NULL = auto-detect from category',
+      },
+      credit_room_type: {
+        type: DataTypes.ENUM('STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'),
+        allowNull: true,
+        defaultValue: null,
+        comment: 'Admin ENUM override for credit formula type. Supersedes room_type_multiplier auto-detection',
       },
       seasonal_factors: {
         type: DataTypes.TEXT('long'),

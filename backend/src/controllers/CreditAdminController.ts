@@ -7,6 +7,7 @@ import PlatformSetting from '../models/PlatformSetting';
 import SettingChangeLog from '../models/SettingChangeLog';
 import Property from '../models/Property';
 import Room from '../models/room';
+import TimeshareUnit from '../models/v2/TimeshareUnit';
 
 /**
  * Controller for credit system administration and configuration
@@ -745,16 +746,18 @@ class CreditAdminController {
   async getRoomsForCreditReview(req: Request, res: Response): Promise<void> {
     try {
       const rooms = await Room.findAll({ order: [['property_id', 'ASC'], ['name', 'ASC']] });
+      const units = await TimeshareUnit.findAll({ where: { is_active: true }, order: [['property_id', 'ASC'], ['category', 'ASC']] });
       const properties = await Property.findAll({ attributes: ['id', 'name'] });
       const propMap: Record<number, string> = {};
       for (const p of properties) propMap[p.id] = p.name;
 
-      const data = rooms.map(room => {
+      const roomData = rooms.map(room => {
         const autoType = CreditAdminController.detectFormulaType(room.type || 'standard');
         const override = room.credit_room_type || null;
         const effectiveType = override || autoType;
         return {
           id: room.id,
+          source: 'room' as const,
           name: room.name,
           property_id: room.property_id ?? null,
           property_name: room.property_id ? (propMap[room.property_id] || `ID ${room.property_id}`) : '—',
@@ -765,6 +768,34 @@ class CreditAdminController {
           multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
           is_overridden: !!override,
         };
+      });
+
+      const unitData = units.map(unit => {
+        const autoType = CreditAdminController.detectFormulaType(unit.category || 'standard');
+        const override = (unit as any).credit_room_type || null;
+        const effectiveType = override || autoType;
+        return {
+          id: unit.id,
+          source: 'unit' as const,
+          name: unit.category,
+          property_id: unit.property_id ?? null,
+          property_name: unit.property_id ? (propMap[unit.property_id] || `ID ${unit.property_id}`) : '—',
+          pms_type: unit.category || 'standard',
+          auto_formula_type: autoType,
+          credit_room_type: override,
+          effective_type: effectiveType,
+          multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+          is_overridden: !!override,
+        };
+      });
+
+      const data = [
+        ...roomData,
+        ...unitData,
+      ].sort((a, b) => {
+        if (a.property_name < b.property_name) return -1;
+        if (a.property_name > b.property_name) return 1;
+        return a.name.localeCompare(b.name);
       });
 
       res.json({ success: true, data });
@@ -781,8 +812,8 @@ class CreditAdminController {
    */
   async updateRoomCreditType(req: Request, res: Response): Promise<void> {
     try {
-      const roomId = parseInt(req.params.roomId);
-      const { creditRoomType } = req.body;
+      const entityId = parseInt(req.params.roomId);
+      const { creditRoomType, source = 'room' } = req.body;
 
       const VALID = ['STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'];
       if (creditRoomType !== null && creditRoomType !== undefined && !VALID.includes(creditRoomType)) {
@@ -790,7 +821,30 @@ class CreditAdminController {
         return;
       }
 
-      const room = await Room.findByPk(roomId);
+      if (source === 'unit') {
+        const unit = await TimeshareUnit.findByPk(entityId);
+        if (!unit) {
+          res.status(404).json({ success: false, error: 'Timeshare unit not found' });
+          return;
+        }
+        await (unit as any).update({ credit_room_type: creditRoomType ?? null });
+        const autoType = CreditAdminController.detectFormulaType(unit.category || 'standard');
+        const effectiveType = creditRoomType || autoType;
+        res.json({
+          success: true,
+          data: {
+            id: unit.id,
+            source: 'unit',
+            credit_room_type: creditRoomType ?? null,
+            effective_type: effectiveType,
+            multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+          }
+        });
+        return;
+      }
+
+      // Default: room
+      const room = await Room.findByPk(entityId);
       if (!room) {
         res.status(404).json({ success: false, error: 'Room not found' });
         return;
@@ -804,6 +858,7 @@ class CreditAdminController {
         success: true,
         data: {
           id: room.id,
+          source: 'room',
           credit_room_type: creditRoomType ?? null,
           effective_type: effectiveType,
           multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,

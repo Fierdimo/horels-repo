@@ -68,6 +68,7 @@ interface SeasonalCalendar {
 
 interface RoomReview {
   id: number;
+  source: 'room' | 'unit';
   name: string;
   property_id: number | null;
   property_name: string;
@@ -309,12 +310,12 @@ const CreditConfiguration: React.FC = () => {
     }
   };
 
-  const updateRoomCreditType = async (roomId: number, creditRoomType: string | null) => {
+  const updateRoomCreditType = async (roomId: number, creditRoomType: string | null, source: 'room' | 'unit') => {
     try {
       setUpdatingRoomId(roomId);
-      const response = await apiClient.put(`/api/credits/admin/rooms-review/${roomId}`, { creditRoomType });
+      const response = await apiClient.put(`/api/credits/admin/rooms-review/${roomId}`, { creditRoomType, source });
       setRoomsReview(prev => prev.map(r =>
-        r.id === roomId
+        r.id === roomId && r.source === source
           ? { ...r,
               credit_room_type: response.data.data.credit_room_type,
               effective_type: response.data.data.effective_type,
@@ -1577,9 +1578,18 @@ const CreditConfiguration: React.FC = () => {
                           room.effective_type === 'SUPERIOR'      ? 'bg-green-100 text-green-700' :
                                                                     'bg-gray-100 text-gray-600';
                         return (
-                          <tr key={room.id} className="hover:bg-gray-50">
+                          <tr key={`${room.source}-${room.id}`} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{room.property_name}</td>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">{room.name}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span>{room.name}</span>
+                                <span className={`inline-flex px-1.5 py-0.5 text-xs rounded font-medium ${
+                                  room.source === 'unit' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {room.source === 'unit' ? 'TS' : 'Room'}
+                                </span>
+                              </div>
+                            </td>
                             <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap font-mono">{room.pms_type}</td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
@@ -1589,7 +1599,7 @@ const CreditConfiguration: React.FC = () => {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <select
                                 value={room.credit_room_type ?? ''}
-                                onChange={e => updateRoomCreditType(room.id, e.target.value || null)}
+                                onChange={e => updateRoomCreditType(room.id, e.target.value || null, room.source)}
                                 disabled={isUpdating}
                                 className="border rounded px-2 py-1 text-xs focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
                               >
