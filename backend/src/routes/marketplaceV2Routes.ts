@@ -13,7 +13,6 @@ import TimeshareUnit from '../models/v2/TimeshareUnit';
 import WeekAllocation from '../models/v2/WeekAllocation';
 import Ownership from '../models/v2/Ownership';
 import V2Booking from '../models/v2/V2Booking';
-import Room from '../models/room';
 import { Op } from 'sequelize';
 import pricingService from '../services/pricingService';
 import CreditAccount from '../models/v2/CreditAccount';
@@ -49,22 +48,9 @@ router.get('/properties', async (req: Request, res: Response) => {
 
     const propertiesData = await Promise.all(properties.map(async (property: any) => {
       const units = property.units || [];
-      // Also fetch hotel rooms enabled in marketplace for this property
-      const rooms = await Room.findAll({
-        where: { property_id: property.id, is_marketplace_enabled: true },
-      });
 
-      // Unified marketplace — all users see all room types.
-      // Payment method restrictions are enforced at checkout, not here.
       const timeshareCredits = units.map((u: any) => u.base_credit_value as number);
-      const hotelPrices = await Promise.all(
-        rooms.map(async (r: any) => {
-          const base = Number(r.base_price) || 0;
-          return base > 0 ? await pricingService.calculateGuestPrice(base) : 0;
-        })
-      );
-      const allItems = [...timeshareCredits, ...hotelPrices];
-      const minPrice = allItems.length > 0 ? Math.min(...allItems) : 0;
+      const minPrice = timeshareCredits.length > 0 ? Math.min(...timeshareCredits) : 0;
 
       return {
         id: property.id,
@@ -76,10 +62,10 @@ router.get('/properties', async (req: Request, res: Response) => {
         amenities: property.amenities ? JSON.parse(property.amenities) : [],
         checkInTime: property.check_in_time || '15:00',
         checkOutTime: property.check_out_time || '11:00',
-        roomTypesCount: units.length + rooms.length,
+        roomTypesCount: units.length,
         minPrice,
         currency: property.condominium_fee_currency || 'EUR',
-        available: units.length > 0 || rooms.length > 0,
+        available: units.length > 0,
       };
     }));
 
@@ -114,12 +100,6 @@ router.get('/properties/:propertyId', async (req: Request, res: Response) => {
     if (!property) {
       return res.status(404).json({ success: false, error: 'Property not found' });
     }
-
-    // Also load hotel rooms enabled for the marketplace
-    const hotelRooms = await Room.findAll({
-      where: { property_id: propertyId, is_marketplace_enabled: true },
-      order: [['name', 'ASC']],
-    });
 
     const propertyData: any = property.toJSON();
 
@@ -159,44 +139,7 @@ router.get('/properties/:propertyId', async (req: Request, res: Response) => {
       };
     }));
 
-    const hotelRoomTypes = await Promise.all(hotelRooms.map(async (room: any) => {
-      const basePrice = Number(room.base_price) || 0;
-      const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
-      let availableRooms = room.quantity ?? 1;
-      if (checkInDate && checkOutDate) {
-        const activeBookings = await V2Booking.count({
-          where: {
-            property_id: propertyId,
-            room_category: `room-${room.id}`,
-            status: { [Op.in]: ['PENDING', 'CONFIRMED', 'CHECKED_IN'] },
-            check_in: { [Op.lt]: checkOutDate },
-            check_out: { [Op.gt]: checkInDate },
-          },
-        });
-        availableRooms = Math.max(0, (room.quantity ?? 1) - activeBookings);
-      }
-      return {
-        id: `room-${room.id}`,
-        name: room.name,
-        description: room.description,
-        capacity: room.capacity,
-        quantity: room.quantity ?? 1,
-        availableRooms,
-        basePrice,
-        guestPrice,
-        currency: 'EUR',
-        images: room.imageList,
-        amenities: [],
-        available: room.status === 'available' && availableRooms > 0,
-        floor: room.floor,
-        type: room.type,
-        source: 'hotel',
-      };
-    }));
-
-    // Unified marketplace — all users see all room types.
-    // Payment restrictions enforced at checkout (guests: card only; hotel rooms: card only).
-    const roomTypes = [...timeshareRoomTypes, ...hotelRoomTypes];
+    const roomTypes = timeshareRoomTypes;
 
     return res.json({
       success: true,
@@ -553,24 +496,7 @@ router.post(
       const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
 
       const rt = String(roomType);
-      const isRoomPrefixed = rt.startsWith('room-');    // "room-1" → hotel room by ID
-      const isNumeric = !isRoomPrefixed && /^\d+$/.test(rt.trim()); // "28" → timeshare by ID
-
-      if (isRoomPrefixed) {
-        // Hotel room identified by "room-<id>" — no credits, return EUR price
-        const roomId = parseInt(rt.replace('room-', ''));
-        const room = await Room.findOne({ where: { id: roomId, is_marketplace_enabled: true } });
-        if (!room) {
-          return res.status(404).json({ success: false, error: 'Room not found' });
-        }
-        const basePrice = Number((room as any).base_price) || 0;
-        const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
-        const totalEur = parseFloat((guestPrice * nights).toFixed(2));
-        return res.json({
-          success: true,
-          data: { creditsRequired: 0, totalEur, creditToEurRate: 1, nights },
-        });
-      }
+      const isNumeric = /^\d+$/.test(rt.trim()); // "28" → timeshare by ID
 
       // Timeshare unit — can be numeric ID ("28") or category name ("STUDIO")
       const unitWhere: any = isNumeric
@@ -580,19 +506,6 @@ router.post(
       const unit = await TimeshareUnit.findOne({ where: unitWhere });
 
       if (!unit) {
-        // Last resort: maybe it's a hotel room referenced by name
-        const roomByName = await Room.findOne({
-          where: { property_id: parseInt(propertyId), name: rt, is_marketplace_enabled: true },
-        });
-        if (roomByName) {
-          const basePrice = Number((roomByName as any).base_price) || 0;
-          const guestPrice = basePrice > 0 ? await pricingService.calculateGuestPrice(basePrice) : 0;
-          const totalEur = parseFloat((guestPrice * nights).toFixed(2));
-          return res.json({
-            success: true,
-            data: { creditsRequired: 0, totalEur, creditToEurRate: 1, nights },
-          });
-        }
         return res.status(404).json({ success: false, error: 'Room type not found' });
       }
 
