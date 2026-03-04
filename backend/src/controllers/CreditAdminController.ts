@@ -306,6 +306,30 @@ class CreditAdminController {
         return;
       }
 
+      // Validate date order
+      if (startDate > endDate) {
+        res.status(400).json({ error: 'start_date must be before or equal to end_date' });
+        return;
+      }
+
+      // Check for overlapping periods
+      const overlapping = await SeasonalCalendar.findOverlapping(
+        parseInt(propertyId), startDate, endDate
+      );
+      if (overlapping.length > 0) {
+        res.status(409).json({
+          success: false,
+          error: 'Period overlaps with existing entries',
+          conflicts: overlapping.map(o => ({
+            id: o.id,
+            season_type: o.season_type,
+            start_date: String(o.start_date),
+            end_date: String(o.end_date)
+          }))
+        });
+        return;
+      }
+
       const season = await SeasonalCalendar.create({
         property_id: propertyId,
         season_type: seasonType,

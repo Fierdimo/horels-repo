@@ -747,6 +747,7 @@
       "calApplyDefaults": "Restaurer le calendrier par défaut",
       "calApplyDefaultsConfirm": "Restaurer le calendrier par défaut ? Toutes les périodes configurées seront supprimées et 8 périodes standard seront recréées (RED/WHITE/BLUE).",
       "calApplyDefaultsSuccess": "Calendrier restauré aux valeurs par défaut (8 périodes)",
+      "calConflictError": "Conflit avec une période existante",
       "calNoEntries": "Aucune période configurée pour cette année. Créez la première période ci-dessus.",
       "calInfoTitle": "Calendrier des Saisons",
       "calInfoDesc": "Chaque propriété a un calendrier par défaut couvrant toute l'année avec des périodes RED (haute), WHITE (moyenne) et BLUE (basse). Ces périodes déterminent la valeur de crédit de base.",

@@ -87,6 +87,28 @@ class SeasonalCalendar extends Model<SeasonalCalendarAttributes, SeasonalCalenda
       order: [['start_date', 'ASC']]
     });
   }
+
+  /**
+   * Find existing periods that overlap with the given date range for a property.
+   * Two ranges [A,B] and [C,D] overlap when: A <= D AND B >= C
+   * @param excludeId - optional entry id to exclude (useful for future edit support)
+   */
+  static async findOverlapping(
+    propertyId: number,
+    startDate: string,
+    endDate: string,
+    excludeId?: number
+  ): Promise<SeasonalCalendar[]> {
+    const where: any = {
+      property_id: propertyId,
+      start_date: { [Op.lte]: endDate },
+      end_date: { [Op.gte]: startDate }
+    };
+    if (excludeId) {
+      where.id = { [Op.ne]: excludeId };
+    }
+    return await this.findAll({ where, order: [['start_date', 'ASC']] });
+  }
 }
 
 SeasonalCalendar.init(

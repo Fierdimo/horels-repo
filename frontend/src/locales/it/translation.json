@@ -1382,6 +1382,7 @@
       "calApplyDefaults": "Ripristina calendario predefinito",
       "calApplyDefaultsConfirm": "Ripristinare il calendario predefinito? Tutti i periodi configurati verranno eliminati e verranno ricreati 8 periodi standard (RED/WHITE/BLUE).",
       "calApplyDefaultsSuccess": "Calendario ripristinato ai valori predefiniti (8 periodi)",
+      "calConflictError": "Conflitto con periodo esistente",
       "calNoEntries": "Nessun periodo configurato per questo anno. Crea il primo periodo sopra.",
       "calInfoTitle": "Calendario Stagioni",
       "calInfoDesc": "Ogni proprietà ha un calendario predefinito che copre l'intero anno con periodi RED (alta), WHITE (media) e BLUE (bassa). Questi periodi determinano il valore base dei crediti.",

@@ -747,6 +747,7 @@
       "calApplyDefaults": "Standardkalender wiederherstellen",
       "calApplyDefaultsConfirm": "Standardkalender wiederherstellen? Alle konfigurierten Perioden werden gelöscht und 8 Standardperioden werden neu erstellt (RED/WHITE/BLUE).",
       "calApplyDefaultsSuccess": "Kalender auf Standardwerte zurückgesetzt (8 Perioden)",
+      "calConflictError": "Konflikt mit vorhandenem Zeitraum",
       "calNoEntries": "Keine Perioden für dieses Jahr konfiguriert. Erstellen Sie die erste Periode oben.",
       "calInfoTitle": "Saisonkalender",
       "calInfoDesc": "Jede Immobilie hat einen Standardkalender, der das gesamte Jahr mit RED (Hoch-), WHITE (Mittel-) und BLUE (Niedrig-) Perioden abdeckt. Diese Perioden bestimmen den Basiskreditwert.",

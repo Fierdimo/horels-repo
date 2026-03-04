@@ -1969,6 +1969,7 @@
       "calApplyDefaults": "Restore default calendar",
       "calApplyDefaultsConfirm": "Restore to default calendar? All configured periods will be deleted and 8 standard periods will be recreated (RED/WHITE/BLUE).",
       "calApplyDefaultsSuccess": "Calendar restored to defaults (8 periods)",
+      "calConflictError": "Conflicts with existing period",
       "calNoEntries": "No periods configured for this year. Create the first period above.",
       "calInfoTitle": "Season Calendar",
       "calInfoDesc": "Each property has a default calendar covering the full year with RED (high), WHITE (mid) and BLUE (low) periods. These periods determine the base credit value.",

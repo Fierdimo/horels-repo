@@ -290,9 +290,27 @@ const CreditConfiguration: React.FC = () => {
     }
   };
 
+  /** Returns the first real (non-default) entry that overlaps [start, end], or undefined */
+  const findLocalOverlap = (start: string, end: string): SeasonalCalendar | undefined =>
+    seasonalCalendar.find(e => !e.isDefault && e.start_date <= end && e.end_date >= start);
+
   const createCalendarEntry = async () => {
     if (!calendarForm.property_id || !calendarForm.start_date || !calendarForm.end_date) {
       toast.error('Por favor completa todos los campos');
+      return;
+    }
+    if (calendarForm.start_date > calendarForm.end_date) {
+      toast.error('La fecha de inicio debe ser anterior o igual a la fecha de fin');
+      return;
+    }
+
+    // Client-side pre-check for instant feedback
+    const localConflict = findLocalOverlap(calendarForm.start_date, calendarForm.end_date);
+    if (localConflict) {
+      toast.error(
+        `${t('admin.creditConfig.calConflictError')}: ${localConflict.season_type} ` +
+        `${formatDate(localConflict.start_date)} → ${formatDate(localConflict.end_date)}`
+      );
       return;
     }
 
@@ -316,7 +334,16 @@ const CreditConfiguration: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Error creating calendar entry:', error);
-      toast.error('Error al crear período');
+      if (error.response?.status === 409 && error.response?.data?.conflicts) {
+        const conflicts: Array<{ season_type: string; start_date: string; end_date: string }> =
+          error.response.data.conflicts;
+        const detail = conflicts
+          .map(c => `${c.season_type}: ${formatDate(c.start_date)} → ${formatDate(c.end_date)}`)
+          .join(', ');
+        toast.error(`${t('admin.creditConfig.calConflictError')}: ${detail}`);
+      } else {
+        toast.error('Error al crear período');
+      }
     }
   };
 
@@ -1341,7 +1368,16 @@ const CreditConfiguration: React.FC = () => {
                                     fetchSeasonalCalendar(entry.property_id, entry.year);
                                   } catch (error: any) {
                                     console.error('Error saving default:', error);
-                                    toast.error('Error al guardar período');
+                                    if (error.response?.status === 409 && error.response?.data?.conflicts) {
+                                      const conflicts: Array<{ season_type: string; start_date: string; end_date: string }> =
+                                        error.response.data.conflicts;
+                                      const detail = conflicts
+                                        .map(c => `${c.season_type}: ${formatDate(c.start_date)} → ${formatDate(c.end_date)}`)
+                                        .join(', ');
+                                      toast.error(`${t('admin.creditConfig.calConflictError')}: ${detail}`);
+                                    } else {
+                                      toast.error('Error al guardar período');
+                                    }
                                   }
                                 }}
                                 className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
