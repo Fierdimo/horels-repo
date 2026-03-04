@@ -424,9 +424,9 @@ const CreditConfiguration: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Configuración de Créditos</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('admin.creditConfig.pageTitle')}</h1>
         <p className="text-gray-600 mt-1">
-          Gestiona tiers de propiedades, multiplicadores y valores de créditos por noche
+          {t('admin.creditConfig.pageSubtitle')}
         </p>
       </div>
 
@@ -451,7 +451,7 @@ const CreditConfiguration: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
-            Costos por Noche
+            {t('admin.creditConfig.tabCosts')}
           </button>
           <button
             onClick={() => setActiveTab('calendar')}
@@ -461,7 +461,7 @@ const CreditConfiguration: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
-            Calendario Temporadas
+            {t('admin.creditConfig.tabCalendar')}
           </button>
           <button
             onClick={() => setActiveTab('defaults')}
@@ -471,7 +471,7 @@ const CreditConfiguration: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
-            Fórmula Global
+            {t('admin.creditConfig.tabFormula')}
           </button>
         </nav>
       </div>
@@ -480,9 +480,9 @@ const CreditConfiguration: React.FC = () => {
       {activeTab === 'properties' && (
         <div className="bg-white rounded-lg shadow">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold">Gestión de Tiers de Propiedades</h2>
+            <h2 className="text-lg font-semibold">{t('admin.creditConfig.propTitle')}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Configura el tier y multiplicador de ubicación para cada propiedad
+              {t('admin.creditConfig.propSubtitle')}
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -490,19 +490,19 @@ const CreditConfiguration: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Propiedad
+                    {t('admin.creditConfig.colProperty')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Ubicación
+                    {t('admin.creditConfig.colLocation')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Tier
+                    {t('admin.creditConfig.colTier')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Multiplicador de Tier
+                    {t('admin.creditConfig.colTierMultiplier')}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Acciones
+                    {t('admin.creditConfig.colActions')}
                   </th>
                 </tr>
               </thead>
@@ -594,11 +594,9 @@ const CreditConfiguration: React.FC = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
             <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-blue-900">¿Para qué sirve esta sección?</p>
+              <p className="text-sm font-semibold text-blue-900">{t('admin.creditConfig.costsInfoTitle')}</p>
               <p className="text-sm text-blue-700 mt-0.5">
-                Aquí puedes definir un coste <strong>específico por noche</strong> para una propiedad, tipo de habitación
-                y temporada concretos. Si no se define ninguna regla, el sistema usará
-                automáticamente los valores de la pestaña <em>Fórmula Global</em>.
+                {t('admin.creditConfig.costsInfoDesc')}
               </p>
             </div>
           </div>
@@ -607,8 +605,8 @@ const CreditConfiguration: React.FC = () => {
           <div className="bg-white rounded-lg shadow">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900">Nueva regla de coste</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Anula la fórmula global para la combinación elegida</p>
+                <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.newRuleTitle')}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{t('admin.creditConfig.newRuleSubtitle')}</p>
               </div>
             </div>
             <div className="p-5">
@@ -616,14 +614,14 @@ const CreditConfiguration: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Propiedad <span className="text-red-500">*</span>
+                    {t('admin.creditConfig.labelProperty')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={costForm.property_id}
                     onChange={(e) => setCostForm({ ...costForm, property_id: parseInt(e.target.value) })}
                     className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
-                    <option value={0}>Seleccionar propiedad…</option>
+                    <option value={0}>{t('admin.creditConfig.selectProperty')}</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -631,7 +629,7 @@ const CreditConfiguration: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Tipo de habitación <span className="text-red-500">*</span>
+                    {t('admin.creditConfig.labelRoomType')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={costForm.room_type}
@@ -647,16 +645,16 @@ const CreditConfiguration: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Temporada <span className="text-red-500">*</span>
+                    {t('admin.creditConfig.labelSeason')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={costForm.season_type}
                     onChange={(e) => setCostForm({ ...costForm, season_type: e.target.value })}
                     className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
-                    <option value="RED">🔴 Alta (RED)</option>
-                    <option value="WHITE">⚪ Media (WHITE)</option>
-                    <option value="BLUE">🔵 Baja (BLUE)</option>
+                    <option value="RED">🔴 {t('admin.creditConfig.seasonHigh')}</option>
+                    <option value="WHITE">⚪ {t('admin.creditConfig.seasonMid')}</option>
+                    <option value="BLUE">🔵 {t('admin.creditConfig.seasonLow')}</option>
                   </select>
                 </div>
               </div>
@@ -665,7 +663,7 @@ const CreditConfiguration: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Créditos por noche <span className="text-red-500">*</span>
+                    {t('admin.creditConfig.labelCreditsPerNight')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -676,12 +674,12 @@ const CreditConfiguration: React.FC = () => {
                       onChange={(e) => setCostForm({ ...costForm, credits_per_night: parseFloat(e.target.value) })}
                       className="border rounded-lg px-3 py-2 w-full text-sm pr-20 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
-                    <span className="absolute right-3 top-2.5 text-xs text-gray-400">créditos</span>
+                    <span className="absolute right-3 top-2.5 text-xs text-gray-400">{t('admin.creditConfig.credits')}</span>
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Válido desde
+                    {t('admin.creditConfig.labelValidFrom')}
                   </label>
                   <input
                     type="date"
@@ -692,7 +690,7 @@ const CreditConfiguration: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Válido hasta <span className="text-gray-400 font-normal">(opcional)</span>
+                    {t('admin.creditConfig.labelValidUntil')} <span className="text-gray-400 font-normal">{t('admin.creditConfig.labelOptional')}</span>
                   </label>
                   <input
                     type="date"
@@ -709,7 +707,7 @@ const CreditConfiguration: React.FC = () => {
                   type="text"
                   value={costForm.notes}
                   onChange={(e) => setCostForm({ ...costForm, notes: e.target.value })}
-                  placeholder="Notas internas (opcional)…"
+                  placeholder={t('admin.creditConfig.labelNotes')}
                   className="border rounded-lg px-3 py-2 flex-1 text-sm text-gray-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
                 <button
@@ -718,7 +716,7 @@ const CreditConfiguration: React.FC = () => {
                   className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
                 >
                   <Plus className="h-4 w-4" />
-                  Añadir regla
+                  {t('admin.creditConfig.addRule')}
                 </button>
               </div>
             </div>
@@ -729,14 +727,14 @@ const CreditConfiguration: React.FC = () => {
             <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-4">
               <div>
                 <h3 className="font-semibold text-gray-900">
-                  Reglas configuradas
+                  {t('admin.creditConfig.configuredRulesTitle')}
                   {costs.length > 0 && (
                     <span className="ml-2 text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
                       {costs.length}
                     </span>
                   )}
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">Anulan la fórmula global para esa combinación exacta</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t('admin.creditConfig.configuredRulesSubtitle')}</p>
               </div>
               <select
                 value={selectedProperty || ''}
@@ -747,7 +745,7 @@ const CreditConfiguration: React.FC = () => {
                 }}
                 className="border rounded-lg px-3 py-2 text-sm w-56 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
-                <option value="">Todas las propiedades</option>
+                <option value="">{t('admin.creditConfig.allProperties')}</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -760,10 +758,9 @@ const CreditConfiguration: React.FC = () => {
                   <Bed className="h-7 w-7 text-gray-400" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-700">Ninguna regla todavía</p>
+                  <p className="font-medium text-gray-700">{t('admin.creditConfig.noRulesTitle')}</p>
                   <p className="text-sm text-gray-400 mt-1 max-w-xs">
-                    El sistema usa la <strong>Fórmula Global</strong> para calcular costes.
-                    Añade una regla arriba si necesitas un valor específico para una propiedad.
+                    {t('admin.creditConfig.noRulesDesc')}
                   </p>
                 </div>
               </div>
@@ -772,13 +769,13 @@ const CreditConfiguration: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Propiedad</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Habitación</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Temporada</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Coste/noche</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vigencia</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.colProperty')}</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.colRoom')}</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.labelSeason')}</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.colCostPerNight')}</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.colValidity')}</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.colStatus')}</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('admin.creditConfig.colActions')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
@@ -805,13 +802,13 @@ const CreditConfiguration: React.FC = () => {
                           ) : (
                             <span className="text-sm font-semibold text-gray-900">{cost.credits_per_night}</span>
                           )}
-                          {editingCost?.id !== cost.id && <span className="text-xs text-gray-400 ml-1">cr/noche</span>}
+                          {editingCost?.id !== cost.id && <span className="text-xs text-gray-400 ml-1">{t('admin.creditConfig.creditsUnit')}</span>}
                         </td>
                         <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">
                           <span>{new Date(cost.effective_from).toLocaleDateString()}</span>
                           {cost.effective_until
                             ? <span> → {new Date(cost.effective_until).toLocaleDateString()}</span>
-                            : <span className="text-gray-400"> → sin fin</span>
+                            : <span className="text-gray-400"> → {t('admin.creditConfig.noEndDate')}</span>
                           }
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
@@ -821,12 +818,12 @@ const CreditConfiguration: React.FC = () => {
                               onChange={(e) => setEditingCost({ ...editingCost, is_active: e.target.value === 'true' })}
                               className="border rounded px-2 py-1 text-sm"
                             >
-                              <option value="true">Activo</option>
-                              <option value="false">Inactivo</option>
+                              <option value="true">{t('admin.creditConfig.statusActive')}</option>
+                              <option value="false">{t('admin.creditConfig.statusInactive')}</option>
                             </select>
                           ) : (
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${cost.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                              {cost.is_active ? <><CheckCircle className="h-3 w-3" />Activo</> : <><AlertCircle className="h-3 w-3" />Inactivo</>}
+                              {cost.is_active ? <><CheckCircle className="h-3 w-3" />{t('admin.creditConfig.statusActive')}</> : <><AlertCircle className="h-3 w-3" />{t('admin.creditConfig.statusInactive')}</>}
                             </span>
                           )}
                         </td>
@@ -834,7 +831,7 @@ const CreditConfiguration: React.FC = () => {
                           {editingCost?.id === cost.id ? (
                             <div className="flex justify-end gap-2">
                               <button onClick={() => updateCost(editingCost)} className="text-green-600 hover:text-green-800"><Save className="h-4 w-4" /></button>
-                              <button onClick={() => setEditingCost(null)} className="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
+                              <button onClick={() => setEditingCost(null)} className="text-xs text-gray-500 hover:text-gray-700">{t('admin.creditConfig.cancel')}</button>
                             </div>
                           ) : (
                             <div className="flex justify-end gap-2">
@@ -860,9 +857,9 @@ const CreditConfiguration: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Configuración de Fórmula Global</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('admin.creditConfig.formulaTitle')}</h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Valores base y multiplicadores del sistema de créditos (se aplican a todas las propiedades)
+                  {t('admin.creditConfig.formulaSubtitle')}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -872,7 +869,7 @@ const CreditConfiguration: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Restablecer
+                  {t('admin.creditConfig.reset')}
                 </button>
                 <button
                   onClick={handleFormulaSave}
@@ -880,7 +877,7 @@ const CreditConfiguration: React.FC = () => {
                   className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
                 >
                   <Save className="h-4 w-4" />
-                  {formulaSaving ? 'Guardando...' : 'Guardar cambios'}
+                  {formulaSaving ? t('admin.creditConfig.saving') : t('admin.creditConfig.saveChanges')}
                 </button>
               </div>
             </div>
@@ -897,7 +894,7 @@ const CreditConfiguration: React.FC = () => {
             )}
             {Object.keys(formulaChanges).length > 0 && (
               <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800">{Object.keys(formulaChanges).length} cambio(s) sin guardar</p>
+                <p className="text-sm text-yellow-800">{t('admin.creditConfig.unsavedCount', { count: Object.keys(formulaChanges).length })}</p>
               </div>
             )}
           </div>
@@ -908,14 +905,14 @@ const CreditConfiguration: React.FC = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <DollarSign className="h-5 w-5 text-emerald-600" />
-                  <h3 className="font-semibold text-gray-900">Créditos Base por Temporada (depósito de semana)</h3>
+                  <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.formulaBaseSeasonTitle')}</h3>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">Créditos que recibe el propietario al depositar una semana en temporada alta / media / baja.</p>
+                <p className="text-sm text-gray-500 mb-4">{t('admin.creditConfig.formulaBaseSeasonDesc')}</p>
                 <div className="grid grid-cols-3 gap-4">
                   {Object.entries(formulaConfig.base_seasons).map(([key]) => (
                     <div key={key} className="space-y-1">
                       <label className="block text-sm font-medium text-gray-700">
-                        {key === 'RED' ? 'Alta (RED)' : key === 'WHITE' ? 'Media (WHITE)' : 'Baja (BLUE)'}
+                        {key === 'RED' ? t('admin.creditConfig.seasonHigh') : key === 'WHITE' ? t('admin.creditConfig.seasonMid') : t('admin.creditConfig.seasonLow')}
                       </label>
                       <div className="relative">
                         <input
@@ -924,7 +921,7 @@ const CreditConfiguration: React.FC = () => {
                           onChange={(e) => handleFormulaValueChange(`BASE_SEASON_${key}`, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                         />
-                        <span className="absolute right-3 top-2 text-gray-400 text-xs">créditos</span>
+                        <span className="absolute right-3 top-2 text-gray-400 text-xs">{t('admin.creditConfig.credits')}</span>
                       </div>
                     </div>
                   ))}
@@ -935,14 +932,14 @@ const CreditConfiguration: React.FC = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <DollarSign className="h-5 w-5 text-blue-600" />
-                  <h3 className="font-semibold text-gray-900">Coste Base por Noche (reserva)</h3>
+                  <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.formulaBaseNightlyTitle')}</h3>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">Créditos que cuesta reservar una noche en cada temporada (habitación STANDARD).</p>
+                <p className="text-sm text-gray-500 mb-4">{t('admin.creditConfig.formulaBaseNightlyDesc')}</p>
                 <div className="grid grid-cols-3 gap-4">
                   {Object.entries(formulaConfig.base_nightly).map(([key]) => (
                     <div key={key} className="space-y-1">
                       <label className="block text-sm font-medium text-gray-700">
-                        {key === 'RED' ? 'Alta (RED)' : key === 'WHITE' ? 'Media (WHITE)' : 'Baja (BLUE)'}
+                        {key === 'RED' ? t('admin.creditConfig.seasonHigh') : key === 'WHITE' ? t('admin.creditConfig.seasonMid') : t('admin.creditConfig.seasonLow')}
                       </label>
                       <div className="relative">
                         <input
@@ -951,7 +948,7 @@ const CreditConfiguration: React.FC = () => {
                           onChange={(e) => handleFormulaValueChange(`BASE_NIGHTLY_${key}`, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                         />
-                        <span className="absolute right-3 top-2 text-gray-400 text-xs">créd/noche</span>
+                        <span className="absolute right-3 top-2 text-gray-400 text-xs">{t('admin.creditConfig.creditsPerNight')}</span>
                       </div>
                     </div>
                   ))}
@@ -962,9 +959,9 @@ const CreditConfiguration: React.FC = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <Building2 className="h-5 w-5 text-purple-600" />
-                  <h3 className="font-semibold text-gray-900">Multiplicadores de Tier</h3>
+                  <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.formulaTierTitle')}</h3>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">Multiplicador aplicado según el tier de la propiedad.</p>
+                <p className="text-sm text-gray-500 mb-4">{t('admin.creditConfig.formulaTierDesc')}</p>
                 <div className="grid grid-cols-4 gap-4">
                   {Object.entries(formulaConfig.tier_multipliers).map(([key]) => (
                     <div key={key} className="space-y-1">
@@ -988,9 +985,9 @@ const CreditConfiguration: React.FC = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center gap-2 mb-3">
                   <Bed className="h-5 w-5 text-orange-600" />
-                  <h3 className="font-semibold text-gray-900">Multiplicadores de Habitación</h3>
+                  <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.formulaRoomTitle')}</h3>
                 </div>
-                <p className="text-sm text-gray-500 mb-4">Multiplicador aplicado según el tipo de habitación.</p>
+                <p className="text-sm text-gray-500 mb-4">{t('admin.creditConfig.formulaRoomDesc')}</p>
                 <div className="grid grid-cols-5 gap-4">
                   {Object.entries(formulaConfig.room_multipliers).map(([key]) => (
                     <div key={key} className="space-y-1">
@@ -1015,13 +1012,13 @@ const CreditConfiguration: React.FC = () => {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center gap-2 mb-2">
                     <Calculator className="h-5 w-5 text-indigo-600" />
-                    <h3 className="font-semibold text-gray-900">Vista Previa del Balance (tier STANDARD, ubicación ×1.0)</h3>
+                    <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.previewTitle')}</h3>
                   </div>
-                  <p className="text-sm text-gray-500 mb-3">Créditos ganados al depositar una semana vs. coste de reservar esas 7 noches. Se actualiza en tiempo real.</p>
+                  <p className="text-sm text-gray-500 mb-3">{t('admin.creditConfig.previewDesc')}</p>
                   {formulaPreview.hasDeficit && (
                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
                       <TrendingDown className="h-4 w-4 text-red-600 flex-shrink-0" />
-                      <p className="text-sm text-red-700 font-medium">Aviso: algunas combinaciones cuestan más al reservar de lo que el propietario gana al depositar.</p>
+                      <p className="text-sm text-red-700 font-medium">{t('admin.creditConfig.previewDeficitWarning')}</p>
                     </div>
                   )}
                   {(['RED', 'WHITE', 'BLUE'] as const).map(season => {
@@ -1032,7 +1029,7 @@ const CreditConfiguration: React.FC = () => {
                     return (
                       <div key={season} className="mb-5">
                         <h4 className={`text-xs font-semibold px-3 py-1 rounded-md border inline-block mb-3 ${seasonColor}`}>
-                          {season === 'RED' ? 'Alta' : season === 'WHITE' ? 'Media' : 'Baja'} ({season})
+                          {season === 'RED' ? t('admin.creditConfig.seasonHigh') : season === 'WHITE' ? t('admin.creditConfig.seasonMid') : t('admin.creditConfig.seasonLow')} ({season})
                         </h4>
                         <div className="grid grid-cols-5 gap-3">
                           {seasonRows.map(({ room, depositCredits, costFor7Nights, balance }) => {
@@ -1047,11 +1044,11 @@ const CreditConfiguration: React.FC = () => {
                               <div key={room} className={`rounded-lg border p-3 space-y-1 ${cardBorder}`}>
                                 <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{room}</p>
                                 <div className="flex justify-between text-xs text-gray-600">
-                                  <span>Ganado</span>
+                                  <span>{t('admin.creditConfig.previewEarned')}</span>
                                   <span className="font-mono font-medium">{depositCredits.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between text-xs text-gray-600">
-                                  <span>Coste 7n</span>
+                                  <span>{t('admin.creditConfig.previewCost7n')}</span>
                                   <span className="font-mono font-medium">{costFor7Nights.toLocaleString()}</span>
                                 </div>
                                 <div className={`flex items-center justify-between text-xs font-semibold ${iconColor}`}>
@@ -1071,7 +1068,7 @@ const CreditConfiguration: React.FC = () => {
           ) : (
             <div className="bg-white rounded-lg shadow p-12 text-center text-gray-400">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" />
-              Cargando configuración de fórmula...
+              {t('admin.creditConfig.previewLoadingFormula')}
             </div>
           )}
         </div>
@@ -1082,11 +1079,11 @@ const CreditConfiguration: React.FC = () => {
         <div className="space-y-6">
           {/* Property and Year selector */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Seleccionar Propiedad y Año</h2>
+            <h2 className="text-lg font-semibold mb-4">{t('admin.creditConfig.calTitle')}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Propiedad
+                  {t('admin.creditConfig.calProperty')}
                 </label>
                 <select
                   value={selectedPropertyForCalendar || ''}
@@ -1097,7 +1094,7 @@ const CreditConfiguration: React.FC = () => {
                   }}
                   className="border rounded px-3 py-2 w-full"
                 >
-                  <option value="">Selecciona una propiedad</option>
+                  <option value="">{t('admin.creditConfig.calSelectProp')}</option>
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} - {p.city}, {p.country}
@@ -1107,7 +1104,7 @@ const CreditConfiguration: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Año
+                  {t('admin.creditConfig.calYear')}
                 </label>
                 <select
                   value={selectedYear}
@@ -1131,11 +1128,11 @@ const CreditConfiguration: React.FC = () => {
           {/* Create new period */}
           {selectedPropertyForCalendar && (
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Crear Nuevo Período de Temporada</h2>
+              <h2 className="text-lg font-semibold mb-4">{t('admin.creditConfig.calNewPeriodTitle')}</h2>
               <div className="grid grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Temporada
+                    {t('admin.creditConfig.calSeason')}
                   </label>
                   <select
                     value={calendarForm.season_type}
@@ -1147,14 +1144,14 @@ const CreditConfiguration: React.FC = () => {
                     }
                     className="border rounded px-3 py-2 w-full"
                   >
-                    <option value="RED">RED (Alta)</option>
-                    <option value="WHITE">WHITE (Media)</option>
-                    <option value="BLUE">BLUE (Baja)</option>
+                    <option value="RED">RED ({t('admin.creditConfig.seasonHighShort')})</option>
+                    <option value="WHITE">WHITE ({t('admin.creditConfig.seasonMidShort')})</option>
+                    <option value="BLUE">BLUE ({t('admin.creditConfig.seasonLowShort')})</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha Inicio
+                    {t('admin.creditConfig.calStartDate')}
                   </label>
                   <input
                     type="date"
@@ -1167,7 +1164,7 @@ const CreditConfiguration: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha Fin
+                    {t('admin.creditConfig.calEndDate')}
                   </label>
                   <input
                     type="date"
@@ -1185,7 +1182,7 @@ const CreditConfiguration: React.FC = () => {
                     className="w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center justify-center gap-2"
                   >
                     <Plus className="h-4 w-4" />
-                    Crear
+                    {t('admin.creditConfig.calCreate')}
                   </button>
                 </div>
               </div>
@@ -1197,7 +1194,7 @@ const CreditConfiguration: React.FC = () => {
             <div className="bg-white rounded-lg shadow">
               <div className="p-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold">
-                  Períodos Configurados ({seasonalCalendar.length})
+                  {t('admin.creditConfig.calConfiguredTitle', { count: seasonalCalendar.length })}
                 </h2>
               </div>
               <div className="overflow-x-auto">
@@ -1205,22 +1202,22 @@ const CreditConfiguration: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Temporada
+                        {t('admin.creditConfig.calSeason')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Fecha Inicio
+                        {t('admin.creditConfig.calStartDate')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Fecha Fin
+                        {t('admin.creditConfig.calEndDate')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Duración
+                        {t('admin.creditConfig.colValidity')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Estado
+                        {t('admin.creditConfig.colStatus')}
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Acciones
+                        {t('admin.creditConfig.colActions')}
                       </th>
                     </tr>
                   </thead>
@@ -1248,18 +1245,18 @@ const CreditConfiguration: React.FC = () => {
                             {new Date(entry.end_date).toLocaleDateString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {days} días
+                            {t('admin.creditConfig.calDays', { count: days })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {entry.isDefault ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">
                                 <AlertCircle className="h-3 w-3" />
-                                Por defecto
+                                {t('admin.creditConfig.calStatusDefault')}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">
                                 <CheckCircle className="h-3 w-3" />
-                                Configurado
+                                {t('admin.creditConfig.calStatusConfigured')}
                               </span>
                             )}
                           </td>
@@ -1289,7 +1286,7 @@ const CreditConfiguration: React.FC = () => {
                                 className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
                               >
                                 <Save className="h-4 w-4" />
-                                Guardar
+                                {t('admin.creditConfig.calSave')}
                               </button>
                             ) : (
                               <button
@@ -1306,7 +1303,7 @@ const CreditConfiguration: React.FC = () => {
                     {seasonalCalendar.length === 0 && (
                       <tr>
                         <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                          No hay períodos configurados para este año. Crea el primer período arriba.
+                          {t('admin.creditConfig.calNoEntries')}
                         </td>
                       </tr>
                     )}
@@ -1322,17 +1319,16 @@ const CreditConfiguration: React.FC = () => {
               <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
               <div>
                 <h3 className="font-semibold text-blue-900 mb-1">
-                  Calendario de Temporadas
+                  {t('admin.creditConfig.calInfoTitle')}
                 </h3>
                 <p className="text-sm text-blue-800 mb-2">
-                  Cada propiedad tiene un calendario por defecto que cubre todo el año con períodos RED (alta), 
-                  WHITE (media) y BLUE (baja). Estos períodos determinan el valor base de créditos.
+                  {t('admin.creditConfig.calInfoDesc')}
                 </p>
                 <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
-                  <li>Los períodos marcados como <strong>"Por defecto"</strong> son sugerencias que puedes guardar o modificar</li>
-                  <li>Puedes crear nuevos períodos o editar los existentes según tus necesidades</li>
-                  <li>Los períodos <strong>"Configurado"</strong> son personalizados y están guardados en el sistema</li>
-                  <li>Si no seleccionas una propiedad, usa el selector arriba para comenzar</li>
+                  <li>{t('admin.creditConfig.calInfoItem1')}</li>
+                  <li>{t('admin.creditConfig.calInfoItem2')}</li>
+                  <li>{t('admin.creditConfig.calInfoItem3')}</li>
+                  <li>{t('admin.creditConfig.calInfoItem4')}</li>
                 </ul>
               </div>
             </div>
