@@ -126,13 +126,23 @@ class StaffRoomController {
 
       if (!name) return res.status(400).json({ success: false, error: 'name is required' });
 
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') +
+        '-' + Date.now();
+
       const unit = await TimeshareUnit.create({
         category: name,
+        slug,
         description: description || null,
         capacity_max: capacity ? Number(capacity) : 2,
         capacity_min: 1,
         quantity: Math.max(1, parseInt(quantity) || 1),
         base_credit_value: Number(base_price ?? basePrice ?? 0),
+        room_type_multiplier: 1.0,
+        seasonal_factors: JSON.stringify({}),
+        currency: 'EUR',
         is_active: status !== 'unavailable',
         images: images ? JSON.stringify(images) : null,
         property_id: propertyId,
