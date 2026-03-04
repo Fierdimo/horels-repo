@@ -68,7 +68,7 @@ export default function StaffRooms() {
   useEffect(() => {
     if (!hasAutoSynced && roomsData) {
       // Solo sincronizar si no hay habitaciones o si han pasado más de 5 minutos
-      const rooms = roomsData?.data?.rooms || [];
+      const rooms = Array.isArray(roomsData?.data) ? roomsData.data : [];
       if (rooms.length === 0) {
         syncRoomsMutation.mutate();
       }

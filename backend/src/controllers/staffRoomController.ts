@@ -1,12 +1,36 @@
 import { Request, Response } from 'express';
-import Room from '../models/room';
 import TimeshareUnit from '../models/v2/TimeshareUnit';
 import { Property, User } from '../models';
-import { RoomSyncService } from '../services/roomSyncService';
-import RoomEnrichmentService from '../services/roomEnrichmentService';
 import productSyncService from '../services/productSyncService';
 
-const roomSyncService = new RoomSyncService();
+// Helper: format a TimeshareUnit as a unified room response
+function formatUnit(u: any) {
+  return {
+    id: u.id,
+    source: 'timeshare' as const,
+    name: u.category,
+    description: u.description,
+    capacity: u.capacity_max,
+    capacityMin: u.capacity_min,
+    quantity: u.quantity,
+    basePrice: Number(u.base_credit_value) || 0,
+    base_price: Number(u.base_credit_value) || 0,
+    price: Number(u.base_credit_value) || 0,
+    status: u.is_active ? 'available' : 'unavailable',
+    images: (() => { try { return u.images ? JSON.parse(u.images) : []; } catch { return []; } })(),
+    isMarketplaceEnabled: !!u.is_active,
+    property_id: u.property_id,
+    bedrooms: u.bedrooms,
+    bathrooms: u.bathrooms,
+    sizeSqm: u.size_sqm,
+    viewType: u.view_type,
+    floorRange: u.floor_range,
+    floor: u.floor_range || null,
+    type: 'timeshare',
+    createdAt: u.created_at,
+    updatedAt: u.updated_at,
+  };
+}
 
 interface AuthRequest extends Request {
   user?: User & { property_id?: number | null; role?: string };
@@ -18,8 +42,6 @@ class StaffRoomController {
    */
   async getRoomsByProperty(req: AuthRequest, res: Response) {
     try {
-      const isAdmin = req.user?.role === 'admin';
-
       let propertyId: number | undefined;
       if (req.query.propertyId) {
         propertyId = Number(req.query.propertyId);
@@ -27,48 +49,11 @@ class StaffRoomController {
         propertyId = req.user.property_id;
       }
 
-      const where: any = {};
-      if (propertyId) where.property_id = propertyId;
+      const where: any = propertyId ? { property_id: propertyId } : {};
+      const units = await TimeshareUnit.findAll({ where, order: [['id', 'ASC']] });
+      const data = units.map((u: any) => formatUnit(u));
 
-      // ── 1. Hotel rooms (rooms table) ──────────────────────────
-      const hotelRooms = await Room.findAll({ where, order: [['createdAt', 'ASC']] });
-      const enrichedHotelRooms = (await RoomEnrichmentService.enrichRooms(hotelRooms)).map(r => ({
-        ...r,
-        source: 'hotel' as const,
-      }));
-
-      // ── 2. Timeshare units (timeshare_units table) ────────────
-      const tsWhere: any = propertyId ? { property_id: propertyId } : {};
-      const tsUnits = await TimeshareUnit.findAll({ where: tsWhere, order: [['id', 'ASC']] });
-      const enrichedTsUnits = tsUnits.map((u: any) => ({
-        id: u.id,
-        source: 'timeshare' as const,
-        name: u.category,
-        description: u.description,
-        capacity: u.capacity_max,
-        capacityMin: u.capacity_min,
-        quantity: u.quantity,
-        basePrice: Number(u.base_credit_value) || 0,
-        base_price: Number(u.base_credit_value) || 0,
-        price: Number(u.base_credit_value) || 0,
-        status: u.is_active ? 'available' : 'unavailable',
-        images: (() => { try { return u.images ? JSON.parse(u.images) : []; } catch { return []; } })(),
-        isMarketplaceEnabled: !!u.is_active,
-        property_id: u.property_id,
-        bedrooms: u.bedrooms,
-        bathrooms: u.bathrooms,
-        sizeSqm: u.size_sqm,
-        viewType: u.view_type,
-        floorRange: u.floor_range,
-        floor: u.floor_range || null,
-        type: 'timeshare',
-        createdAt: u.created_at,
-        updatedAt: u.updated_at,
-      }));
-
-      const allRooms = [...enrichedTsUnits, ...enrichedHotelRooms];
-
-      res.json({ success: true, data: allRooms, count: allRooms.length });
+      res.json({ success: true, data, count: data.length });
     } catch (error: any) {
       console.error('Error fetching rooms:', error);
       res.status(500).json({ success: false, error: 'Failed to fetch rooms', message: error.message });
@@ -137,37 +122,25 @@ class StaffRoomController {
         ? Number(req.body.propertyId)
         : req.user?.property_id ?? null;
 
-      const {
-        name, description, capacity, quantity,
-        type, floor, base_price, basePrice,
-        status, images, is_marketplace_enabled,
-      } = req.body;
+      const { name, description, capacity, quantity, base_price, basePrice, status, images } = req.body;
 
-      if (!name) {
-        return res.status(400).json({ success: false, error: 'name is required' });
-      }
+      if (!name) return res.status(400).json({ success: false, error: 'name is required' });
 
-      const room = await Room.create({
-        name,
+      const unit = await TimeshareUnit.create({
+        category: name,
         description: description || null,
-        capacity: capacity ? Number(capacity) : 2,
+        capacity_max: capacity ? Number(capacity) : 2,
+        capacity_min: 1,
         quantity: Math.max(1, parseInt(quantity) || 1),
-        type: type || 'standard',
-        floor: floor || null,
-        base_price: Number(base_price ?? basePrice ?? 0),
-        status: (status || 'available') as 'available' | 'occupied' | 'maintenance' | 'unavailable',
+        base_credit_value: Number(base_price ?? basePrice ?? 0),
+        is_active: status !== 'unavailable',
         images: images ? JSON.stringify(images) : null,
-        is_marketplace_enabled: is_marketplace_enabled ?? false,
         property_id: propertyId,
-      });
+      } as any);
 
-      const enriched = await RoomEnrichmentService.enrichRoom(room);
-      return res.status(201).json({ success: true, data: enriched, message: 'Room created successfully' });
+      return res.status(201).json({ success: true, data: formatUnit(unit), message: 'Room created successfully' });
     } catch (error: any) {
       console.error('Error creating room:', error);
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return res.status(400).json({ success: false, error: 'A room with this name already exists' });
-      }
       res.status(500).json({ success: false, error: 'Failed to create room', message: error.message });
     }
   }
@@ -180,40 +153,26 @@ class StaffRoomController {
   async updateRoom(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
+      const unit = await TimeshareUnit.findByPk(id);
+      if (!unit) return res.status(404).json({ success: false, error: 'Room not found' });
 
-      const room = await Room.findByPk(id);
-      if (!room) {
-        return res.status(404).json({ success: false, error: 'Room not found' });
-      }
+      const { name, description, capacity, quantity, base_price, basePrice, status, images, is_marketplace_enabled } = req.body;
 
-      const {
-        name, description, capacity, quantity,
-        type, floor, base_price, basePrice,
-        status, images, is_marketplace_enabled
-      } = req.body;
-
-      await room.update({
-        ...(name !== undefined && { name }),
+      await unit.update({
+        ...(name !== undefined && { category: name }),
         ...(description !== undefined && { description }),
-        ...(capacity !== undefined && { capacity: Number(capacity) }),
+        ...(capacity !== undefined && { capacity_max: Number(capacity) }),
         ...(quantity !== undefined && { quantity: Math.max(1, parseInt(quantity) || 1) }),
-        ...(type !== undefined && { type }),
-        ...(floor !== undefined && { floor: floor || null }),
-        ...((base_price !== undefined || basePrice !== undefined) && {
-          base_price: Number(base_price ?? basePrice)
-        }),
-        ...(status !== undefined && { status }),
+        ...((base_price !== undefined || basePrice !== undefined) && { base_credit_value: Number(base_price ?? basePrice) }),
+        ...(status !== undefined && { is_active: status !== 'unavailable' }),
         ...(images !== undefined && { images: JSON.stringify(images) }),
-        ...(is_marketplace_enabled !== undefined && { is_marketplace_enabled }),
+        ...(is_marketplace_enabled !== undefined && { is_active: !!is_marketplace_enabled }),
       });
 
-      const enriched = await RoomEnrichmentService.enrichRoom(room);
-      res.json({ success: true, data: enriched, message: 'Room updated successfully' });
+      const updated = await TimeshareUnit.findByPk(id);
+      res.json({ success: true, data: formatUnit(updated), message: 'Room updated successfully' });
     } catch (error: any) {
       console.error('Error updating room:', error);
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return res.status(400).json({ success: false, error: 'A room with this name already exists' });
-      }
       res.status(500).json({ success: false, error: 'Failed to update room', message: error.message });
     }
   }
@@ -224,13 +183,10 @@ class StaffRoomController {
   async deleteRoom(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
+      const unit = await TimeshareUnit.findByPk(id);
+      if (!unit) return res.status(404).json({ success: false, error: 'Room not found' });
 
-      const room = await Room.findByPk(id);
-      if (!room) {
-        return res.status(404).json({ success: false, error: 'Room not found' });
-      }
-
-      await room.destroy();
+      await unit.destroy();
       res.json({ success: true, message: 'Room deleted successfully' });
     } catch (error: any) {
       console.error('Error deleting room:', error);
@@ -299,42 +255,25 @@ class StaffRoomController {
         });
       }
 
-      // Sincronizar habitaciones y productos EN PARALELO para mejor rendimiento
-      const [roomsResult, productsResult] = await Promise.all([
-        roomSyncService.syncRoomsFromPMS(propertyId),
-        productSyncService.syncProductsFromPMS(propertyId).catch((error: any) => {
-          console.warn('[SyncRooms] Product sync failed, continuing:', error.message);
-          return { success: false, created: 0, updated: 0, deactivated: 0, errors: [error.message], summary: undefined };
-        })
-      ]);
+      // V2: room units come from timeshare_units table; sync products only
+      const productsResult = await productSyncService.syncProductsFromPMS(propertyId).catch((error: any) => {
+        console.warn('[SyncRooms] Product sync failed, continuing:', error.message);
+        return { success: false, created: 0, updated: 0, deactivated: 0, errors: [error.message], summary: undefined };
+      });
 
-      if (!roomsResult.success) {
-        return res.status(400).json({
-          success: false,
-          error: 'Rooms sync failed',
-          details: roomsResult.errors
-        });
-      }
-
-      // Responder INMEDIATAMENTE sin enrichment (más rápido)
-      // El frontend hará refetch que traerá los datos enriquecidos
       res.json({
         success: true,
         data: {
-          rooms: {
-            created: roomsResult.created,
-            updated: roomsResult.updated,
-            total: roomsResult.created + roomsResult.updated
-          },
+          rooms: { created: 0, updated: 0, total: 0 },
           products: {
             created: productsResult.created,
             updated: productsResult.updated,
             deactivated: productsResult.deactivated,
-            total: productsResult.created + productsResult.updated,
+            total: (productsResult.created || 0) + (productsResult.updated || 0),
             success: productsResult.success
           }
         },
-        message: `Rooms: ${roomsResult.summary || 'synced'}${productsResult.success ? `, Products: ${productsResult.summary || 'synced'}` : ''}`
+        message: `V2: Timeshare units managed via timeshare_units table.${productsResult.success ? ` Products: ${productsResult.summary || 'synced'}` : ''}`
       });
     } catch (error: any) {
       console.error('Error syncing rooms:', error);
@@ -354,21 +293,16 @@ class StaffRoomController {
       const { id } = req.params;
       const { enabled } = req.body;
 
-      if (enabled === undefined) {
-        return res.status(400).json({ success: false, error: 'enabled field is required' });
-      }
+      if (enabled === undefined) return res.status(400).json({ success: false, error: 'enabled field is required' });
 
-      const room = await Room.findByPk(id);
-      if (!room) {
-        return res.status(404).json({ success: false, error: 'Room not found' });
-      }
+      const unit = await TimeshareUnit.findByPk(id);
+      if (!unit) return res.status(404).json({ success: false, error: 'Room not found' });
 
-      await room.update({ is_marketplace_enabled: !!enabled });
-
-      const enriched = await RoomEnrichmentService.enrichRoom(room);
+      await unit.update({ is_active: !!enabled });
+      const updated = await TimeshareUnit.findByPk(id);
       res.json({
         success: true,
-        data: enriched,
+        data: formatUnit(updated),
         message: `Room ${enabled ? 'enabled' : 'disabled'} in marketplace`
       });
     } catch (error: any) {
@@ -390,13 +324,8 @@ class StaffRoomController {
         return res.status(400).json({ success: false, error: 'enabled field is required and must be boolean' });
       }
 
-      const where: any = {};
-      if (propertyId) where.property_id = propertyId;
-
-      const [updatedCount] = await Room.update(
-        { is_marketplace_enabled: enabled },
-        { where }
-      );
+      const where: any = propertyId ? { property_id: propertyId } : {};
+      const [updatedCount] = await TimeshareUnit.update({ is_active: enabled }, { where });
 
       res.json({
         success: true,
