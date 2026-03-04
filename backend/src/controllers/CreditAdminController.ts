@@ -8,6 +8,7 @@ import SettingChangeLog from '../models/SettingChangeLog';
 import Property from '../models/Property';
 import Room from '../models/room';
 import TimeshareUnit from '../models/v2/TimeshareUnit';
+import CreditSystemConfig from '../models/v2/CreditSystemConfig';
 
 /**
  * Controller for credit system administration and configuration
@@ -721,6 +722,19 @@ class CreditAdminController {
     STANDARD: 1.0, SUPERIOR: 1.2, DELUXE: 1.5, SUITE: 2.0, PRESIDENTIAL: 2.5
   };
 
+  /** Fetch configured room-type multipliers from credit_system_config, falling back to hardcoded defaults. */
+  private static async getConfiguredMultipliers(): Promise<Record<string, number>> {
+    const types = ['STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'] as const;
+    const result: Record<string, number> = {};
+    await Promise.all(types.map(async (type) => {
+      result[type] = await CreditSystemConfig.getValue(
+        `ROOM_${type}`,
+        CreditAdminController.FORMULA_MULTIPLIERS[type]
+      );
+    }));
+    return result;
+  }
+
   private static readonly PMS_TO_FORMULA: Record<string, string> = {
     'standard': 'STANDARD', 'single': 'STANDARD', 'double': 'STANDARD',
     'triple': 'SUPERIOR',
@@ -748,6 +762,7 @@ class CreditAdminController {
       const rooms = await Room.findAll({ order: [['property_id', 'ASC'], ['name', 'ASC']] });
       const units = await TimeshareUnit.findAll({ where: { is_active: true }, order: [['property_id', 'ASC'], ['category', 'ASC']] });
       const properties = await Property.findAll({ attributes: ['id', 'name'] });
+      const multipliers = await CreditAdminController.getConfiguredMultipliers();
       const propMap: Record<number, string> = {};
       for (const p of properties) propMap[p.id] = p.name;
 
@@ -765,7 +780,7 @@ class CreditAdminController {
           auto_formula_type: autoType,
           credit_room_type: override,
           effective_type: effectiveType,
-          multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+          multiplier: multipliers[effectiveType] ?? 1.0,
           is_overridden: !!override,
         };
       });
@@ -784,7 +799,7 @@ class CreditAdminController {
           auto_formula_type: autoType,
           credit_room_type: override,
           effective_type: effectiveType,
-          multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+          multiplier: multipliers[effectiveType] ?? 1.0,
           is_overridden: !!override,
         };
       });
@@ -830,6 +845,7 @@ class CreditAdminController {
         await (unit as any).update({ credit_room_type: creditRoomType ?? null });
         const autoType = CreditAdminController.detectFormulaType(unit.category || 'standard');
         const effectiveType = creditRoomType || autoType;
+        const multipliers = await CreditAdminController.getConfiguredMultipliers();
         res.json({
           success: true,
           data: {
@@ -837,7 +853,7 @@ class CreditAdminController {
             source: 'unit',
             credit_room_type: creditRoomType ?? null,
             effective_type: effectiveType,
-            multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+            multiplier: multipliers[effectiveType] ?? 1.0,
           }
         });
         return;
@@ -854,6 +870,7 @@ class CreditAdminController {
 
       const autoType = CreditAdminController.detectFormulaType(room.type || 'standard');
       const effectiveType = creditRoomType || autoType;
+      const multipliers = await CreditAdminController.getConfiguredMultipliers();
       res.json({
         success: true,
         data: {
@@ -861,7 +878,7 @@ class CreditAdminController {
           source: 'room',
           credit_room_type: creditRoomType ?? null,
           effective_type: effectiveType,
-          multiplier: CreditAdminController.FORMULA_MULTIPLIERS[effectiveType] ?? 1.0,
+          multiplier: multipliers[effectiveType] ?? 1.0,
         }
       });
     } catch (error: any) {
