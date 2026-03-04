@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import CreditBookingCost from '../models/CreditBookingCost';
 import Property from '../models/Property';
-import PlatformSettings from '../models/PlatformSettings';
+import PlatformSetting from '../models/PlatformSetting';
 
 interface AuthRequest extends Request {
   user?: {
@@ -80,13 +80,30 @@ router.put('/properties/:id', requireAdminRole, async (req: any, res: Response) 
       });
     }
 
-    // Note: tier and location_multiplier fields removed from Property model
-    // These values are now managed through PlatformSetting table
-    // No property update needed
+    const updateData: Record<string, any> = {};
+    if (tier) updateData.tier = tier;
+    if (location_multiplier !== undefined) {
+      const mult = parseFloat(location_multiplier);
+      if (isNaN(mult) || mult <= 0) {
+        return res.status(400).json({ success: false, message: 'location_multiplier must be a positive number' });
+      }
+      updateData.location_multiplier = mult;
+    }
 
+    if (Object.keys(updateData).length > 0) {
+      await (property as any).update(updateData);
+    }
+
+    // Clear credit calculation cache so new values apply immediately
+    try {
+      const { CreditCalculationService } = require('../services/CreditCalculationService');
+      CreditCalculationService.clearCache();
+    } catch {}
+
+    await property.reload();
     res.json({
       success: true,
-      message: 'Property tier and location multiplier are now managed through system settings',
+      message: 'Property updated successfully',
       data: property
     });
   } catch (error: any) {
@@ -121,7 +138,7 @@ router.get('/costs', requireAdminRole, async (req: any, res: Response) => {
         {
           model: Property,
           as: 'property',
-          attributes: ['id', 'name', 'tier', 'location_multiplier']
+          attributes: ['id', 'name']
         }
       ],
       order: [['property_id', 'ASC'], ['room_type', 'ASC'], ['season_type', 'ASC']]
@@ -133,6 +150,9 @@ router.get('/costs', requireAdminRole, async (req: any, res: Response) => {
       data: costs
     });
   } catch (error: any) {
+    if ((error as any).original?.code === 'ER_NO_SUCH_TABLE') {
+      return res.json({ success: true, count: 0, data: [] });
+    }
     console.error('Error fetching credit costs:', error);
     res.status(500).json({
       success: false,
@@ -205,6 +225,9 @@ router.post('/costs', requireAdminRole, async (req: any, res: Response) => {
       data: cost
     });
   } catch (error: any) {
+    if ((error as any).original?.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(503).json({ success: false, message: 'Credit booking costs table not yet available.' });
+    }
     console.error('Error creating credit cost:', error);
     res.status(500).json({
       success: false,
@@ -248,6 +271,9 @@ router.put('/costs/:id', requireAdminRole, async (req: any, res: Response) => {
       data: cost
     });
   } catch (error: any) {
+    if ((error as any).original?.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(503).json({ success: false, message: 'Credit booking costs table not yet available.' });
+    }
     console.error('Error updating credit cost:', error);
     res.status(500).json({
       success: false,
@@ -279,6 +305,9 @@ router.delete('/costs/:id', requireAdminRole, async (req: any, res: Response) =>
       message: 'Credit cost configuration deleted successfully'
     });
   } catch (error: any) {
+    if ((error as any).original?.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(503).json({ success: false, message: 'Credit booking costs table not yet available.' });
+    }
     console.error('Error deleting credit cost:', error);
     res.status(500).json({
       success: false,
@@ -360,8 +389,10 @@ router.post('/costs/bulk-create', requireAdminRole, async (req: any, res: Respon
 // @access  Admin
 router.get('/defaults', requireAdminRole, async (req: any, res: Response) => {
   try {
-    // Fetch all settings from database
-    const settings = await PlatformSettings.getAllSettings();
+    // Fetch all settings from database using the correct PlatformSetting model (key/value columns)
+    const allSettings = await (PlatformSetting as any).findAll();
+    const settings: Record<string, string> = {};
+    allSettings.forEach((s: any) => { settings[s.key] = s.value; });
 
     const defaults = {
       tiers: {
@@ -477,7 +508,13 @@ router.put('/defaults', requireAdminRole, async (req: any, res: Response) => {
       });
     }
 
-    await PlatformSettings.updateSetting(settingKey, String(value), userId);
+    const [setting, created] = await (PlatformSetting as any).findOrCreate({
+      where: { key: settingKey },
+      defaults: { key: settingKey, value: String(value) }
+    });
+    if (!created && setting.value !== String(value)) {
+      await setting.update({ value: String(value) });
+    }
 
     res.json({
       success: true,

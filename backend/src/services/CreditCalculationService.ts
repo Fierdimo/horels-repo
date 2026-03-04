@@ -231,8 +231,8 @@ class CreditCalculationService {
       CreditCalculationService.TIER_MULTIPLIERS[property.tier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0
     );
 
-    // Get location multiplier from property
-    const locationMultiplier = parseFloat(property.location_multiplier.toString());
+    // Get location multiplier from property (default 1.0 if not set)
+    const locationMultiplier = parseFloat((property.location_multiplier ?? 1.0).toString()) || 1.0;
 
     // Get room type multiplier - check if it's already a room type (STANDARD, SUPERIOR, etc.) or needs mapping
     let roomType: keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS;
@@ -317,52 +317,54 @@ class CreditCalculationService {
       console.log('📝 CreditBookingCost table not available, using Master Formula');
     }
 
-    if (!configUsed) {
-      // Use Master Formula calculation for BOOKINGS
-      // Try v2 property first, fallback to v1
-      let propertyV2 = await TimeshareProperty.findByPk(propertyId);
-      if (!propertyV2) {
-        const propertyV1 = await Property.findByPk(propertyId);
-        if (!propertyV1) {
-          throw new Error(`Property ${propertyId} not found`);
-        }
-      }
+    // Resolve property (tier + location_multiplier needed for Master Formula)
+    // Try V2 model first (same table, same columns), fallback to V1
+    let resolvedTier: string = 'STANDARD';
+    let resolvedLocationMultiplier: number = 1.0;
 
-      // Base nightly rate from season - get from config with fallback
+    const propertyV2 = await TimeshareProperty.findByPk(propertyId);
+    if (propertyV2) {
+      resolvedTier = (propertyV2 as any).tier || 'STANDARD';
+      resolvedLocationMultiplier = parseFloat(((propertyV2 as any).location_multiplier || 1.0).toString());
+    } else {
+      const propertyV1 = await Property.findByPk(propertyId);
+      if (!propertyV1) throw new Error(`Property ${propertyId} not found`);
+      resolvedTier = (propertyV1 as any).tier || 'STANDARD';
+      resolvedLocationMultiplier = parseFloat(((propertyV1 as any).location_multiplier || 1.0).toString());
+    }
+
+    if (!configUsed) {
+      // Master Formula: BASE_NIGHTLY × ROOM_MULTIPLIER × TIER_MULTIPLIER × LOCATION_MULTIPLIER
       const baseRate = await this.getConfigValue(
         `BASE_NIGHTLY_${seasonType}`,
         CreditCalculationService.BASE_NIGHTLY_RATES[seasonType]
       );
 
-      // Room type multiplier - get from config with fallback
       const roomMultiplier = await this.getConfigValue(
         `ROOM_${roomType}`,
         CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0
       );
 
-      // Tier multiplier - use default STANDARD tier (1.0)
-      const tierMultiplier = 1.0;
+      const tierMultiplier = await this.getConfigValue(
+        `TIER_${resolvedTier}`,
+        CreditCalculationService.TIER_MULTIPLIERS[resolvedTier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0
+      );
 
-      // Location multiplier - use default 1.0
-      const locationMultiplier = 1.0;
-
-      // Calculate nightly cost: Base_Nightly_Rate × Room_Multiplier × Tier_Multiplier × Location_Multiplier
-      creditsPerNight = Math.round(baseRate * roomMultiplier * tierMultiplier * locationMultiplier);
+      creditsPerNight = Math.round(baseRate * roomMultiplier * tierMultiplier * resolvedLocationMultiplier);
     }
 
     const totalCredits = creditsPerNight * nights;
 
-    // Property is not needed for breakdown in v2 (we just return defaults)
     return {
       totalCredits,
       creditsPerNight,
       nights,
       breakdown: {
         baseRate: CreditCalculationService.BASE_NIGHTLY_RATES[seasonType],
-        tierMultiplier: 1.0,
-        locationMultiplier: 1.0,
+        tierMultiplier: CreditCalculationService.TIER_MULTIPLIERS[resolvedTier as keyof typeof CreditCalculationService.TIER_MULTIPLIERS] || 1.0,
+        locationMultiplier: resolvedLocationMultiplier,
         roomTypeMultiplier: CreditCalculationService.ROOM_TYPE_MULTIPLIERS[roomType as keyof typeof CreditCalculationService.ROOM_TYPE_MULTIPLIERS] || 1.0,
-        propertyTier: 'STANDARD',
+        propertyTier: resolvedTier,
         seasonType,
         configUsed
       }

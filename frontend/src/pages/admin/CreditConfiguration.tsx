@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '@/api/client';
+import { creditConfigAPI } from '@/api/creditConfig';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Save, Plus, Trash2, Edit, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Save, Plus, Trash2, Edit, AlertCircle, CheckCircle,
+  RotateCcw, DollarSign, Building2, Bed, Calculator, TrendingUp, TrendingDown, Minus, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Property {
@@ -10,8 +12,8 @@ interface Property {
   name: string;
   city: string;
   country: string;
-  tier: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
-  location_multiplier: number;
+  tier?: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
+  location_multiplier?: number;
 }
 
 interface CreditCost {
@@ -27,8 +29,8 @@ interface CreditCost {
   property?: {
     id: number;
     name: string;
-    tier: string;
-    location_multiplier: number;
+    tier?: string;
+    location_multiplier?: number;
   };
 }
 
@@ -64,6 +66,14 @@ interface SeasonalCalendar {
   isDefault?: boolean;
 }
 
+interface CreditFormulaConfig {
+  base_seasons: Record<string, number>;
+  base_nightly: Record<string, number>;
+  tier_multipliers: Record<string, number>;
+  room_multipliers: Record<string, number>;
+  other: Record<string, number>;
+}
+
 const CreditConfiguration: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -82,6 +92,13 @@ const CreditConfiguration: React.FC = () => {
   // System defaults
   const [systemDefaults, setSystemDefaults] = useState<SystemDefaults | null>(null);
   const [editingDefault, setEditingDefault] = useState<{ category: string; key: string; value: number } | null>(null);
+
+  // Formula config (V2 - CreditConfigPage)
+  const [formulaConfig, setFormulaConfig] = useState<CreditFormulaConfig | null>(null);
+  const [formulaChanges, setFormulaChanges] = useState<Record<string, number>>({});
+  const [formulaSaving, setFormulaSaving] = useState(false);
+  const [formulaError, setFormulaError] = useState<string | null>(null);
+  const [formulaSuccess, setFormulaSuccess] = useState<string | null>(null);
 
   // Seasonal calendar state
   const [seasonalCalendar, setSeasonalCalendar] = useState<SeasonalCalendar[]>([]);
@@ -111,6 +128,7 @@ const CreditConfiguration: React.FC = () => {
     fetchProperties();
     fetchCosts();
     fetchDefaults();
+    loadFormulaConfig();
   }, []);
 
   useEffect(() => {
@@ -122,10 +140,7 @@ const CreditConfiguration: React.FC = () => {
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('sw2_token');
-      const response = await axios.get('/api/admin/credit-config/properties', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/admin/credit-config/properties');
       setProperties(response.data.data);
     } catch (error: any) {
       console.error('Error fetching properties:', error);
@@ -138,12 +153,8 @@ const CreditConfiguration: React.FC = () => {
   const fetchCosts = async (propertyId?: number) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('sw2_token');
       const params = propertyId ? { property_id: propertyId } : {};
-      const response = await axios.get('/api/admin/credit-config/costs', {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await apiClient.get('/api/admin/credit-config/costs', { params });
       setCosts(response.data.data);
     } catch (error: any) {
       console.error('Error fetching costs:', error);
@@ -155,10 +166,7 @@ const CreditConfiguration: React.FC = () => {
 
   const fetchDefaults = async () => {
     try {
-      const token = localStorage.getItem('sw2_token');
-      const response = await axios.get('/api/admin/credit-config/defaults', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/api/admin/credit-config/defaults');
       setSystemDefaults(response.data.data);
     } catch (error: any) {
       console.error('Error fetching defaults:', error);
@@ -167,16 +175,9 @@ const CreditConfiguration: React.FC = () => {
 
   const updateProperty = async (property: Property) => {
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.put(
+      await apiClient.put(
         `/api/admin/credit-config/properties/${property.id}`,
-        {
-          tier: property.tier,
-          location_multiplier: property.location_multiplier
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { tier: property.tier }
       );
       toast.success('Propiedad actualizada correctamente');
       fetchProperties();
@@ -189,14 +190,7 @@ const CreditConfiguration: React.FC = () => {
 
   const createCost = async () => {
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.post(
-        '/api/admin/credit-config/costs',
-        costForm,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await apiClient.post('/api/admin/credit-config/costs', costForm);
       toast.success('Configuración de créditos creada');
       fetchCosts(selectedProperty || undefined);
       setCostForm({
@@ -216,17 +210,9 @@ const CreditConfiguration: React.FC = () => {
 
   const updateCost = async (cost: CreditCost) => {
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.put(
+      await apiClient.put(
         `/api/admin/credit-config/costs/${cost.id}`,
-        {
-          credits_per_night: cost.credits_per_night,
-          is_active: cost.is_active,
-          notes: cost.notes
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { credits_per_night: cost.credits_per_night, is_active: cost.is_active, notes: cost.notes }
       );
       toast.success('Configuración actualizada');
       fetchCosts(selectedProperty || undefined);
@@ -241,10 +227,7 @@ const CreditConfiguration: React.FC = () => {
     if (!confirm('¿Estás seguro de eliminar esta configuración?')) return;
     
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.delete(`/api/admin/credit-config/costs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.delete(`/api/admin/credit-config/costs/${id}`);
       toast.success('Configuración eliminada');
       fetchCosts(selectedProperty || undefined);
     } catch (error: any) {
@@ -257,14 +240,7 @@ const CreditConfiguration: React.FC = () => {
     if (!editingDefault) return;
 
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.put(
-        '/api/admin/credit-config/defaults',
-        editingDefault,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await apiClient.put('/api/admin/credit-config/defaults', editingDefault);
       toast.success('Valor actualizado correctamente');
       fetchDefaults();
       setEditingDefault(null);
@@ -277,10 +253,7 @@ const CreditConfiguration: React.FC = () => {
   const fetchSeasonalCalendar = async (propertyId: number, year: number) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('sw2_token');
-      const response = await axios.get(`/api/credits/admin/seasonal-calendar/${propertyId}/${year}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get(`/api/credits/admin/seasonal-calendar/${propertyId}/${year}`);
       setSeasonalCalendar(response.data.data || []);
     } catch (error: any) {
       console.error('Error fetching seasonal calendar:', error);
@@ -297,20 +270,13 @@ const CreditConfiguration: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.post(
-        '/api/credits/admin/seasonal-calendar',
-        {
-          propertyId: calendarForm.property_id,
-          seasonType: calendarForm.season_type,
-          startDate: calendarForm.start_date,
-          endDate: calendarForm.end_date,
-          year: calendarForm.year
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await apiClient.post('/api/credits/admin/seasonal-calendar', {
+        propertyId: calendarForm.property_id,
+        seasonType: calendarForm.season_type,
+        startDate: calendarForm.start_date,
+        endDate: calendarForm.end_date,
+        year: calendarForm.year
+      });
       toast.success('Período de temporada creado');
       fetchSeasonalCalendar(calendarForm.property_id, calendarForm.year);
       setCalendarForm({
@@ -331,10 +297,7 @@ const CreditConfiguration: React.FC = () => {
     if (!confirm('¿Estás seguro de eliminar este período?')) return;
 
     try {
-      const token = localStorage.getItem('sw2_token');
-      await axios.delete(`/api/credits/admin/seasonal-calendar/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.delete(`/api/credits/admin/seasonal-calendar/${id}`);
       toast.success('Período eliminado');
       if (selectedPropertyForCalendar && selectedYear) {
         fetchSeasonalCalendar(selectedPropertyForCalendar, selectedYear);
@@ -363,6 +326,92 @@ const CreditConfiguration: React.FC = () => {
     };
     return colors[season as keyof typeof colors] || colors.WHITE;
   };
+
+  // ─── Formula Config (V2) ───────────────────────────────────────────────
+  const loadFormulaConfig = async () => {
+    try {
+      const data = await creditConfigAPI.getConfiguration();
+      setFormulaConfig(data);
+      setFormulaChanges({});
+    } catch (err: any) {
+      console.error('Error loading formula config:', err);
+    }
+  };
+
+  const getFormulaValue = (section: keyof CreditFormulaConfig, key: string): number => {
+    const prefix = section === 'base_seasons' ? 'BASE_SEASON_'
+      : section === 'base_nightly' ? 'BASE_NIGHTLY_'
+      : section === 'tier_multipliers' ? 'TIER_'
+      : 'ROOM_';
+    const fullKey = `${prefix}${key}`;
+    return formulaChanges[fullKey] ?? formulaConfig?.[section]?.[key] ?? 0;
+  };
+
+  const handleFormulaValueChange = (key: string, value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue)) setFormulaChanges(prev => ({ ...prev, [key]: numValue }));
+  };
+
+  const handleFormulaSave = async () => {
+    if (Object.keys(formulaChanges).length === 0) {
+      setFormulaError('No hay cambios para guardar.');
+      return;
+    }
+    try {
+      setFormulaSaving(true);
+      setFormulaError(null);
+      await creditConfigAPI.updateConfiguration(formulaChanges);
+      setFormulaSuccess(`${Object.keys(formulaChanges).length} valor(es) guardado(s)`);
+      await loadFormulaConfig();
+      setTimeout(() => setFormulaSuccess(null), 3000);
+    } catch (err: any) {
+      setFormulaError(err.response?.data?.message || 'Error al guardar.');
+    } finally {
+      setFormulaSaving(false);
+    }
+  };
+
+  const handleFormulaReset = async () => {
+    if (!confirm('¿Restablecer todos los valores a los valores por defecto del sistema?')) return;
+    try {
+      setFormulaSaving(true);
+      setFormulaError(null);
+      await creditConfigAPI.resetToDefaults();
+      setFormulaSuccess('Valores restablecidos.');
+      await loadFormulaConfig();
+      setTimeout(() => setFormulaSuccess(null), 3000);
+    } catch (err: any) {
+      setFormulaError(err.response?.data?.message || 'Error al restablecer.');
+    } finally {
+      setFormulaSaving(false);
+    }
+  };
+
+  const formulaPreview = useMemo(() => {
+    if (!formulaConfig) return null;
+    const getVal = (section: keyof CreditFormulaConfig, key: string) => {
+      const prefix = section === 'base_seasons' ? 'BASE_SEASON_'
+        : section === 'base_nightly' ? 'BASE_NIGHTLY_'
+        : section === 'tier_multipliers' ? 'TIER_'
+        : 'ROOM_';
+      return formulaChanges[`${prefix}${key}`] ?? formulaConfig?.[section]?.[key] ?? 0;
+    };
+    const WEEKS_NIGHTS = 7;
+    const seasons = ['RED', 'WHITE', 'BLUE'] as const;
+    const rooms = ['STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'] as const;
+    const rows = seasons.flatMap(season =>
+      rooms.map(room => {
+        const baseSeason = getVal('base_seasons', season);
+        const baseNightly = getVal('base_nightly', season);
+        const roomMult = getVal('room_multipliers', room);
+        const depositCredits = Math.round(baseSeason * 1.0 * 1.0 * roomMult);
+        const costFor7Nights = Math.round(baseNightly * roomMult * WEEKS_NIGHTS);
+        const balance = depositCredits - costFor7Nights;
+        return { season, room, depositCredits, costFor7Nights, balance };
+      })
+    );
+    return { rows, hasDeficit: rows.some(r => r.balance < 0) };
+  }, [formulaConfig, formulaChanges]);
 
   if (loading && properties.length === 0) {
     return (
@@ -422,7 +471,7 @@ const CreditConfiguration: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
-            Valores Sistema
+            Fórmula Global
           </button>
         </nav>
       </div>
@@ -450,7 +499,7 @@ const CreditConfiguration: React.FC = () => {
                     Tier
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Multiplicador
+                    Multiplicador de Tier
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Acciones
@@ -469,7 +518,7 @@ const CreditConfiguration: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {editingProperty?.id === property.id ? (
                         <select
-                          value={editingProperty.tier}
+                          value={editingProperty.tier || 'STANDARD'}
                           onChange={(e) =>
                             setEditingProperty({
                               ...editingProperty,
@@ -478,40 +527,30 @@ const CreditConfiguration: React.FC = () => {
                           }
                           className="border rounded px-2 py-1 text-sm"
                         >
-                          <option value="DIAMOND">DIAMOND (1.5x)</option>
-                          <option value="GOLD">GOLD (1.3x)</option>
-                          <option value="SILVER_PLUS">SILVER+ (1.1x)</option>
-                          <option value="STANDARD">STANDARD (1.0x)</option>
+                          {(['DIAMOND', 'GOLD', 'SILVER_PLUS', 'STANDARD'] as const).map((t) => (
+                            <option key={t} value={t}>
+                              {t} ({(formulaConfig?.tier_multipliers[t] ?? (t === 'DIAMOND' ? 1.5 : t === 'GOLD' ? 1.3 : t === 'SILVER_PLUS' ? 1.1 : 1.0)).toFixed(2)}x)
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getTierBadgeColor(
-                            property.tier
+                            property.tier || 'STANDARD'
                           )}`}
                         >
-                          {property.tier}
+                          {property.tier || 'STANDARD'}
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {editingProperty?.id === property.id ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.5"
-                          max="3.0"
-                          value={editingProperty.location_multiplier}
-                          onChange={(e) =>
-                            setEditingProperty({
-                              ...editingProperty,
-                              location_multiplier: parseFloat(e.target.value)
-                            })
-                          }
-                          className="border rounded px-2 py-1 text-sm w-20"
-                        />
-                      ) : (
-                        `${property.location_multiplier}x`
-                      )}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        const tier = (editingProperty?.id === property.id ? editingProperty.tier : property.tier) || 'STANDARD';
+                        const mult = formulaConfig?.tier_multipliers[tier] ?? (tier === 'DIAMOND' ? 1.5 : tier === 'GOLD' ? 1.3 : tier === 'SILVER_PLUS' ? 1.1 : 1.0);
+                        return (
+                          <span className="font-mono font-semibold text-purple-700">{mult.toFixed(2)}x</span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {editingProperty?.id === property.id ? (
@@ -524,9 +563,10 @@ const CreditConfiguration: React.FC = () => {
                           </button>
                           <button
                             onClick={() => setEditingProperty(null)}
-                            className="text-gray-600 hover:text-gray-900"
+                            className="text-gray-400 hover:text-gray-700"
+                            title="Cancelar"
                           >
-                            Cancelar
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                       ) : (
@@ -548,530 +588,492 @@ const CreditConfiguration: React.FC = () => {
 
       {/* Costs Tab */}
       {activeTab === 'costs' && (
-        <div className="space-y-6">
-          {/* Filter by property */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Filtrar por Propiedad
-            </label>
-            <select
-              value={selectedProperty || ''}
-              onChange={(e) => {
-                const val = e.target.value ? parseInt(e.target.value) : null;
-                setSelectedProperty(val);
-                fetchCosts(val || undefined);
-              }}
-              className="border rounded px-3 py-2 w-full"
-            >
-              <option value="">Todas las propiedades</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} - {(p as any).location || 'N/A'}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-5">
+
+          {/* Context banner */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
+            <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900">¿Para qué sirve esta sección?</p>
+              <p className="text-sm text-blue-700 mt-0.5">
+                Aquí puedes definir un coste <strong>específico por noche</strong> para una propiedad, tipo de habitación
+                y temporada concretos. Si no se define ninguna regla, el sistema usará
+                automáticamente los valores de la pestaña <em>Fórmula Global</em>.
+              </p>
+            </div>
           </div>
 
-          {/* Create new cost */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-semibold mb-4">Crear Nueva Configuración</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* New cost form */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Propiedad
-                </label>
-                <select
-                  value={costForm.property_id}
-                  onChange={(e) =>
-                    setCostForm({ ...costForm, property_id: parseInt(e.target.value) })
-                  }
-                  className="border rounded px-3 py-2 w-full"
-                >
-                  <option value={0}>Seleccionar...</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                <h3 className="font-semibold text-gray-900">Nueva regla de coste</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Anula la fórmula global para la combinación elegida</p>
+              </div>
+            </div>
+            <div className="p-5">
+              {/* Row 1: what */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Propiedad <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={costForm.property_id}
+                    onChange={(e) => setCostForm({ ...costForm, property_id: parseInt(e.target.value) })}
+                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value={0}>Seleccionar propiedad…</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Tipo de habitación <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={costForm.room_type}
+                    onChange={(e) => setCostForm({ ...costForm, room_type: e.target.value })}
+                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="STANDARD">Standard</option>
+                    <option value="SUPERIOR">Superior</option>
+                    <option value="DELUXE">Deluxe</option>
+                    <option value="SUITE">Suite</option>
+                    <option value="PRESIDENTIAL">Presidential</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Temporada <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={costForm.season_type}
+                    onChange={(e) => setCostForm({ ...costForm, season_type: e.target.value })}
+                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="RED">🔴 Alta (RED)</option>
+                    <option value="WHITE">⚪ Media (WHITE)</option>
+                    <option value="BLUE">🔵 Baja (BLUE)</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Habitación
-                </label>
-                <select
-                  value={costForm.room_type}
-                  onChange={(e) => setCostForm({ ...costForm, room_type: e.target.value })}
-                  className="border rounded px-3 py-2 w-full"
-                >
-                  <option value="STANDARD">STANDARD</option>
-                  <option value="SUPERIOR">SUPERIOR</option>
-                  <option value="DELUXE">DELUXE</option>
-                  <option value="SUITE">SUITE</option>
-                  <option value="PRESIDENTIAL">PRESIDENTIAL</option>
-                </select>
+              {/* Row 2: how much + when */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Créditos por noche <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={costForm.credits_per_night}
+                      onChange={(e) => setCostForm({ ...costForm, credits_per_night: parseFloat(e.target.value) })}
+                      className="border rounded-lg px-3 py-2 w-full text-sm pr-20 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-gray-400">créditos</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Válido desde
+                  </label>
+                  <input
+                    type="date"
+                    value={costForm.effective_from}
+                    onChange={(e) => setCostForm({ ...costForm, effective_from: e.target.value })}
+                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Válido hasta <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={costForm.effective_until}
+                    onChange={(e) => setCostForm({ ...costForm, effective_until: e.target.value })}
+                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Sin expiración"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Temporada
-                </label>
-                <select
-                  value={costForm.season_type}
-                  onChange={(e) => setCostForm({ ...costForm, season_type: e.target.value })}
-                  className="border rounded px-3 py-2 w-full"
-                >
-                  <option value="RED">RED (Alta)</option>
-                  <option value="WHITE">WHITE (Media)</option>
-                  <option value="BLUE">BLUE (Baja)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Créditos por Noche
-                </label>
-                <input
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={costForm.credits_per_night}
-                  onChange={(e) =>
-                    setCostForm({ ...costForm, credits_per_night: parseFloat(e.target.value) })
-                  }
-                  className="border rounded px-3 py-2 w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha Efectiva Desde
-                </label>
-                <input
-                  type="date"
-                  value={costForm.effective_from}
-                  onChange={(e) =>
-                    setCostForm({ ...costForm, effective_from: e.target.value })
-                  }
-                  className="border rounded px-3 py-2 w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha Efectiva Hasta (opcional)
-                </label>
-                <input
-                  type="date"
-                  value={costForm.effective_until}
-                  onChange={(e) =>
-                    setCostForm({ ...costForm, effective_until: e.target.value })
-                  }
-                  className="border rounded px-3 py-2 w-full"
-                  placeholder="Si no se especifica, no expira"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notas (opcional)
-                </label>
+              <div className="flex items-center justify-between gap-4">
                 <input
                   type="text"
                   value={costForm.notes}
                   onChange={(e) => setCostForm({ ...costForm, notes: e.target.value })}
-                  className="border rounded px-3 py-2 w-full"
-                  placeholder="Notas adicionales..."
+                  placeholder="Notas internas (opcional)…"
+                  className="border rounded-lg px-3 py-2 flex-1 text-sm text-gray-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
+                <button
+                  onClick={createCost}
+                  disabled={costForm.property_id === 0}
+                  className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4" />
+                  Añadir regla
+                </button>
               </div>
             </div>
-            <button
-              onClick={createCost}
-              disabled={costForm.property_id === 0}
-              className="mt-4 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Crear Configuración
-            </button>
           </div>
 
-          {/* Costs table */}
+          {/* Existing costs */}
           <div className="bg-white rounded-lg shadow">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">
-                Configuraciones Existentes ({costs.length})
-              </h2>
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  Reglas configuradas
+                  {costs.length > 0 && (
+                    <span className="ml-2 text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                      {costs.length}
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">Anulan la fórmula global para esa combinación exacta</p>
+              </div>
+              <select
+                value={selectedProperty || ''}
+                onChange={(e) => {
+                  const val = e.target.value ? parseInt(e.target.value) : null;
+                  setSelectedProperty(val);
+                  fetchCosts(val || undefined);
+                }}
+                className="border rounded-lg px-3 py-2 text-sm w-56 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">Todas las propiedades</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Propiedad
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Habitación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Temporada
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Créditos/Noche
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Vigencia
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Estado
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {costs.map((cost) => (
-                    <tr key={cost.id} className={!cost.is_active ? 'bg-gray-50' : ''}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {cost.property?.name || `ID: ${cost.property_id}`}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {cost.room_type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSeasonBadgeColor(
-                            cost.season_type
-                          )}`}
-                        >
-                          {cost.season_type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                        {editingCost?.id === cost.id ? (
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={editingCost.credits_per_night}
-                            onChange={(e) =>
-                              setEditingCost({
-                                ...editingCost,
-                                credits_per_night: parseFloat(e.target.value)
-                              })
-                            }
-                            className="border rounded px-2 py-1 w-20"
-                          />
-                        ) : (
-                          `${cost.credits_per_night} créditos`
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="text-xs">
-                          <div>Desde: {new Date(cost.effective_from).toLocaleDateString()}</div>
-                          {cost.effective_until && (
-                            <div>Hasta: {new Date(cost.effective_until).toLocaleDateString()}</div>
-                          )}
-                          {!cost.effective_until && (
-                            <div className="text-gray-400">Sin fecha de fin</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingCost?.id === cost.id ? (
-                          <select
-                            value={editingCost.is_active ? 'true' : 'false'}
-                            onChange={(e) =>
-                              setEditingCost({
-                                ...editingCost,
-                                is_active: e.target.value === 'true'
-                              })
-                            }
-                            className="border rounded px-2 py-1 text-sm"
-                          >
-                            <option value="true">Activo</option>
-                            <option value="false">Inactivo</option>
-                          </select>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${
-                              cost.is_active
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {cost.is_active ? (
-                              <>
-                                <CheckCircle className="h-3 w-3" />
-                                Activo
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="h-3 w-3" />
-                                Inactivo
-                              </>
-                            )}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {editingCost?.id === cost.id ? (
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => updateCost(editingCost)}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              <Save className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => setEditingCost(null)}
-                              className="text-gray-600 hover:text-gray-900 text-xs"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => setEditingCost(cost)}
-                              className="text-purple-600 hover:text-purple-900"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteCost(cost.id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {costs.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No hay configuraciones creadas. Crea la primera configuración arriba.
+
+            {costs.length === 0 ? (
+              <div className="py-16 flex flex-col items-center text-center gap-3">
+                <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Bed className="h-7 w-7 text-gray-400" />
                 </div>
-              )}
-            </div>
+                <div>
+                  <p className="font-medium text-gray-700">Ninguna regla todavía</p>
+                  <p className="text-sm text-gray-400 mt-1 max-w-xs">
+                    El sistema usa la <strong>Fórmula Global</strong> para calcular costes.
+                    Añade una regla arriba si necesitas un valor específico para una propiedad.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Propiedad</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Habitación</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Temporada</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Coste/noche</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vigencia</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {costs.map((cost) => (
+                      <tr key={cost.id} className={!cost.is_active ? 'opacity-50' : 'hover:bg-gray-50'}>
+                        <td className="px-5 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                          {cost.property?.name || `ID: ${cost.property_id}`}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-gray-600 whitespace-nowrap">{cost.room_type}</td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getSeasonBadgeColor(cost.season_type)}`}>
+                            {cost.season_type}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          {editingCost?.id === cost.id ? (
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={editingCost.credits_per_night}
+                              onChange={(e) => setEditingCost({ ...editingCost, credits_per_night: parseFloat(e.target.value) })}
+                              className="border rounded px-2 py-1 w-24 text-sm"
+                            />
+                          ) : (
+                            <span className="text-sm font-semibold text-gray-900">{cost.credits_per_night}</span>
+                          )}
+                          {editingCost?.id !== cost.id && <span className="text-xs text-gray-400 ml-1">cr/noche</span>}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          <span>{new Date(cost.effective_from).toLocaleDateString()}</span>
+                          {cost.effective_until
+                            ? <span> → {new Date(cost.effective_until).toLocaleDateString()}</span>
+                            : <span className="text-gray-400"> → sin fin</span>
+                          }
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          {editingCost?.id === cost.id ? (
+                            <select
+                              value={editingCost.is_active ? 'true' : 'false'}
+                              onChange={(e) => setEditingCost({ ...editingCost, is_active: e.target.value === 'true' })}
+                              className="border rounded px-2 py-1 text-sm"
+                            >
+                              <option value="true">Activo</option>
+                              <option value="false">Inactivo</option>
+                            </select>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${cost.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+                              {cost.is_active ? <><CheckCircle className="h-3 w-3" />Activo</> : <><AlertCircle className="h-3 w-3" />Inactivo</>}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-right">
+                          {editingCost?.id === cost.id ? (
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => updateCost(editingCost)} className="text-green-600 hover:text-green-800"><Save className="h-4 w-4" /></button>
+                              <button onClick={() => setEditingCost(null)} className="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => setEditingCost(cost)} className="text-purple-600 hover:text-purple-800"><Edit className="h-4 w-4" /></button>
+                              <button onClick={() => deleteCost(cost.id)} className="text-red-500 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Defaults Tab */}
-      {activeTab === 'defaults' && systemDefaults && (
+      {/* Defaults / Formula Global Tab */}
+      {activeTab === 'defaults' && (
         <div className="space-y-6">
-          {/* Tiers */}
+          {/* Header with actions */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span>Tiers de Propiedades</span>
-              <span className="text-sm font-normal text-gray-500">(Click para editar)</span>
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(systemDefaults.tiers).map(([key, value]) => (
-                <div key={key} className="border rounded-lg p-4 hover:border-purple-300 transition-colors">
-                  <div className="flex justify-between items-center mb-2">
-                    <span
-                      className={`px-3 py-1 text-sm font-semibold rounded-full ${getTierBadgeColor(
-                        key
-                      )}`}
-                    >
-                      {key}
-                    </span>
-                    {editingDefault?.category === 'tier' && editingDefault?.key === key ? (
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editingDefault.value}
-                          onChange={(e) =>
-                            setEditingDefault({
-                              ...editingDefault,
-                              value: parseFloat(e.target.value)
-                            })
-                          }
-                          className="border rounded px-2 py-1 w-20 text-sm"
-                        />
-                        <button
-                          onClick={updateDefault}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <Save className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingDefault(null)}
-                          className="text-gray-600 hover:text-gray-900 text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          setEditingDefault({
-                            category: 'tier',
-                            key,
-                            value: value.multiplier
-                          })
-                        }
-                        className="text-lg font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                      >
-                        {value.multiplier}x
-                        <Edit className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">{value.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Room Types */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span>Multiplicadores por Tipo de Habitación</span>
-              <span className="text-sm font-normal text-gray-500">(Click para editar)</span>
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(systemDefaults.room_types).map(([key, value]) => (
-                <div key={key} className="border rounded-lg p-4 hover:border-purple-300 transition-colors">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-gray-900">{key}</span>
-                    {editingDefault?.category === 'room' && editingDefault?.key === key ? (
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={editingDefault.value}
-                          onChange={(e) =>
-                            setEditingDefault({
-                              ...editingDefault,
-                              value: parseFloat(e.target.value)
-                            })
-                          }
-                          className="border rounded px-2 py-1 w-20 text-sm"
-                        />
-                        <button
-                          onClick={updateDefault}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <Save className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingDefault(null)}
-                          className="text-gray-600 hover:text-gray-900 text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          setEditingDefault({
-                            category: 'room',
-                            key,
-                            value: value.multiplier
-                          })
-                        }
-                        className="text-lg font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                      >
-                        {value.multiplier}x
-                        <Edit className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">{value.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Seasons */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span>Valores Base por Temporada</span>
-              <span className="text-sm font-normal text-gray-500">(Click para editar)</span>
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(systemDefaults.seasons).map(([key, value]) => (
-                <div key={key} className="border rounded-lg p-4 hover:border-purple-300 transition-colors">
-                  <div className="flex justify-between items-center mb-2">
-                    <span
-                      className={`px-3 py-1 text-sm font-semibold rounded-full ${getSeasonBadgeColor(
-                        key
-                      )}`}
-                    >
-                      {key}
-                    </span>
-                    {editingDefault?.category === 'season' && editingDefault?.key === key ? (
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="number"
-                          step="10"
-                          value={editingDefault.value}
-                          onChange={(e) =>
-                            setEditingDefault({
-                              ...editingDefault,
-                              value: parseFloat(e.target.value)
-                            })
-                          }
-                          className="border rounded px-2 py-1 w-24 text-sm"
-                        />
-                        <button
-                          onClick={updateDefault}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          <Save className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingDefault(null)}
-                          className="text-gray-600 hover:text-gray-900 text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          setEditingDefault({
-                            category: 'season',
-                            key,
-                            value: value.base_value
-                          })
-                        }
-                        className="text-lg font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                      >
-                        {value.base_value}
-                        <Edit className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">{value.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Info banner */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex gap-2">
-              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
+            <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-blue-900 mb-1">
-                  Valores del Sistema de Créditos - Editables
-                </h3>
-                <p className="text-sm text-blue-800">
-                  Estos valores se utilizan como base para todos los cálculos de conversión de créditos.
-                  Los cambios se aplicarán inmediatamente a todos los cálculos futuros. Los multiplicadores
-                  de tier y ubicación se aplican sobre estos valores base.
+                <h2 className="text-xl font-bold text-gray-900">Configuración de Fórmula Global</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Valores base y multiplicadores del sistema de créditos (se aplican a todas las propiedades)
                 </p>
               </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleFormulaReset}
+                  disabled={formulaSaving}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restablecer
+                </button>
+                <button
+                  onClick={handleFormulaSave}
+                  disabled={formulaSaving || Object.keys(formulaChanges).length === 0}
+                  className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                >
+                  <Save className="h-4 w-4" />
+                  {formulaSaving ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
             </div>
+            {formulaError && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                <p className="text-sm text-red-800">{formulaError}</p>
+              </div>
+            )}
+            {formulaSuccess && (
+              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800">✓ {formulaSuccess}</p>
+              </div>
+            )}
+            {Object.keys(formulaChanges).length > 0 && (
+              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">{Object.keys(formulaChanges).length} cambio(s) sin guardar</p>
+              </div>
+            )}
           </div>
+
+          {formulaConfig ? (
+            <>
+              {/* Base Season Credits */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  <h3 className="font-semibold text-gray-900">Créditos Base por Temporada (depósito de semana)</h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">Créditos que recibe el propietario al depositar una semana en temporada alta / media / baja.</p>
+                <div className="grid grid-cols-3 gap-4">
+                  {Object.entries(formulaConfig.base_seasons).map(([key]) => (
+                    <div key={key} className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        {key === 'RED' ? 'Alta (RED)' : key === 'WHITE' ? 'Media (WHITE)' : 'Baja (BLUE)'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={getFormulaValue('base_seasons', key)}
+                          onChange={(e) => handleFormulaValueChange(`BASE_SEASON_${key}`, e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        <span className="absolute right-3 top-2 text-gray-400 text-xs">créditos</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Base Nightly Rates */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <DollarSign className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-semibold text-gray-900">Coste Base por Noche (reserva)</h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">Créditos que cuesta reservar una noche en cada temporada (habitación STANDARD).</p>
+                <div className="grid grid-cols-3 gap-4">
+                  {Object.entries(formulaConfig.base_nightly).map(([key]) => (
+                    <div key={key} className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        {key === 'RED' ? 'Alta (RED)' : key === 'WHITE' ? 'Media (WHITE)' : 'Baja (BLUE)'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={getFormulaValue('base_nightly', key)}
+                          onChange={(e) => handleFormulaValueChange(`BASE_NIGHTLY_${key}`, e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        <span className="absolute right-3 top-2 text-gray-400 text-xs">créd/noche</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tier Multipliers */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Building2 className="h-5 w-5 text-purple-600" />
+                  <h3 className="font-semibold text-gray-900">Multiplicadores de Tier</h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">Multiplicador aplicado según el tier de la propiedad.</p>
+                <div className="grid grid-cols-4 gap-4">
+                  {Object.entries(formulaConfig.tier_multipliers).map(([key]) => (
+                    <div key={key} className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700">{key}</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={getFormulaValue('tier_multipliers', key)}
+                          onChange={(e) => handleFormulaValueChange(`TIER_${key}`, e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        <span className="absolute right-3 top-2 text-gray-400 text-xs">×</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Room Multipliers */}
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bed className="h-5 w-5 text-orange-600" />
+                  <h3 className="font-semibold text-gray-900">Multiplicadores de Habitación</h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">Multiplicador aplicado según el tipo de habitación.</p>
+                <div className="grid grid-cols-5 gap-4">
+                  {Object.entries(formulaConfig.room_multipliers).map(([key]) => (
+                    <div key={key} className="space-y-1">
+                      <label className="block text-sm font-medium text-gray-700 text-xs">{key}</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={getFormulaValue('room_multipliers', key)}
+                          onChange={(e) => handleFormulaValueChange(`ROOM_${key}`, e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                        <span className="absolute right-3 top-2 text-gray-400 text-xs">×</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Formula Balance Preview */}
+              {formulaPreview && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calculator className="h-5 w-5 text-indigo-600" />
+                    <h3 className="font-semibold text-gray-900">Vista Previa del Balance (tier STANDARD, ubicación ×1.0)</h3>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-3">Créditos ganados al depositar una semana vs. coste de reservar esas 7 noches. Se actualiza en tiempo real.</p>
+                  {formulaPreview.hasDeficit && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
+                      <TrendingDown className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      <p className="text-sm text-red-700 font-medium">Aviso: algunas combinaciones cuestan más al reservar de lo que el propietario gana al depositar.</p>
+                    </div>
+                  )}
+                  {(['RED', 'WHITE', 'BLUE'] as const).map(season => {
+                    const seasonRows = formulaPreview.rows.filter(r => r.season === season);
+                    const seasonColor = season === 'RED' ? 'text-red-600 bg-red-50 border-red-200'
+                      : season === 'WHITE' ? 'text-gray-600 bg-gray-50 border-gray-200'
+                      : 'text-blue-600 bg-blue-50 border-blue-200';
+                    return (
+                      <div key={season} className="mb-5">
+                        <h4 className={`text-xs font-semibold px-3 py-1 rounded-md border inline-block mb-3 ${seasonColor}`}>
+                          {season === 'RED' ? 'Alta' : season === 'WHITE' ? 'Media' : 'Baja'} ({season})
+                        </h4>
+                        <div className="grid grid-cols-5 gap-3">
+                          {seasonRows.map(({ room, depositCredits, costFor7Nights, balance }) => {
+                            const isDeficit = balance < 0;
+                            const isNeutral = balance >= 0 && balance / depositCredits < 0.05;
+                            const cardBorder = isDeficit ? 'border-red-200 bg-red-50'
+                              : isNeutral ? 'border-yellow-200 bg-yellow-50'
+                              : 'border-green-200 bg-green-50';
+                            const Icon = isDeficit ? TrendingDown : isNeutral ? Minus : TrendingUp;
+                            const iconColor = isDeficit ? 'text-red-500' : isNeutral ? 'text-yellow-500' : 'text-green-500';
+                            return (
+                              <div key={room} className={`rounded-lg border p-3 space-y-1 ${cardBorder}`}>
+                                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{room}</p>
+                                <div className="flex justify-between text-xs text-gray-600">
+                                  <span>Ganado</span>
+                                  <span className="font-mono font-medium">{depositCredits.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-gray-600">
+                                  <span>Coste 7n</span>
+                                  <span className="font-mono font-medium">{costFor7Nights.toLocaleString()}</span>
+                                </div>
+                                <div className={`flex items-center justify-between text-xs font-semibold ${iconColor}`}>
+                                  <Icon className="h-3 w-3" />
+                                  <span className="font-mono">{balance >= 0 ? '+' : ''}{balance.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-12 text-center text-gray-400">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" />
+              Cargando configuración de fórmula...
+            </div>
+          )}
         </div>
       )}
 
@@ -1267,8 +1269,7 @@ const CreditConfiguration: React.FC = () => {
                                 onClick={async () => {
                                   // Save default as real entry
                                   try {
-                                    const token = localStorage.getItem('sw2_token');
-                                    await axios.post(
+                                    await apiClient.post(
                                       '/api/credits/admin/seasonal-calendar',
                                       {
                                         propertyId: entry.property_id,
@@ -1276,9 +1277,6 @@ const CreditConfiguration: React.FC = () => {
                                         startDate: entry.start_date,
                                         endDate: entry.end_date,
                                         year: entry.year
-                                      },
-                                      {
-                                        headers: { Authorization: `Bearer ${token}` }
                                       }
                                     );
                                     toast.success('Período guardado');

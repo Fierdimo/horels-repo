@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { creditConfigAPI } from '../../api/creditConfig';
-import { Save, RotateCcw, Settings, DollarSign, Building2, Bed, AlertCircle } from 'lucide-react';
+import { Save, RotateCcw, Settings, DollarSign, Building2, Bed, AlertCircle, Calculator, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface CreditConfig {
   base_seasons: Record<string, number>;
@@ -87,6 +87,37 @@ export default function CreditConfigPage() {
     const fullKey = `${section === 'base_seasons' ? 'BASE_SEASON_' : section === 'base_nightly' ? 'BASE_NIGHTLY_' : section === 'tier_multipliers' ? 'TIER_' : 'ROOM_'}${key}`;
     return changes[fullKey] ?? config?.[section]?.[key] ?? 0;
   };
+
+  // Live formula preview using current (possibly unsaved) values
+  const formulaPreview = useMemo(() => {
+    if (!config) return null;
+
+    const getVal = (section: keyof CreditConfig, key: string) => {
+      const fullKey = `${section === 'base_seasons' ? 'BASE_SEASON_' : section === 'base_nightly' ? 'BASE_NIGHTLY_' : section === 'tier_multipliers' ? 'TIER_' : 'ROOM_'}${key}`;
+      return changes[fullKey] ?? config?.[section]?.[key] ?? 0;
+    };
+
+    const seasons = ['RED', 'WHITE', 'BLUE'] as const;
+    const rooms = ['STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'] as const;
+    const WEEKS_NIGHTS = 7;
+
+    const rows = seasons.flatMap(season =>
+      rooms.map(room => {
+        const baseSeason = getVal('base_seasons', season);
+        const baseNightly = getVal('base_nightly', season);
+        const roomMult = getVal('room_multipliers', room);
+        // Using STANDARD tier (1.0) and location (1.0) as reference
+        const depositCredits = Math.round(baseSeason * 1.0 * 1.0 * roomMult);
+        const costFor7Nights = Math.round(baseNightly * roomMult * WEEKS_NIGHTS);
+        const balance = depositCredits - costFor7Nights;
+        return { season, room, depositCredits, costFor7Nights, balance };
+      })
+    );
+
+    const hasDeficit = rows.some(r => r.balance < 0);
+    const hasSurplus = rows.every(r => r.balance > 0);
+    return { rows, hasDeficit, hasSurplus };
+  }, [config, changes]);
 
   if (loading) {
     return (
@@ -280,7 +311,71 @@ export default function CreditConfigPage() {
             </div>
           ))}
         </div>
-      </div>      
+      </div>
+
+      {/* Formula Balance Preview */}
+      {formulaPreview && (
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center space-x-2 mb-2">
+            <Calculator className="h-6 w-6 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-gray-900">{t('admin.creditConfig.formulaPreviewTitle', 'Formula Balance Preview')}</h2>
+          </div>
+          <p className="text-sm text-gray-600 mb-1">
+            {t('admin.creditConfig.formulaPreviewDesc', 'Shows credits earned when depositing a full week vs. the cost to book that same 7 nights (STANDARD tier × base location = 1.0). Updates live as you edit.')}
+          </p>
+          {formulaPreview.hasDeficit && (
+            <div className="flex items-center space-x-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
+              <TrendingDown className="h-4 w-4 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-700 font-medium">
+                {t('admin.creditConfig.formulaDeficitWarning', 'Warning: some combinations cost more to book than an owner earns by depositing. Owners will lose credits exchanging a week. Consider raising BASE_SEASON values or lowering BASE_NIGHTLY rates.')}
+              </p>
+            </div>
+          )}
+
+          {/* Season headers */}
+          {(['RED', 'WHITE', 'BLUE'] as const).map(season => {
+            const seasonRows = formulaPreview.rows.filter(r => r.season === season);
+            const seasonColor = season === 'RED' ? 'text-red-600 bg-red-50 border-red-200'
+              : season === 'WHITE' ? 'text-gray-600 bg-gray-50 border-gray-200'
+              : 'text-blue-600 bg-blue-50 border-blue-200';
+            return (
+              <div key={season} className="mb-6">
+                <h3 className={`text-sm font-semibold px-3 py-1 rounded-md border inline-block mb-3 ${seasonColor}`}>
+                  {t(`admin.creditConfig.season${season[0]}${season.slice(1).toLowerCase()}`, season)} {t('admin.creditConfig.previewSeason', 'Season')}
+                </h3>
+                <div className="grid grid-cols-5 gap-3">
+                  {seasonRows.map(({ room, depositCredits, costFor7Nights, balance }) => {
+                    const isDeficit = balance < 0;
+                    const isNeutral = balance >= 0 && balance / depositCredits < 0.05;
+                    const cardBorder = isDeficit ? 'border-red-200 bg-red-50'
+                      : isNeutral ? 'border-yellow-200 bg-yellow-50'
+                      : 'border-green-200 bg-green-50';
+                    const Icon = isDeficit ? TrendingDown : isNeutral ? Minus : TrendingUp;
+                    const iconColor = isDeficit ? 'text-red-500' : isNeutral ? 'text-yellow-500' : 'text-green-500';
+                    return (
+                      <div key={room} className={`rounded-lg border p-3 space-y-1 ${cardBorder}`}>
+                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{room}</p>
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>{t('admin.creditConfig.previewEarned', 'Earned')}</span>
+                          <span className="font-mono font-medium">{depositCredits.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>{t('admin.creditConfig.previewCost7n', 'Cost 7n')}</span>
+                          <span className="font-mono font-medium">{costFor7Nights.toLocaleString()}</span>
+                        </div>
+                        <div className={`flex items-center justify-between text-xs font-semibold ${iconColor}`}>
+                          <Icon className="h-3 w-3" />
+                          <span className="font-mono">{balance >= 0 ? '+' : ''}{balance.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -54,7 +54,7 @@ class UnitController {
         where,
         include: [{
           model: TimeshareProperty,
-          as: 'Property',
+          as: 'property',
           attributes: ['id', 'name', 'city', 'country']
         }],
         order: [['property_id', 'ASC'], ['category', 'ASC']],
@@ -103,7 +103,7 @@ class UnitController {
         where,
         include: [{
           model: TimeshareProperty,
-          as: 'Property',
+          as: 'property',
           attributes: ['id', 'name', 'city', 'country']
         }]
       });

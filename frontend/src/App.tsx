@@ -61,7 +61,6 @@ const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
 const AdminProperties = lazy(() => import('@/pages/admin/Properties'));
 const AdminUnits = lazy(() => import('@/pages/admin/Units'));
 const CreditConfiguration = lazy(() => import('@/pages/admin/CreditConfiguration'));
-const CreditConfigPage = lazy(() => import('@/pages/admin/CreditConfigPage'));
 const PrepaidInventory = lazy(() => import('@/pages/admin/PrepaidInventory'));
 // Marketplace pages
 const MarketplaceHome = lazy(() => import('@/pages/marketplace/MarketplaceHome'));
@@ -502,14 +501,9 @@ function AppRoutes() {
         />
         <Route
           path="/admin/settings/credits"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MainLayout>
-                <CreditConfigPage />
-              </MainLayout>
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/admin/credit-config" replace />}
         />
+        
         <Route
           path="/admin/prepaid-inventory"
           element={

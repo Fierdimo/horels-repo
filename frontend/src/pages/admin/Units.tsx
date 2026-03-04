@@ -34,7 +34,7 @@ interface TimeshareUnit {
   amenities?: string | string[];
   images?: string | string[];
   is_active: boolean;
-  Property?: TimeshareProperty;
+  property?: TimeshareProperty;
 }
 
 type FormMode = 'create' | 'edit';
@@ -240,7 +240,7 @@ export default function AdminUnits() {
 
   // ─── Filter ─────────────────────────────────────────────────────────────────
   const filtered = units.filter(u => {
-    const propertyName = u.Property?.name || '';
+    const propertyName = u.property?.name || '';
     const matchSearch =
       u.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       propertyName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -421,8 +421,8 @@ export default function AdminUnits() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-900">{u.Property?.name || `#${u.property_id}`}</p>
-                      <p className="text-xs text-gray-500">{u.Property?.city}</p>
+                      <p className="text-sm text-gray-900">{u.property?.name || `#${u.property_id}`}</p>
+                      <p className="text-xs text-gray-500">{u.property?.city}</p>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
@@ -853,7 +853,7 @@ export default function AdminUnits() {
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <DetailRow label={t('admin.units.fieldProperty', 'Property')} value={selectedUnit.Property?.name || `#${selectedUnit.property_id}`} />
+              <DetailRow label={t('admin.units.fieldProperty', 'Property')} value={selectedUnit.property?.name || `#${selectedUnit.property_id}`} />
               <DetailRow label={t('admin.units.fieldQuantity', 'Physical Units')} value={String(selectedUnit.quantity)} />
               <DetailRow label={t('admin.units.colCapacity', 'Capacity')} value={`${selectedUnit.capacity_min}–${selectedUnit.capacity_max} guests`} />
               <DetailRow

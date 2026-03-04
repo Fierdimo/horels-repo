@@ -38,6 +38,10 @@ interface PropertyAttributes {
   is_active: boolean;
   is_marketplace_enabled: boolean;
   
+  // Credit valuation
+  tier: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
+  location_multiplier: number;
+  
   // Timestamps
   created_at: Date;
   updated_at: Date;
@@ -48,6 +52,7 @@ interface PropertyCreationAttributes extends Optional<PropertyAttributes,
   'id' | 'region' | 'latitude' | 'longitude' | 'address' | 'postal_code' |
   'pms_property_id' | 'pms_credentials_encrypted' | 'pms_last_sync' | 'pms_sync_status' |
   'weeks_per_year' | 'check_in_day' | 'check_in_time' | 'check_out_time' | 'description' | 'amenities' | 'policies' | 'images' |
+  'tier' | 'location_multiplier' |
   'created_at' | 'updated_at'
 > {}
 
@@ -86,6 +91,10 @@ class Property extends Model<PropertyAttributes, PropertyCreationAttributes> imp
   // Status
   public is_active!: boolean;
   public is_marketplace_enabled!: boolean;
+  
+  // Credit valuation
+  public tier!: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
+  public location_multiplier!: number;
   
   // Timestamps
   public readonly created_at!: Date;
@@ -243,8 +252,19 @@ Property.init({
   },
   // marketplace_description, marketplace_images, marketplace_amenities, marketplace_enabled_at removed - not in DB
   
-  // Credit valuation configuration - REMOVED (not in timeshare_properties)
-  // tier, location_multiplier don't exist
+  // Credit valuation configuration
+  tier: {
+    type: DataTypes.ENUM('DIAMOND', 'GOLD', 'SILVER_PLUS', 'STANDARD'),
+    allowNull: false,
+    defaultValue: 'STANDARD',
+    field: 'tier',
+  },
+  location_multiplier: {
+    type: DataTypes.DECIMAL(4, 2),
+    allowNull: false,
+    defaultValue: 1.00,
+    field: 'location_multiplier',
+  },
   
   created_at: {
     type: DataTypes.DATE,

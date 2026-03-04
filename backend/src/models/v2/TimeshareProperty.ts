@@ -47,6 +47,10 @@ class TimeshareProperty extends Model {
   public is_active!: boolean;
   public is_marketplace_enabled!: boolean;
   
+  // Credit valuation
+  public tier!: 'DIAMOND' | 'GOLD' | 'SILVER_PLUS' | 'STANDARD';
+  public location_multiplier!: number;
+  
   // Timestamps
   public readonly created_at!: Date;
   public readonly updated_at!: Date;
@@ -201,6 +205,20 @@ export function initTimeshareProperty(sequelize: Sequelize): typeof TimesharePro
         defaultValue: true,
         allowNull: false,
         comment: 'Whether property appears in marketplace search',
+      },
+      
+      // Credit valuation
+      tier: {
+        type: DataTypes.ENUM('DIAMOND', 'GOLD', 'SILVER_PLUS', 'STANDARD'),
+        allowNull: false,
+        defaultValue: 'STANDARD',
+        comment: 'Property credit tier (affects deposit/booking credit values)',
+      },
+      location_multiplier: {
+        type: DataTypes.DECIMAL(4, 2),
+        allowNull: false,
+        defaultValue: 1.00,
+        comment: 'Geographic premium factor (1.00 = no premium)',
       },
       
       // Timestamps

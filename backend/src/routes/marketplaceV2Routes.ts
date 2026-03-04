@@ -16,6 +16,7 @@ import V2Booking from '../models/v2/V2Booking';
 import { Op } from 'sequelize';
 import pricingService from '../services/pricingService';
 import CreditAccount from '../models/v2/CreditAccount';
+import CreditTransaction from '../models/v2/CreditTransaction';
 
 const router = Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
@@ -655,17 +656,53 @@ router.post('/bookings/with-credits', async (req: Request, res: Response) => {
       if (Number(account.balance) < creditsUsed) {
         return res.status(400).json({ success: false, error: `Insufficient credits. Available: ${account.balance}, required: ${creditsUsed}` });
       }
-      newCreditBalance = Number(account.balance) - creditsUsed;
+      const balanceBefore = Number(account.balance);
+      newCreditBalance = balanceBefore - creditsUsed;
       await account.update({
         balance: newCreditBalance,
         total_spent: Number(account.total_spent) + creditsUsed,
         last_transaction_at: new Date(),
       });
+
+      // Record transaction in the immutable ledger
+      try {
+        await (CreditTransaction as any).create({
+          account_id: account.id,
+          type: 'WEEK_BOOKING',
+          amount: -creditsUsed,
+          balance_before: balanceBefore,
+          balance_after: newCreditBalance,
+          reference_type: 'booking',
+          description: paymentIntentId
+            ? `Hybrid marketplace booking - ${creditsUsed} credits + card payment`
+            : `Marketplace booking - ${creditsUsed} credits`,
+          metadata: { paymentIntentId: paymentIntentId || null, propertyId, roomType, checkIn, checkOut },
+          created_by: userId ? parseInt(userId) : null,
+        });
+      } catch (txError: any) {
+        // Non-fatal: balance already updated; just log
+        console.error('[bookings/with-credits] Failed to write CreditTransaction:', txError.message);
+      }
     }
 
-    // Determine cash amount: if a paymentIntentId is provided, the card portion was handled by Stripe.
-    // We store it as cash_paid = 0 for now; the actual EUR figure can be reconciled via Stripe webhooks.
-    const cashPaid = paymentIntentId ? 0 : 0; // Could be improved with PI retrieval
+    // Determine cash amount: if a paymentIntentId is provided, retrieve the actual charged
+    // amount from Stripe so the booking record correctly reflects the hybrid payment split.
+    let cashPaid = 0;
+    if (paymentIntentId) {
+      try {
+        const stripeKey = process.env.STRIPE_SECRET_KEY;
+        if (stripeKey) {
+          const stripeClient = new Stripe(stripeKey, { apiVersion: '2024-06-20' as any });
+          const pi = await stripeClient.paymentIntents.retrieve(paymentIntentId);
+          if (pi.status === 'succeeded') {
+            cashPaid = pi.amount / 100; // Convert from cents to euros
+          }
+        }
+      } catch (piError: any) {
+        console.error('[bookings/with-credits] Failed to retrieve payment intent amount:', piError.message);
+        // Non-fatal: fall back to 0 so the booking is still created
+      }
+    }
 
     const confirmationCode = generateConfirmationCode(parseInt(propertyId));
 
