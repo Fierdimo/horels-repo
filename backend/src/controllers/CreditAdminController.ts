@@ -759,7 +759,17 @@ class CreditAdminController {
    */
   async getRoomsForCreditReview(req: Request, res: Response): Promise<void> {
     try {
-      const rooms = await Room.findAll({ order: [['property_id', 'ASC'], ['name', 'ASC']] });
+      // rooms table is V1-only; on V2-only deployments it may not exist → graceful fallback
+      let rooms: any[] = [];
+      try {
+        rooms = await Room.findAll({ order: [['property_id', 'ASC'], ['name', 'ASC']] });
+      } catch (e: any) {
+        if (e.name === 'SequelizeDatabaseError' && e.parent?.code === 'ER_NO_SUCH_TABLE') {
+          rooms = [];
+        } else {
+          throw e;
+        }
+      }
       const units = await TimeshareUnit.findAll({ where: { is_active: true }, order: [['property_id', 'ASC'], ['category', 'ASC']] });
       const properties = await Property.findAll({ attributes: ['id', 'name'] });
       const multipliers = await CreditAdminController.getConfiguredMultipliers();
