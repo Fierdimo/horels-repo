@@ -12,7 +12,6 @@ pnpm-debug.log*
 
 # Docker sensitive files
 docker-compose.yml
-nginx.conf
 
 # Build outputs
 dist/
