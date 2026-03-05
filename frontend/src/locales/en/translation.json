@@ -1992,7 +1992,16 @@
       "calInfoItem1": "Periods marked as \"Default\" are suggestions you can save or modify",
       "calInfoItem2": "You can create new periods or edit existing ones as needed",
       "calInfoItem3": "\"Configured\" periods are customized and saved in the system",
-      "calInfoItem4": "If no property is selected, use the selector above to start"
+      "calInfoItem4": "If no property is selected, use the selector above to start",
+      "addRoomTitle": "Add Room",
+      "addRoomSubtitle": "Create a new room and assign it to a property",
+      "addRoomBtn": "Create Room",
+      "addRoomSuccess": "Room created successfully",
+      "addRoomError": "Error creating room",
+      "labelRoomName": "Room name",
+      "labelCapacity": "Capacity (guests)",
+      "labelQuantity": "Quantity",
+      "labelFloor": "Floor"
     },
     "dashboard": {
       "title": "Admin Dashboard",

@@ -770,7 +770,16 @@
       "calInfoItem1": "Les périodes marquées comme \"Par défaut\" sont des suggestions que vous pouvez enregistrer ou modifier",
       "calInfoItem2": "Vous pouvez créer de nouvelles périodes ou modifier les existantes selon vos besoins",
       "calInfoItem3": "Les périodes \"Configuré\" sont personnalisées et enregistrées dans le système",
-      "calInfoItem4": "Si aucune propriété n'est sélectionnée, utilisez le sélecteur ci-dessus pour commencer"
+      "calInfoItem4": "Si aucune propriété n'est sélectionnée, utilisez le sélecteur ci-dessus pour commencer",
+      "addRoomTitle": "Ajouter une chambre",
+      "addRoomSubtitle": "Créez une nouvelle chambre et assignez-la à une propriété",
+      "addRoomBtn": "Créer la chambre",
+      "addRoomSuccess": "Chambre créée avec succès",
+      "addRoomError": "Erreur lors de la création de la chambre",
+      "labelRoomName": "Nom de la chambre",
+      "labelCapacity": "Capacité (personnes)",
+      "labelQuantity": "Quantité",
+      "labelFloor": "Étage"
     },
     "properties": {
       "title": "Gestion des propriétés",

@@ -1405,7 +1405,16 @@
       "calInfoItem1": "I periodi contrassegnati come \"Predefinito\" sono suggerimenti che puoi salvare o modificare",
       "calInfoItem2": "Puoi creare nuovi periodi o modificare quelli esistenti secondo le tue esigenze",
       "calInfoItem3": "I periodi \"Configurato\" sono personalizzati e salvati nel sistema",
-      "calInfoItem4": "Se nessuna proprietà è selezionata, usa il selettore sopra per iniziare"
+      "calInfoItem4": "Se nessuna proprietà è selezionata, usa il selettore sopra per iniziare",
+      "addRoomTitle": "Aggiungi Camera",
+      "addRoomSubtitle": "Crea una nuova camera e assegnala a una proprietà",
+      "addRoomBtn": "Crea Camera",
+      "addRoomSuccess": "Camera creata con successo",
+      "addRoomError": "Errore durante la creazione della camera",
+      "labelRoomName": "Nome camera",
+      "labelCapacity": "Capacità (persone)",
+      "labelQuantity": "Quantità",
+      "labelFloor": "Piano"
     },
     "dashboard": {
       "title": "Dashboard Amministratore",

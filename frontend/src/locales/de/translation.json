@@ -770,7 +770,16 @@
       "calInfoItem1": "Mit \"Standard\" markierte Perioden sind Vorschläge, die Sie speichern oder ändern können",
       "calInfoItem2": "Sie können neue Perioden erstellen oder vorhandene nach Bedarf bearbeiten",
       "calInfoItem3": "\"Konfigurierte\" Perioden sind personalisiert und im System gespeichert",
-      "calInfoItem4": "Wenn keine Immobilie ausgewählt ist, verwenden Sie den Selektor oben zum Starten"
+      "calInfoItem4": "Wenn keine Immobilie ausgewählt ist, verwenden Sie den Selektor oben zum Starten",
+      "addRoomTitle": "Zimmer hinzufügen",
+      "addRoomSubtitle": "Erstellen Sie ein neues Zimmer und weisen Sie es einer Immobilie zu",
+      "addRoomBtn": "Zimmer erstellen",
+      "addRoomSuccess": "Zimmer erfolgreich erstellt",
+      "addRoomError": "Fehler beim Erstellen des Zimmers",
+      "labelRoomName": "Zimmername",
+      "labelCapacity": "Kapazität (Personen)",
+      "labelQuantity": "Anzahl",
+      "labelFloor": "Etage"
     },
     "properties": {
       "title": "Immobilienverwaltung",

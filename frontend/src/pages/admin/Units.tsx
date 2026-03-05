@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Bed, Plus, Edit, Trash2, Search, X, Eye, Building2,
-  ChevronDown, ChevronUp, Users, Check
+  ChevronDown, ChevronUp, Users, Check, Calculator, Edit2
 } from 'lucide-react';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
@@ -14,6 +14,8 @@ interface TimeshareProperty {
   name: string;
   city: string;
   country: string;
+  tier?: string;
+  location_multiplier?: number;
 }
 
 interface TimeshareUnit {
@@ -59,6 +61,7 @@ const EMPTY_FORM = {
   size_sqm: '' as any,
   floor_range: '',
   base_credit_value: 500,
+  credit_room_type: 'STANDARD' as 'STANDARD' | 'SUPERIOR' | 'DELUXE' | 'SUITE' | 'PRESIDENTIAL',
   view_type: 'NO_VIEW',
   description: '',
   amenities: [] as string[],
@@ -101,6 +104,48 @@ export default function AdminUnits() {
 
   const units: TimeshareUnit[] = unitsData?.data || [];
   const properties: TimeshareProperty[] = propsData?.data || [];
+
+  const { data: formulaConfigData } = useQuery({
+    queryKey: ['formula-config-units'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/api/admin/credits/config');
+      return data.data as {
+        base_seasons: Record<string, number>;
+        tier_multipliers: Record<string, number>;
+        room_multipliers: Record<string, number>;
+      };
+    },
+  });
+
+  const [creditOverride, setCreditOverride] = useState(false);
+
+  const ROOM_TYPES = [
+    { value: 'STANDARD',     label: '🏠 Standard' },
+    { value: 'SUPERIOR',     label: '🏡 Superior' },
+    { value: 'DELUXE',       label: '🏘️ Deluxe' },
+    { value: 'SUITE',        label: '🏰 Suite' },
+    { value: 'PRESIDENTIAL', label: '👑 Presidential' },
+  ] as const;
+
+  const autoCredits = useMemo(() => {
+    const cfg = formulaConfigData;
+    const baseWhite = cfg?.base_seasons?.WHITE ?? 600;
+    const selProp = properties.find(p => String(p.id) === String(form.property_id));
+    const tier = selProp?.tier || 'STANDARD';
+    const tierFallback: Record<string, number> = { DIAMOND: 1.5, GOLD: 1.3, SILVER_PLUS: 1.1, STANDARD: 1.0 };
+    const tierMult = cfg?.tier_multipliers?.[tier] ?? tierFallback[tier] ?? 1.0;
+    const roomKey = form.credit_room_type || 'STANDARD';
+    const roomFallback: Record<string, number> = { STANDARD: 1.0, SUPERIOR: 1.2, DELUXE: 1.5, SUITE: 2.0, PRESIDENTIAL: 2.5 };
+    const roomMult = cfg?.room_multipliers?.[roomKey] ?? roomFallback[roomKey] ?? 1.0;
+    return Math.round(baseWhite * tierMult * roomMult);
+  }, [formulaConfigData, form.property_id, form.credit_room_type, properties]);
+
+  // Sync auto value into form unless user has manually overridden
+  useEffect(() => {
+    if (!creditOverride) {
+      setForm(f => ({ ...f, base_credit_value: autoCredits }));
+    }
+  }, [autoCredits, creditOverride]);
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
   const createMutation = useMutation({
@@ -164,12 +209,14 @@ export default function AdminUnits() {
   const openCreate = () => {
     setFormMode('create');
     setForm({ ...EMPTY_FORM });
+    setCreditOverride(false);
     setShowModal(true);
   };
 
   const openEdit = (u: TimeshareUnit) => {
     setFormMode('edit');
     setSelectedUnit(u);
+    setCreditOverride(true); // editing existing: keep current value
     setForm({
       property_id: String(u.property_id),
       category: u.category,
@@ -181,6 +228,7 @@ export default function AdminUnits() {
       size_sqm: u.size_sqm ?? '',
       floor_range: u.floor_range || '',
       base_credit_value: u.base_credit_value,
+      credit_room_type: ((u as any).credit_room_type || 'STANDARD') as 'STANDARD' | 'SUPERIOR' | 'DELUXE' | 'SUITE' | 'PRESIDENTIAL',
       view_type: u.view_type || 'NO_VIEW',
       description: u.description || '',
       amenities: parseArray(u.amenities),
@@ -703,26 +751,96 @@ export default function AdminUnits() {
 
               {/* Credits */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
                   {t('admin.units.sectionCredits', 'Credit Valuation')}
                 </h3>
-                <div className="max-w-xs">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('admin.units.fieldBaseCredits', 'Base Credit Value')} <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={form.base_credit_value}
-                      onChange={e => setForm(f => ({ ...f, base_credit_value: Number(e.target.value) }))}
-                      min={1}
-                      className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <span className="absolute right-3 top-2.5 text-sm text-gray-400">credits</span>
+
+                <div className="space-y-3">
+                  {/* Room type selector — drives auto-calc */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('admin.units.fieldCreditRoomType', 'Categoría de créditos')} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {ROOM_TYPES.map(rt => (
+                        <button
+                          key={rt.value}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, credit_room_type: rt.value }))}
+                          className={`flex flex-col items-center py-2 px-1 rounded-lg border-2 text-xs font-medium transition-colors ${
+                            form.credit_room_type === rt.value
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
+                          }`}
+                        >
+                          <span className="text-lg mb-0.5">{rt.label.split(' ')[0]}</span>
+                          <span>{rt.label.split(' ').slice(1).join(' ')}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {t('admin.units.baseCreditsHint', 'Value for mid-season. Seasonal factors will multiply this.')}
-                  </p>
+
+                  {/* Auto-calculated value preview */}
+                  {!creditOverride ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-blue-500 mb-0.5">
+                          {(() => {
+                            const cfg = formulaConfigData;
+                            const selProp = properties.find(p => String(p.id) === String(form.property_id));
+                            const tier = selProp?.tier || 'STANDARD';
+                            const tierFallback: Record<string, number> = { DIAMOND: 1.5, GOLD: 1.3, SILVER_PLUS: 1.1, STANDARD: 1.0 };
+                            const tierMult = (cfg?.tier_multipliers?.[tier] ?? tierFallback[tier] ?? 1.0).toFixed(2);
+                            const roomKey = form.credit_room_type || 'STANDARD';
+                            const roomFallback: Record<string, number> = { STANDARD: 1.0, SUPERIOR: 1.2, DELUXE: 1.5, SUITE: 2.0, PRESIDENTIAL: 2.5 };
+                            const roomMult = (cfg?.room_multipliers?.[roomKey] ?? roomFallback[roomKey] ?? 1.0).toFixed(2);
+                            const baseWhite = cfg?.base_seasons?.WHITE ?? 600;
+                            return `${baseWhite} × ${tierMult} (${tier}) × ${roomMult} (${roomKey})`;
+                          })()}
+                        </p>
+                        <p className="text-xl font-bold text-blue-800">
+                          {autoCredits.toLocaleString()}
+                          <span className="text-sm font-normal text-blue-500 ml-1">créditos (temporada media)</span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCreditOverride(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors ml-4 shrink-0"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Editar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1 max-w-xs">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {t('admin.units.fieldBaseCredits', 'Valor base (temporada media)')} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={form.base_credit_value}
+                            onChange={e => setForm(f => ({ ...f, base_credit_value: Number(e.target.value) }))}
+                            min={1}
+                            className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <span className="absolute right-3 top-2.5 text-sm text-gray-400">cr</span>
+                        </div>
+                      </div>
+                      {formMode === 'create' && (
+                        <button
+                          type="button"
+                          onClick={() => setCreditOverride(false)}
+                          className="px-3 py-2 text-xs text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+                        >
+                          ← Auto
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

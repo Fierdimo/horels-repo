@@ -19,12 +19,24 @@ const roomController = {
 
   /**
    * Crear un nuevo mapeo de habitación desde el PMS
-   * Solo aceptar datos complementarios (custom_price, images, etc)
+   * Acepta todos los campos relevantes del modelo Room
    */
   async createRoom(req: Request, res: Response) {
     try {
-      const { name, description, capacity } = req.body;
-      
+      const {
+        name,
+        description,
+        capacity,
+        quantity,
+        type,
+        floor,
+        base_price,
+        property_id,
+        status,
+        credit_room_type,
+        is_marketplace_enabled,
+      } = req.body;
+
       if (!name) {
         return res.status(400).json({ 
           error: 'name is required' 
@@ -35,10 +47,14 @@ const roomController = {
         name,
         description: description || null,
         capacity: capacity || 1,
-        type: 'standard',
-        base_price: 0,
-        status: 'available',
-        is_marketplace_enabled: false,
+        quantity: quantity || 1,
+        type: type || 'standard',
+        floor: floor || null,
+        base_price: base_price ?? 0,
+        status: status || 'available',
+        is_marketplace_enabled: is_marketplace_enabled || false,
+        property_id: property_id || null,
+        credit_room_type: credit_room_type || null,
       });
       
       const enriched = await RoomEnrichmentService.enrichRoom(room);

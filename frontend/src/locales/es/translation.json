@@ -1960,7 +1960,16 @@
       "calInfoItem1": "Los períodos marcados como \"Por defecto\" son sugerencias que puedes guardar o modificar",
       "calInfoItem2": "Puedes crear nuevos períodos o editar los existentes según tus necesidades",
       "calInfoItem3": "Los períodos \"Configurado\" son personalizados y están guardados en el sistema",
-      "calInfoItem4": "Si no seleccionas una propiedad, usa el selector arriba para comenzar"
+      "calInfoItem4": "Si no seleccionas una propiedad, usa el selector arriba para comenzar",
+      "addRoomTitle": "Agregar Habitación",
+      "addRoomSubtitle": "Crea una nueva habitación y asígnala a una propiedad",
+      "addRoomBtn": "Crear Habitación",
+      "addRoomSuccess": "Habitación creada correctamente",
+      "addRoomError": "Error al crear habitación",
+      "labelRoomName": "Nombre de la habitación",
+      "labelCapacity": "Capacidad (personas)",
+      "labelQuantity": "Cantidad",
+      "labelFloor": "Piso / Planta"
     },
     "dashboard": {
       "title": "Panel de Administración",
