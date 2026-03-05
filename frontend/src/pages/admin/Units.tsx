@@ -796,7 +796,7 @@ export default function AdminUnits() {
                             const roomFallback: Record<string, number> = { STANDARD: 1.0, SUPERIOR: 1.2, DELUXE: 1.5, SUITE: 2.0, PRESIDENTIAL: 2.5 };
                             const roomMult = (cfg?.room_multipliers?.[roomKey] ?? roomFallback[roomKey] ?? 1.0).toFixed(2);
                             const baseWhite = cfg?.base_seasons?.WHITE ?? 600;
-                            return `${baseWhite} × ${tierMult} (${tier}) × ${roomMult} (${roomKey})`;
+                            return `Base WHITE: ${baseWhite}  ×  Tier propiedad: ×${tierMult} (${tier})  ×  Tipo unidad: ×${roomMult} (${roomKey})`;
                           })()}
                         </p>
                         <p className="text-xl font-bold text-blue-800">
