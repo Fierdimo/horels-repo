@@ -3,6 +3,13 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
+    // Check if the legacy 'rooms' table exists before attempting to alter it.
+    // V2-only deployments use 'timeshare_units' instead, so this migration is a no-op there.
+    const tableNames = await queryInterface.showAllTables();
+    if (!tableNames.includes('rooms')) {
+      console.log('⚠️  rooms table not found - skipping credit_room_type column (V2 deployment)');
+      return;
+    }
     await queryInterface.addColumn('rooms', 'credit_room_type', {
       type: Sequelize.ENUM('STANDARD', 'SUPERIOR', 'DELUXE', 'SUITE', 'PRESIDENTIAL'),
       allowNull: true,
@@ -13,8 +20,9 @@ module.exports = {
   },
 
   async down(queryInterface) {
+    const tableNames = await queryInterface.showAllTables();
+    if (!tableNames.includes('rooms')) return;
     await queryInterface.removeColumn('rooms', 'credit_room_type');
-    // MySQL requires dropping the ENUM type explicitly
     try {
       await queryInterface.sequelize.query(
         "ALTER TABLE rooms DROP COLUMN IF EXISTS credit_room_type"
