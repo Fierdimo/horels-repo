@@ -254,13 +254,13 @@ export default function Settings() {
             {/* Swap Fee Charges */}
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Cobrar fee de intercambio a:
+                {t('admin.settings.swapFeeChargeLabel')}
               </label>
               
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Quien propone el intercambio</p>
-                  <p className="text-xs text-gray-500">El usuario que crea la solicitud de intercambio</p>
+                  <p className="text-sm font-medium text-gray-700">{t('admin.settings.swapFeeRequester')}</p>
+                  <p className="text-xs text-gray-500">{t('admin.settings.swapFeeRequesterDesc')}</p>
                 </div>
                 <button
                   type="button"
@@ -279,8 +279,8 @@ export default function Settings() {
 
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Quien acepta el intercambio</p>
-                  <p className="text-xs text-gray-500">El usuario que responde a la solicitud</p>
+                  <p className="text-sm font-medium text-gray-700">{t('admin.settings.swapFeeResponder')}</p>
+                  <p className="text-xs text-gray-500">{t('admin.settings.swapFeeResponderDesc')}</p>
                 </div>
                 <button
                   type="button"
@@ -320,7 +320,7 @@ export default function Settings() {
             {/* Credit to EUR Rate */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Valor de Crédito en EUR
+                {t('admin.settings.creditToEurLabel')}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-gray-500">€</span>
@@ -333,9 +333,7 @@ export default function Settings() {
                   className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">
-                Valor en EUR de 1 crédito para pagos híbridos (créditos + tarjeta)
-              </p>
+              <p className="mt-1 text-xs text-gray-500">{t('admin.settings.creditToEurDesc')}</p>
             </div>
           </div>
           
@@ -344,11 +342,11 @@ export default function Settings() {
             <div className="flex items-start gap-3">
               <DollarSign className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-blue-900 mb-1">Vista previa del valor de créditos</p>
+                <p className="text-sm font-semibold text-blue-900 mb-1">{t('admin.settings.creditRatePreviewTitle')}</p>
                 <div className="text-sm text-blue-800 space-y-1">
-                  <p>• 100 créditos = €{(100 * creditToEurRate).toFixed(2)}</p>
-                  <p>• 500 créditos = €{(500 * creditToEurRate).toFixed(2)}</p>
-                  <p>• 1,000 créditos = €{(1000 * creditToEurRate).toFixed(2)}</p>
+                  <p>{t('admin.settings.creditPreviewItem', { credits: '100', value: (100 * creditToEurRate).toFixed(2) })}</p>
+                  <p>{t('admin.settings.creditPreviewItem', { credits: '500', value: (500 * creditToEurRate).toFixed(2) })}</p>
+                  <p>{t('admin.settings.creditPreviewItem', { credits: '1,000', value: (1000 * creditToEurRate).toFixed(2) })}</p>
                 </div>
               </div>
             </div>

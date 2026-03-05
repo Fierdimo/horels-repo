@@ -614,7 +614,7 @@ const CreditConfiguration: React.FC = () => {
           >
             {t('admin.creditConfig.tabProperties')}
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('costs')}
             className={`${
               activeTab === 'costs'
@@ -623,7 +623,7 @@ const CreditConfiguration: React.FC = () => {
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             {t('admin.creditConfig.tabCosts')}
-          </button>
+          </button> */}
           <button
             onClick={() => setActiveTab('calendar')}
             className={`${
@@ -765,177 +765,6 @@ const CreditConfiguration: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Add Room Form */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-900">{t('admin.creditConfig.addRoomTitle')}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{t('admin.creditConfig.addRoomSubtitle')}</p>
-            </div>
-            <button
-              onClick={() => setShowAddRoomForm((v) => !v)}
-              className="flex items-center gap-1.5 text-sm font-medium text-purple-600 hover:text-purple-800"
-            >
-              {showAddRoomForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {showAddRoomForm ? t('admin.creditConfig.cancel') : t('admin.creditConfig.addRoomBtn')}
-            </button>
-          </div>
-
-          {showAddRoomForm && (
-            <div className="p-5 space-y-4">
-              {/* Row 1: property + name */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.creditConfig.labelProperty')}
-                  </label>
-                  <select
-                    value={addRoomForm.property_id}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, property_id: parseInt(e.target.value) })}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value={0}>{t('admin.creditConfig.selectProperty')}</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.creditConfig.labelRoomName')} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={addRoomForm.name}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, name: e.target.value })}
-                    placeholder={t('admin.creditConfig.labelRoomName')}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: type + quantity */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.creditConfig.labelRoomType')}
-                  </label>
-                  <select
-                    value={addRoomForm.type}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, type: e.target.value })}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="standard">{t('admin.rooms.types.standard', 'Standard')}</option>
-                    <option value="deluxe">{t('admin.rooms.types.deluxe', 'Deluxe')}</option>
-                    <option value="suite">{t('admin.rooms.types.suite', 'Suite')}</option>
-                    <option value="single">{t('admin.rooms.types.single', 'Single')}</option>
-                    <option value="double">{t('admin.rooms.types.double', 'Double')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.creditConfig.labelQuantity')}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={addRoomForm.quantity}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, quantity: parseInt(e.target.value) || 1 })}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Row 3: capacity + floor + base price */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.creditConfig.labelCapacity')}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={addRoomForm.capacity}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, capacity: parseInt(e.target.value) || 1 })}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.creditConfig.labelFloor')}
-                  </label>
-                  <input
-                    type="text"
-                    value={addRoomForm.floor}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, floor: e.target.value })}
-                    placeholder={t('admin.creditConfig.labelOptional')}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    {t('admin.rooms.price', 'Precio base')}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={addRoomForm.base_price}
-                    onChange={(e) => setAddRoomForm({ ...addRoomForm, base_price: parseFloat(e.target.value) || 0 })}
-                    className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: status */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  {t('common.status')}
-                </label>
-                <select
-                  value={addRoomForm.status}
-                  onChange={(e) => setAddRoomForm({ ...addRoomForm, status: e.target.value })}
-                  className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="available">{t('admin.rooms.statuses.available', 'Disponible')}</option>
-                  <option value="occupied">{t('admin.rooms.statuses.occupied', 'Ocupada')}</option>
-                  <option value="maintenance">{t('admin.rooms.statuses.maintenance', 'Mantenimiento')}</option>
-                  <option value="unavailable">{t('admin.rooms.statuses.unavailable', 'No disponible')}</option>
-                </select>
-              </div>
-
-              {/* Row 5: description */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  {t('common.description')}
-                </label>
-                <textarea
-                  value={addRoomForm.description}
-                  onChange={(e) => setAddRoomForm({ ...addRoomForm, description: e.target.value })}
-                  rows={3}
-                  className="border rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                />
-              </div>
-
-              {/* Submit */}
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={createRoom}
-                  disabled={addingRoom || !addRoomForm.name.trim()}
-                  className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {addingRoom ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  {t('admin.creditConfig.addRoomBtn')}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
         </div>
       )}

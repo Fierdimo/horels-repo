@@ -29,6 +29,7 @@ interface TimeshareProperty {
   images?: string | string[];
   is_active: boolean;
   is_marketplace_enabled: boolean;
+  tier?: 'STANDARD' | 'SILVER_PLUS' | 'GOLD' | 'DIAMOND';
   created_at: string;
 }
 
@@ -150,10 +151,10 @@ export default function AdminProperties() {
   });
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
-  const parseArray = (val: string | string[] | undefined): string[] => {
+  const parseArray = (val: string | string[] | undefined | null): string[] => {
     if (!val) return [];
     if (Array.isArray(val)) return val;
-    try { return JSON.parse(val); } catch { return []; }
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
   };
 
   const openCreate = () => {
@@ -705,6 +706,7 @@ export default function AdminProperties() {
               {selectedProperty.region && <DetailRow label={t('admin.properties.fieldRegion', 'Region')} value={selectedProperty.region} />}
               {selectedProperty.address && <DetailRow label={t('admin.properties.fieldAddress', 'Address')} value={selectedProperty.address} />}
               <DetailRow label={t('admin.properties.fieldProgramType', 'Program')} value={selectedProperty.program_type} />
+              {selectedProperty.tier && <DetailRow label={t('admin.properties.fieldTier', 'Credit Tier')} value={selectedProperty.tier} />}
               <DetailRow label={t('admin.properties.fieldCheckInDay', 'Check-in Day')} value={selectedProperty.check_in_day || '—'} />
               {selectedProperty.pms_provider && (
                 <DetailRow label={t('admin.properties.fieldPmsProvider', 'PMS')} value={`${selectedProperty.pms_provider} / ${selectedProperty.pms_property_id}`} />

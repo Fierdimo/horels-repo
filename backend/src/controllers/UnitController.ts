@@ -17,7 +17,7 @@ class UnitController {
   async list(req: AuthRequest, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const isAdmin = user.role_id === 1; // Assuming role_id 1 is admin
+      const isAdmin = user.role === 'admin';
       
       // Query parameters
       const {
@@ -90,7 +90,7 @@ class UnitController {
     try {
       const { id } = req.params;
       const user = req.user!;
-      const isAdmin = user.role_id === 1;
+      const isAdmin = user.role === 'admin';
 
       const where: any = { id };
       
@@ -138,7 +138,7 @@ class UnitController {
     try {
       const { propertyId } = req.params;
       const user = req.user!;
-      const isAdmin = user.role_id === 1;
+      const isAdmin = user.role === 'admin';
 
       // Staff can only see units from their property
       if (!isAdmin && user.property_id && parseInt(propertyId) !== user.property_id) {
@@ -175,7 +175,7 @@ class UnitController {
   async create(req: AuthRequest, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const isAdmin = user.role_id === 1;
+      const isAdmin = user.role === 'admin';
 
       const {
         property_id,
@@ -188,6 +188,7 @@ class UnitController {
         size_sqm,
         floor_range,
         base_credit_value,
+        credit_room_type,
         seasonal_factors,
         description,
         amenities,
@@ -229,6 +230,7 @@ class UnitController {
       const slug = `${property.slug}-${category.toLowerCase().replace(/\s+/g, '-')}`;
 
       // Create unit
+      const toJson = (v: any) => Array.isArray(v) ? JSON.stringify(v) : (v ?? null);
       const unit = await TimeshareUnit.create({
         property_id,
         category,
@@ -241,11 +243,12 @@ class UnitController {
         size_sqm,
         floor_range,
         base_credit_value,
-        seasonal_factors,
+        credit_room_type: credit_room_type || 'STANDARD',
+        seasonal_factors: seasonal_factors ? (typeof seasonal_factors === 'string' ? seasonal_factors : JSON.stringify(seasonal_factors)) : JSON.stringify({ WHITE: 1.0, BLUE: 1.2, RED: 1.5 }),
         currency: 'EUR',
         description,
-        amenities: amenities || [],
-        images: images || [],
+        amenities: toJson(amenities || []),
+        images: toJson(images || []),
         view_type: view_type || 'NO_VIEW',
         is_active: true
       });
@@ -273,7 +276,7 @@ class UnitController {
     try {
       const { id } = req.params;
       const user = req.user!;
-      const isAdmin = user.role_id === 1;
+      const isAdmin = user.role === 'admin';
 
       // Find unit
       const where: any = { id };
@@ -307,23 +310,25 @@ class UnitController {
         amenities,
         images,
         view_type,
+        credit_room_type,
         is_active
       } = req.body;
 
       if (category !== undefined) unit.category = category;
-      if (capacity_min !== undefined) unit.capacity_min = capacity_min;
-      if (capacity_max !== undefined) unit.capacity_max = capacity_max;
-      if (quantity !== undefined) unit.quantity = quantity;
-      if (bedrooms !== undefined) unit.bedrooms = bedrooms;
-      if (bathrooms !== undefined) unit.bathrooms = bathrooms;
-      if (size_sqm !== undefined) unit.size_sqm = size_sqm;
+      if (capacity_min !== undefined) unit.capacity_min = Number(capacity_min);
+      if (capacity_max !== undefined) unit.capacity_max = Number(capacity_max);
+      if (quantity !== undefined) unit.quantity = Number(quantity);
+      if (bedrooms !== undefined) unit.bedrooms = Number(bedrooms);
+      if (size_sqm !== undefined) unit.size_sqm = size_sqm ? Number(size_sqm) : null;
       if (floor_range !== undefined) unit.floor_range = floor_range;
       if (base_credit_value !== undefined) unit.base_credit_value = base_credit_value;
-      if (seasonal_factors !== undefined) unit.seasonal_factors = seasonal_factors;
+      if (credit_room_type !== undefined) (unit as any).credit_room_type = credit_room_type;
+      if (seasonal_factors !== undefined) unit.seasonal_factors = typeof seasonal_factors === 'string' ? seasonal_factors : JSON.stringify(seasonal_factors);
       if (description !== undefined) unit.description = description;
-      if (amenities !== undefined) unit.amenities = amenities;
-      if (images !== undefined) unit.images = images;
-      // if (view_type !== undefined) unit.view_type = view_type; // Field doesn't exist in model
+      if (amenities !== undefined) unit.amenities = Array.isArray(amenities) ? JSON.stringify(amenities) : amenities;
+      if (images !== undefined) unit.images = Array.isArray(images) ? JSON.stringify(images) : images;
+      if (view_type !== undefined) unit.view_type = view_type;
+      if (bathrooms !== undefined) unit.bathrooms = parseFloat(bathrooms);
       if (is_active !== undefined) unit.is_active = is_active;
 
       await unit.save();
@@ -351,7 +356,7 @@ class UnitController {
     try {
       const { id } = req.params;
       const user = req.user!;
-      const isAdmin = user.role_id === 1;
+      const isAdmin = user.role === 'admin';
 
       // Find unit
       const where: any = { id };
@@ -395,7 +400,7 @@ class UnitController {
     try {
       const { units } = req.body;
       const user = req.user!;
-      const isAdmin = user.role_id === 1;
+      const isAdmin = user.role === 'admin';
 
       if (!Array.isArray(units) || units.length === 0) {
         res.status(400).json({

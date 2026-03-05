@@ -13,9 +13,10 @@ interface User {
   lastName?: string;
   phone?: string;
   address?: string;
+  role?: string;
+  property_id?: number | null;
+  property?: { name: string; city: string } | null;
   createdAt: string;
-  Role?: { name: string };
-  Property?: { name: string; location: string };
 }
 
 export default function Users() {
@@ -236,12 +237,12 @@ export default function Users() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.Role?.name === 'admin' ? 'bg-purple-100 text-purple-800' :
-                          user.Role?.name === 'staff' ? 'bg-blue-100 text-blue-800' :
-                          user.Role?.name === 'owner' ? 'bg-green-100 text-green-800' :
+                          user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                          user.role === 'staff' ? 'bg-blue-100 text-blue-800' :
+                          user.role === 'owner' ? 'bg-green-100 text-green-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {user.Role?.name || 'Unknown'}
+                          {user.role || 'Unknown'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -255,10 +256,10 @@ export default function Users() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {user.Property ? (
+                        {user.property ? (
                           <div>
-                            <p className="text-sm text-gray-900">{user.Property.name}</p>
-                            <p className="text-xs text-gray-500">{user.Property.location}</p>
+                            <p className="text-sm text-gray-900">{user.property.name}</p>
+                            <p className="text-xs text-gray-500">{user.property.city}</p>
                           </div>
                         ) : (
                           <span className="text-sm text-gray-400">-</span>
@@ -456,15 +457,15 @@ function EditUserModal({ user, onClose, onUpdate }: any) {
     phone: user?.phone || '',
     address: user?.address || '',
     status: user?.status || 'pending',
-    role: user?.Role?.name || 'guest',
-    propertyId: ''
+    role: user?.role || 'guest',
+    propertyId: String(user?.property_id ?? '')
   });
 
   // Fetch properties for staff assignment
   const { data: propertiesData } = useQuery({
     queryKey: ['admin-properties-list'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/api/mock-pms/properties');
+      const { data } = await apiClient.get('/api/admin/properties');
       return data;
     },
     enabled: formData.role === 'staff'
@@ -482,8 +483,8 @@ function EditUserModal({ user, onClose, onUpdate }: any) {
         phone: user.phone || '',
         address: user.address || '',
         status: user.status || 'pending',
-        role: user.Role?.name || user.role || 'guest',
-        propertyId: ''
+        role: user.role || 'guest',
+        propertyId: String(user.property_id ?? '')
       });
     }
   }, [user]);

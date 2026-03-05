@@ -200,10 +200,10 @@ export default function AdminUnits() {
   });
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
-  const parseArray = (val: string | string[] | undefined): string[] => {
+  const parseArray = (val: string | string[] | undefined | null): string[] => {
     if (!val) return [];
     if (Array.isArray(val)) return val;
-    try { return JSON.parse(val); } catch { return []; }
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
   };
 
   const openCreate = () => {
@@ -216,7 +216,7 @@ export default function AdminUnits() {
   const openEdit = (u: TimeshareUnit) => {
     setFormMode('edit');
     setSelectedUnit(u);
-    setCreditOverride(true); // editing existing: keep current value
+    setCreditOverride(false); // auto-calc active; click "Editar" to override manually
     setForm({
       property_id: String(u.property_id),
       category: u.category,
@@ -702,7 +702,7 @@ export default function AdminUnits() {
                       onChange={e => setForm(f => ({ ...f, bathrooms: Number(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      {[1, 1.5, 2, 2.5, 3].map(n => (
+                      {[1, 2, 3, 4].map(n => (
                         <option key={n} value={n}>{n}</option>
                       ))}
                     </select>

@@ -103,7 +103,15 @@ router.get('/users', authenticateToken, authorize(['view_users']), logAction('vi
       limit: Number(limit),
       offset,
       order: [['created_at', 'DESC']],
-      attributes: { exclude: ['password_hash'] }
+      attributes: { exclude: ['password_hash'] },
+      include: [
+        {
+          model: TimeshareProperty,
+          as: 'property',
+          attributes: ['id', 'name', 'city'],
+          required: false
+        }
+      ]
     });
 
     // Transform to frontend format
@@ -116,6 +124,10 @@ router.get('/users', authenticateToken, authorize(['view_users']), logAction('vi
       role: user.role,
       status: user.status,
       email_verified: user.email_verified,
+      property_id: user.property_id ?? null,
+      property: (user as any).property
+        ? { name: (user as any).property.name, city: (user as any).property.city }
+        : null,
       createdAt: user.created_at,
       updatedAt: user.updated_at
     }));
