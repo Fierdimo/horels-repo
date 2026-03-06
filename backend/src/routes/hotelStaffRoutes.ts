@@ -825,7 +825,8 @@ router.get('/marketplace/config',
         attributes: [
           'id', 'name', 'description', 'amenities', 'images',
           'is_marketplace_enabled', 'city', 'country', 'region',
-          'address', 'postal_code', 'check_in_time', 'check_out_time'
+          'address', 'postal_code', 'check_in_time', 'check_out_time',
+          'latitude', 'longitude'
         ]
       });
 
@@ -874,6 +875,8 @@ router.put('/marketplace/config',
         region,
         address,
         postal_code,
+        latitude,
+        longitude,
         check_in_time,
         check_out_time
       } = req.body;
@@ -944,6 +947,14 @@ router.put('/marketplace/config',
 
       if (postal_code !== undefined) {
         updateData.postal_code = postal_code;
+      }
+
+      if (latitude !== undefined) {
+        updateData.latitude = latitude === 0 ? null : latitude;
+      }
+
+      if (longitude !== undefined) {
+        updateData.longitude = longitude === 0 ? null : longitude;
       }
 
       if (check_in_time !== undefined) {

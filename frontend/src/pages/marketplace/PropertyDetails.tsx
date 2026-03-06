@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '@/api/client';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { MapPin, Star, ArrowLeft, Bed, Users, Euro, Calendar, Check, Coins } from 'lucide-react';
+
+const PropertyMapLazyComponent = lazy(() => import('@/components/common/PropertyMap'));
+function PropertyMapLazy(props: { latitude: number; longitude: number; name?: string; address?: string }) {
+  return (
+    <Suspense fallback={<div className="w-full h-[300px] rounded-xl bg-gray-100 animate-pulse" />}>
+      <PropertyMapLazyComponent {...props} />
+    </Suspense>
+  );
+}
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
 import roomFallbackImage from '@/assets/hotel-room-background.avif';
@@ -56,6 +65,8 @@ interface Property {
   description: string;
   city: string;
   country: string;
+  latitude?: number | null;
+  longitude?: number | null;
   stars?: number;
   images: string[];
   amenities: string[];
@@ -458,6 +469,25 @@ export default function PropertyDetails() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Map location */}
+          {property.latitude && property.longitude && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                {t('marketplace.location', 'Location')}
+              </h2>
+              <PropertyMapLazy
+                latitude={property.latitude}
+                longitude={property.longitude}
+                name={property.name}
+                address={[property.address, property.city, property.country].filter(Boolean).join(', ')}
+              />
+              <p className="mt-2 text-sm text-gray-500 flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {[property.address, property.city, property.region, property.country].filter(Boolean).join(', ')}
+              </p>
             </div>
           )}
 

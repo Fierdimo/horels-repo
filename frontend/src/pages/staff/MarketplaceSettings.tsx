@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/api/client';
@@ -12,6 +12,15 @@ import {
 } from 'lucide-react';
 import ImageUploader from '@/components/common/ImageUploader';
 
+const LocationPickerMapLazy = lazy(() => import('@/components/common/LocationPickerMap'));
+function LocationPickerMap(props: React.ComponentProps<typeof import('@/components/common/LocationPickerMap').default>) {
+  return (
+    <Suspense fallback={<div className="w-full h-[300px] rounded-lg bg-gray-100 animate-pulse" />}>
+      <LocationPickerMapLazy {...props} />
+    </Suspense>
+  );
+}
+
 interface MarketplaceConfig {
   id: number;
   name: string;
@@ -24,6 +33,8 @@ interface MarketplaceConfig {
   region?: string;
   address?: string;
   postal_code?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   check_in_time?: string;
   check_out_time?: string;
 }
@@ -103,6 +114,8 @@ export default function MarketplaceSettings() {
         region: configData.region || '',
         address: configData.address || '',
         postal_code: configData.postal_code || '',
+        latitude: configData.latitude ?? null,
+        longitude: configData.longitude ?? null,
         check_in_time: configData.check_in_time || '15:00',
         check_out_time: configData.check_out_time || '11:00',
       });
@@ -150,6 +163,8 @@ export default function MarketplaceSettings() {
         region: configData.region || '',
         address: configData.address || '',
         postal_code: configData.postal_code || '',
+        latitude: configData.latitude ?? null,
+        longitude: configData.longitude ?? null,
         check_in_time: configData.check_in_time || '15:00',
         check_out_time: configData.check_out_time || '11:00',
       });
@@ -199,6 +214,32 @@ export default function MarketplaceSettings() {
   return (
     <div className="space-y-6">
 
+      {/* ── Sticky save banner (top, visible on all screen sizes) ── */}
+      {isDirty && (
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl shadow-md">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            {t('staff.marketplace.unsavedChanges', 'Unsaved changes')}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDiscard}
+              className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              {t('common.cancel', 'Discard')}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            >
+              <Save className="h-4 w-4" />
+              {updateMutation.isPending ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
         <div className="flex items-start justify-between gap-4">
@@ -215,20 +256,34 @@ export default function MarketplaceSettings() {
             </div>
           </div>
 
-          <button
-            onClick={handleToggleMarketplace}
-            disabled={updateMutation.isPending}
-            className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              config.is_marketplace_enabled
-                ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-            }`}
-          >
-            {config.is_marketplace_enabled
-              ? <><ToggleRight className="h-5 w-5" />{t('staff.marketplace.enabled')}</>
-              : <><ToggleLeft className="h-5 w-5" />{t('staff.marketplace.disabled')}</>
-            }
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Save button always visible in header */}
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || updateMutation.isPending}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline">
+                {updateMutation.isPending ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
+              </span>
+            </button>
+
+            <button
+              onClick={handleToggleMarketplace}
+              disabled={updateMutation.isPending}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                config.is_marketplace_enabled
+                  ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                  : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              {config.is_marketplace_enabled
+                ? <><ToggleRight className="h-5 w-5" />{t('staff.marketplace.enabled')}</>
+                : <><ToggleLeft className="h-5 w-5" />{t('staff.marketplace.disabled')}</>
+              }
+            </button>
+          </div>
         </div>
 
         {config.is_marketplace_enabled && (
@@ -343,6 +398,22 @@ export default function MarketplaceSettings() {
                   placeholder="e.g. Avenida del Mar, 123"
                 />
               </div>
+            </div>
+
+            {/* Map location picker */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('staff.marketplace.mapLocation', 'Map Location')}
+              </label>
+              <LocationPickerMap
+                latitude={formData.latitude}
+                longitude={formData.longitude}
+                address={formData.address}
+                city={formData.city}
+                region={formData.region}
+                country={formData.country}
+                onChange={(lat, lng) => update({ latitude: lat || null, longitude: lng || null })}
+              />
             </div>
 
             <div>
@@ -483,28 +554,6 @@ export default function MarketplaceSettings() {
           </div>
         )}
 
-        {/* Save bar — aparece solo cuando hay cambios sin guardar */}
-        {isDirty && (
-          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
-            <p className="text-sm text-gray-500">{t('staff.marketplace.unsavedChanges')}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDiscard}
-                className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={updateMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
-              >
-                <Save className="h-4 w-4" />
-                {updateMutation.isPending ? t('common.saving') : t('common.save')}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

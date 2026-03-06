@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -7,6 +7,16 @@ import {
 } from 'lucide-react';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
+import LocationPickerMap from '@/components/common/LocationPickerMap';
+
+const PropertyMapLazyComponent = lazy(() => import('@/components/common/PropertyMap'));
+function PropertyMapLazy(props: { latitude: number; longitude: number; name?: string; address?: string }) {
+  return (
+    <Suspense fallback={<div className="w-full h-[200px] rounded-lg bg-gray-100 animate-pulse" />}>
+      <PropertyMapLazyComponent {...props} />
+    </Suspense>
+  );
+}
 
 interface TimeshareProperty {
   id: number;
@@ -42,6 +52,8 @@ type PropertyForm = {
   region: string;
   address: string;
   postal_code: string;
+  latitude: number | null;
+  longitude: number | null;
   pms_provider: string;
   pms_property_id: string;
   program_type: 'FLOATING' | 'FIXED_WEEK' | 'POINTS';
@@ -58,6 +70,8 @@ const EMPTY_FORM: PropertyForm = {
   region: '',
   address: '',
   postal_code: '',
+  latitude: null,
+  longitude: null,
   pms_provider: 'mews',
   pms_property_id: '',
   program_type: 'FLOATING',
@@ -173,6 +187,8 @@ export default function AdminProperties() {
       region: p.region || '',
       address: p.address || '',
       postal_code: p.postal_code || '',
+      latitude: p.latitude ?? null,
+      longitude: p.longitude ?? null,
       pms_provider: p.pms_provider || 'mews',
       pms_property_id: p.pms_property_id || '',
       program_type: p.program_type,
@@ -568,6 +584,28 @@ export default function AdminProperties() {
                     />
                   </div>
                 </div>
+
+                {/* Map picker */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('admin.properties.fieldLocation', 'Map Location')}
+                  </label>
+                  <LocationPickerMap
+                    latitude={form.latitude}
+                    longitude={form.longitude}
+                    address={form.address}
+                    city={form.city}
+                    region={form.region}
+                    country={form.country}
+                    onChange={(lat, lng) =>
+                      setForm(f => ({
+                        ...f,
+                        latitude: lat || null,
+                        longitude: lng || null,
+                      }))
+                    }
+                  />
+                </div>
               </div>
 
               {/* PMS Configuration — collapsible advanced section */}
@@ -693,8 +731,8 @@ export default function AdminProperties() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedProperty && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg my-8">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">{selectedProperty.name}</h2>
               <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -702,6 +740,20 @@ export default function AdminProperties() {
               </button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Mini map in details */}
+              {selectedProperty.latitude && selectedProperty.longitude && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+                    {t('admin.properties.fieldLocation', 'Location')}
+                  </p>
+                  <PropertyMapLazy
+                    latitude={selectedProperty.latitude}
+                    longitude={selectedProperty.longitude}
+                    name={selectedProperty.name}
+                    address={selectedProperty.address}
+                  />
+                </div>
+              )}
               <DetailRow label={t('admin.properties.fieldCity', 'City')} value={`${selectedProperty.city}, ${selectedProperty.country}`} />
               {selectedProperty.region && <DetailRow label={t('admin.properties.fieldRegion', 'Region')} value={selectedProperty.region} />}
               {selectedProperty.address && <DetailRow label={t('admin.properties.fieldAddress', 'Address')} value={selectedProperty.address} />}
