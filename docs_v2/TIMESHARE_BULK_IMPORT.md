@@ -459,8 +459,8 @@ const propertyId = req.user.role === 'admin'
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/admin/sporting-import/preview` | Upload 3 files → returns first 20 rows of each |
-| `POST` | `/api/admin/sporting-import/execute` | Upload 3 files + propertyId + season → full import + report |
+| `POST` | `/api/admin/timeshare-import/preview` | Upload 3 files → returns first 20 rows of each |
+| `POST` | `/api/admin/timeshare-import/execute` | Upload 3 files + propertyId + season → full import + report |
 
 Both endpoints use `multer` middleware accepting `multipart/form-data` with fields:
 `registry_file`, `assignments_file`, `calendar_file`, `property_id` (admin only), `season` (year integer).
@@ -482,7 +482,7 @@ Both endpoints use `multer` middleware accepting `multipart/form-data` with fiel
 
 ## Easter Date Calculation (Butcher's Algorithm)
 
-No external library is required. The algorithm is implemented directly in `SportingImportService`:
+No external library is required. The algorithm is implemented directly in `TimeshareImportService`:
 
 ```typescript
 function calculateEasterDate(year: number): { start: Date; end: Date } {
