@@ -646,6 +646,117 @@ CREATE TABLE hotel_inventory (
 - TTL cleanup: Delete past dates automatically
 - Unique constraint: One entry per property/date/category
 
+#### 9. `seasonal_calendar` - Property Period Calendar
+
+> **Added:** 2026-03-04
+> **Dual purpose:** (1) RED/WHITE/BLUE season classification for credit cost calculation; (2) Named period calendar for timeshare property schedules (imported via Excel/CSV).
+
+```sql
+CREATE TABLE seasonal_calendar (
+  id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  property_id INT UNSIGNED NOT NULL,
+
+  -- Season classification (drives credit pricing multipliers)
+  season_type ENUM('RED', 'WHITE', 'BLUE') NOT NULL,
+
+  -- Date range for this period
+  start_date DATE NOT NULL,
+  end_date   DATE NOT NULL,
+  year       INT  NOT NULL,
+
+  -- Human-readable note (optional)
+  -- e.g. 'Easter 10 days', 'Peak summer', 'Low season'
+  notes VARCHAR(500),
+
+  -- Timestamps
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  -- Foreign Keys
+  FOREIGN KEY (property_id) REFERENCES timeshare_properties(id) ON DELETE CASCADE,
+
+  -- Indexes
+  INDEX idx_seasonal_calendar_property_year (property_id, year),
+  INDEX idx_seasonal_calendar_dates (property_id, start_date, end_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Design Rationale:**
+- **Single source of truth** for all period/calendar data per property.
+- `season_type` (RED/WHITE/BLUE) maps directly to credit cost multipliers in `timeshare_units.seasonal_factors`.
+- When a period calendar is imported (e.g. "03A", "04B", Easter), rows are inserted here with the corresponding dates. The alphanumeric period code is only needed during the import process to cross-reference the assignments file; it is not stored as it is fully derivable from `start_date`/`end_date` + `property_id`.
+- `notes` can capture the original period label (e.g. "Easter 10 days") for human readability.
+- Easter is computed using Butcher's algorithm in the import service; the result is just another date range here.
+
+**Deriving a period from a week allocation:**
+```sql
+-- Given a week_allocation, find its season/period
+SELECT sc.season_type, sc.notes
+FROM   week_allocations wa
+JOIN   ownerships       o  ON wa.ownership_id  = o.id
+JOIN   timeshare_units  u  ON o.unit_id         = u.id
+JOIN   seasonal_calendar sc
+       ON  sc.property_id = u.property_id
+       AND sc.year        = wa.year
+       AND wa.start_date >= sc.start_date
+       AND wa.end_date   <= sc.end_date
+WHERE  wa.id = :allocation_id;
+```
+
+---
+
+#### 10. `owner_profiles` - Italian Fiscal & Contact Data
+
+> **Added:** 2026-03-28
+> **Purpose:** Extends `users` with timeshare-owner-specific fields that are not part of the general user model (Italian fiscal identifiers, certified email, additional phone numbers, fax).
+
+```sql
+CREATE TABLE owner_profiles (
+  id         INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  user_id    INT NOT NULL UNIQUE,  -- 1:1 with users
+
+  -- Legal / display name (may differ from users.first_name + last_name for companies)
+  full_name  VARCHAR(255) NOT NULL,
+
+  -- Address
+  address     VARCHAR(255),
+  postal_code VARCHAR(10),
+  city        VARCHAR(100),
+  province    VARCHAR(5),   -- 2-letter IT province code; 'EE' for foreign residents
+  country     VARCHAR(50)   DEFAULT 'Italy',
+
+  -- Italian fiscal identifiers
+  tax_code   VARCHAR(20),   -- Codice fiscale (individuals)
+  vat_number VARCHAR(20),   -- Partita IVA (companies)
+
+  -- Additional contact (users.phone holds the primary phone)
+  phone_2    VARCHAR(30),
+  phone_3    VARCHAR(30),
+  fax        VARCHAR(30),   -- NULL if 'ESONERO' was present in source file
+  pec        VARCHAR(255),  -- Certified email (PEC)
+
+  -- Timestamps
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  -- Foreign Keys
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+  -- Indexes
+  INDEX idx_owner_profiles_full_name (full_name),
+  INDEX idx_owner_profiles_tax_code  (tax_code),
+  INDEX idx_owner_profiles_vat       (vat_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**Design Rationale:**
+- `users` table holds universal fields (email, password, role, phone). Fiscal and Italian-specific data lives here to keep `users` clean and schema-agnostic.
+- `full_name`: For company owners (e.g. `"A.M.A. S.A.S. di MONTEVECCHI SIMONA & C."`) the legal name does not split cleanly into first/last. It is stored verbatim here; `users.last_name` receives it as a fallback display name.
+- `province = 'EE'` is the Italian standard code for foreign residents; `country` will be populated in that case.
+- `fax`: Set to NULL when source data contains the string `"ESONERO"` (Italian fiscal exemption note).
+- `pec`: PEC (Posta Elettronica Certificata) is the Italian certified email system — separate from regular email.
+- Users **without email** in the source file are **not imported** — they cannot hold a platform account without it.
+
 ---
 
 ## Query Optimization Strategies
