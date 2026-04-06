@@ -57,6 +57,7 @@ import adminUserOwnershipsRoutes from './routes/admin/user-ownerships';
 import adminPropertiesRoutes from './routes/admin/properties';
 import adminOwnershipImportRoutes from './routes/admin/ownership-import';
 import adminAllocationsRoutes from './routes/admin/allocations';
+import adminTimeshareImportRoutes from './routes/admin/timeshare-import';
 
 import { authenticateToken } from './middleware/authMiddleware';
 import { authorize } from './middleware/authorizationMiddleware';
@@ -176,6 +177,7 @@ app.use('/hotels/api/admin/ownerships/import', authenticateToken, adminOwnership
 app.use('/hotels/api/admin/units', authenticateToken, adminUnitOwnershipsRoutes); // Unit-specific ownerships
 app.use('/hotels/api/admin/users', authenticateToken, adminUserOwnershipsRoutes); // User-specific ownerships
 app.use('/hotels/api/admin/allocations', authenticateToken, adminAllocationsRoutes); // Week allocation generation
+app.use('/hotels/api/admin/timeshare-import', authenticateToken, adminTimeshareImportRoutes); // Bulk timeshare owner import
 
 // Public webhook endpoint for Mews
 app.use('/hotels/webhooks/mews', mewsWebhooks);

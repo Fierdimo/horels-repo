@@ -28,6 +28,7 @@ import { initV2Booking } from './V2Booking';
 import { initHotelInventory } from './HotelInventory';
 import { initUser } from './User';
 import { initCreditSystemConfig } from './CreditSystemConfig';
+import { initOwnerProfile } from './OwnerProfile';
 
 import TimeshareProperty from './TimeshareProperty';
 import TimeshareUnit from './TimeshareUnit';
@@ -39,6 +40,7 @@ import V2Booking from './V2Booking';
 import HotelInventory from './HotelInventory';
 import User from './User';
 import CreditSystemConfig from './CreditSystemConfig';
+import OwnerProfile from './OwnerProfile';
 
 /**
  * Initialize all V2 models with Sequelize instance
@@ -55,6 +57,7 @@ export function initV2Models(sequelize: Sequelize) {
   initV2Booking(sequelize);
   initHotelInventory(sequelize);
   initCreditSystemConfig(sequelize);
+  initOwnerProfile(sequelize);
   
   // Define associations
   setupAssociations();
@@ -70,6 +73,7 @@ export function initV2Models(sequelize: Sequelize) {
     V2Booking,
     HotelInventory,
     CreditSystemConfig,
+    OwnerProfile,
   };
 }
 
@@ -198,6 +202,18 @@ function setupAssociations() {
     foreignKey: 'property_id',
     as: 'property',
   });
+
+  // User → OwnerProfile (1:1)
+  User.hasOne(OwnerProfile, {
+    foreignKey: 'user_id',
+    as: 'ownerProfile',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+  OwnerProfile.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user',
+  });
 }
 
 /**
@@ -214,6 +230,7 @@ export {
   V2Booking,
   HotelInventory,
   CreditSystemConfig,
+  OwnerProfile,
 };
 
 export default {
@@ -227,5 +244,6 @@ export default {
   V2Booking,
   HotelInventory,
   CreditSystemConfig,
+  OwnerProfile,
   initV2Models,
 };

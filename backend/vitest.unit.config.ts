@@ -18,7 +18,7 @@ export default defineConfig({
     },
     
     // Pattern to match test files
-    include: ['tests/v2/unit/**/*.test.ts'],
+    include: ['tests/v2/unit/**/*.test.ts', 'tests/unit/**/*.test.ts'],
     
     // Environment
     environment: 'node',

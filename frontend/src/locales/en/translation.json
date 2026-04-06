@@ -104,6 +104,7 @@
     "inventory": "Inventory",
     "products": "Products",
     "marketplace": "Marketplace",
+    "timeshareImport": "Bulk Import",
     "myBookings": "My Bookings",
     "profile": "Profile",
     "assignPeriod": "Assign Period",

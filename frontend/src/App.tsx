@@ -60,6 +60,7 @@ const AdminSettings = lazy(() => import('@/pages/admin/Settings'));
 const AdminRooms = lazy(() => import('@/pages/admin/Rooms'));
 const AdminProperties = lazy(() => import('@/pages/admin/Properties'));
 const AdminUnits = lazy(() => import('@/pages/admin/Units'));
+const TimeshareImport = lazy(() => import('@/pages/admin/TimeshareImport'));
 const CreditConfiguration = lazy(() => import('@/pages/admin/CreditConfiguration'));
 const PrepaidInventory = lazy(() => import('@/pages/admin/PrepaidInventory'));
 // Marketplace pages
@@ -485,6 +486,16 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout>
                 <AdminUnits />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/timeshare-import"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+              <MainLayout>
+                <TimeshareImport />
               </MainLayout>
             </ProtectedRoute>
           }

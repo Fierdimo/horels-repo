@@ -323,6 +323,68 @@ class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send welcome email to a timeshare owner created via bulk import.
+   * Uses the existing reset-password flow so the owner can set their own password.
+   */
+  async sendWelcomeOwner(
+    email: string,
+    fullName: string,
+    propertyName: string,
+    setPasswordUrl: string
+  ): Promise<boolean> {
+    const subject = `Bienvenido a ${propertyName} — Activa tu cuenta`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+          .button { display: inline-block; padding: 14px 36px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-size: 16px; font-weight: bold; }
+          .info-box { background-color: white; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 13px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>¡Bienvenido/a, ${fullName}!</h1>
+          </div>
+          <div class="content">
+            <p>Tu cuenta de propietario en <strong>${propertyName}</strong> ha sido creada.</p>
+            <p>Para acceder a la plataforma y gestionar tu tiempo compartido, necesitas establecer tu contraseña:</p>
+            <center>
+              <a href="${setPasswordUrl}" class="button">Activar mi cuenta</a>
+            </center>
+            <p><small>O copia este enlace en tu navegador:<br><a href="${setPasswordUrl}">${setPasswordUrl}</a></small></p>
+            <div class="info-box">
+              <strong>⚠️ Este enlace expira en 48 horas.</strong><br>
+              Si no lo usas a tiempo, puedes solicitar uno nuevo desde la pantalla de inicio de sesión con la opción "¿Olvidaste tu contraseña?".
+            </div>
+            <p>Una vez activa tu cuenta podrás:</p>
+            <ul>
+              <li>✓ Ver tus semanas y suite asignadas</li>
+              <li>✓ Convertir semanas a créditos para otras propiedades</li>
+              <li>✓ Gestionar tus reservas</li>
+            </ul>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} ${propertyName} — Plataforma de intercambio timeshare</p>
+            <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({ to: email, subject, html });
+  }
 }
 
 export default new EmailService();
