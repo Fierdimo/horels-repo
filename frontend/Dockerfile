@@ -17,8 +17,8 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
 
 # Skip tsc type-check in Docker to save memory (types are verified in dev/CI).
-# Give Node.js up to 896 MB heap so Vite does not OOM on small VPS instances.
-RUN NODE_OPTIONS=--max-old-space-size=896 npx vite build
+# Give Node.js up to 1.5 GB heap so Vite does not OOM on small VPS instances.
+RUN NODE_OPTIONS=--max-old-space-size=1536 npx vite build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
